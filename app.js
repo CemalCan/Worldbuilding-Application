@@ -673,6 +673,7 @@ const translations = {
     addFieldHint: "Use empty rows to add custom fields. Clear a field name to remove it. Change order numbers to reorder.",
     resetFields: "Reset fields to default",
     removedFieldWarning: "Some removed fields have existing page values. The values will be preserved as raw data, but hidden from the category form. Continue?",
+    categoryLocked: "Category is locked for this entry.",
     title: "Title",
     summary: "Summary",
     content: "Content",
@@ -815,6 +816,7 @@ const translations = {
     addFieldHint: "Özel alan eklemek için boş satırları kullanın. Bir alanı kaldırmak için adını boş bırakın. Sıralamak için sıra numaralarını değiştirin.",
     resetFields: "Alanları varsayılana döndür",
     removedFieldWarning: "Kaldırılan bazı alanlarda mevcut sayfa verileri var. Veriler ham veri olarak korunacak, ancak kategori formunda gizlenecek. Devam edilsin mi?",
+    categoryLocked: "Bu kayıt için kategori kilitlidir.",
     title: "Başlık",
     summary: "Özet",
     content: "İçerik",
@@ -2017,14 +2019,17 @@ function openEntityModal(entity) {
   const categories = universeCategories();
   const selectedCategory = isEditing ? state.categories.find((item) => item.id === entity.categoryId) : category;
   const customFields = selectedCategory?.customFields || [];
+  if (!selectedCategory) {
+    alert(t("targetCategoryMissing"));
+    return;
+  }
   openModal(isEditing ? editEntityLabel(selectedCategory) : createEntityLabel(selectedCategory), `
     <form class="form-grid">
       <label>${t("title")} <input name="title" required value="${escapeHtml(entity?.title || "")}" /></label>
-      <label>${t("category")}
-        <select name="categoryId">
-          ${categories.map((item) => `<option value="${item.id}" ${item.id === selectedCategory?.id ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}
-        </select>
-      </label>
+      <div class="card stack">
+        <strong>${t("category")}: ${escapeHtml(selectedCategory.name)}</strong>
+        <p class="muted">${t("categoryLocked")}</p>
+      </div>
       <label>${t("summary")} <textarea name="summary">${escapeHtml(entity?.summary || "")}</textarea></label>
       <label>${t("content")} <textarea name="content" placeholder="${t("markdownSupported")}">${escapeHtml(entity?.content || "")}</textarea></label>
       <label>${t("tags")} <input name="tags" placeholder="Main character, Secret" value="${escapeHtml((entity?.tagIds || []).map((tagId) => state.tags.find((tag) => tag.id === tagId)?.name).filter(Boolean).join(", "))}" /></label>
@@ -2039,8 +2044,8 @@ function openEntityModal(entity) {
       alert(entityTitleRequiredMessage(selectedCategory));
       return false;
     }
-    const categoryId = form.get("categoryId");
-    if (!categoryId || !categories.some((item) => item.id === categoryId)) {
+    const categoryId = selectedCategory.id;
+    if (!categories.some((item) => item.id === categoryId)) {
       alert(t("targetCategoryMissing"));
       return false;
     }

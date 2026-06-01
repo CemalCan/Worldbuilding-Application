@@ -529,6 +529,34 @@ function fieldTypeInfo(type) {
   return fieldTypeText[language]?.[type] || fieldTypeText.en[type] || { label: type, help: "" };
 }
 
+function fieldTypePromptText() {
+  return `${t("fieldTypePrompt")}\n${fieldTypeOrder.map((type, index) => {
+    const typeInfo = fieldTypeInfo(type);
+    return `${index + 1}. ${typeInfo.label} (${type}) - ${typeInfo.help}`;
+  }).join("\n")}`;
+}
+
+function resolveFieldTypeInput(value) {
+  const input = String(value || "").trim();
+  const numericIndex = Number(input);
+  if (Number.isInteger(numericIndex) && numericIndex >= 1 && numericIndex <= fieldTypeOrder.length) {
+    return fieldTypeOrder[numericIndex - 1];
+  }
+  const normalized = input.toLocaleLowerCase("tr");
+  return fieldTypeOrder.find((type) => {
+    const typeInfo = fieldTypeInfo(type);
+    return type.toLocaleLowerCase("tr") === normalized || typeInfo.label.toLocaleLowerCase("tr") === normalized;
+  }) || "";
+}
+
+function renderEntityCustomFieldInput(field, entity) {
+  return `
+    <label>${escapeHtml(fieldLabel(field))}
+      <input name="field:${escapeHtml(fieldStorageKey(field))}" value="${escapeHtml(entity?.customFieldValues?.[fieldStorageKey(field)] ?? entity?.customFieldValues?.[field.name] ?? "")}" />
+    </label>
+  `;
+}
+
 function renderFieldManager(fields, category) {
   const rows = [...fields, ...Array.from({ length: 3 }, () => ({ id: "", name: "", type: "text", required: false }))];
   return `
@@ -773,6 +801,9 @@ const translations = {
     addFieldHint: "Use empty rows to add custom fields. Clear a field name to remove it. Change order numbers to reorder.",
     resetFields: "Reset fields to default",
     removedFieldWarning: "Some removed fields have existing page values. The values will be preserved as raw data, but hidden from the category form. Continue?",
+    addFieldToCategory: "Add field to this category",
+    fieldNameRequired: "Field name is required.",
+    fieldTypePrompt: "Choose a field type by number or key:",
     categoryLocked: "Category is locked for this entry.",
     title: "Title",
     summary: "Summary",
@@ -916,6 +947,9 @@ const translations = {
     addFieldHint: "Özel alan eklemek için boş satırları kullanın. Bir alanı kaldırmak için adını boş bırakın. Sıralamak için sıra numaralarını değiştirin.",
     resetFields: "Alanları varsayılana döndür",
     removedFieldWarning: "Kaldırılan bazı alanlarda mevcut sayfa verileri var. Veriler ham veri olarak korunacak, ancak kategori formunda gizlenecek. Devam edilsin mi?",
+    addFieldToCategory: "Bu kategoriye alan ekle",
+    fieldNameRequired: "Alan adı zorunludur.",
+    fieldTypePrompt: "Alan türünü numara veya anahtarla seçin:",
     categoryLocked: "Bu kayıt için kategori kilitlidir.",
     title: "Başlık",
     summary: "Özet",
@@ -1844,6 +1878,7 @@ function openModal(title, bodyHtml, onSubmit) {
     });
   }
   document.body.appendChild(fragment);
+  return backdrop;
 }
 
 function openUniverseModal(universe) {
@@ -2123,7 +2158,7 @@ function openEntityModal(entity) {
     alert(t("targetCategoryMissing"));
     return;
   }
-  openModal(isEditing ? editEntityLabel(selectedCategory) : createEntityLabel(selectedCategory), `
+  const backdrop = openModal(isEditing ? editEntityLabel(selectedCategory) : createEntityLabel(selectedCategory), `
     <form class="form-grid">
       <label>${t("title")} <input name="title" required value="${escapeHtml(entity?.title || "")}" /></label>
       <div class="card stack">
@@ -2133,9 +2168,10 @@ function openEntityModal(entity) {
       <label>${t("summary")} <textarea name="summary">${escapeHtml(entity?.summary || "")}</textarea></label>
       <label>${t("content")} <textarea name="content" placeholder="${t("markdownSupported")}">${escapeHtml(entity?.content || "")}</textarea></label>
       <label>${t("tags")} <input name="tags" placeholder="Main character, Secret" value="${escapeHtml((entity?.tagIds || []).map((tagId) => state.tags.find((tag) => tag.id === tagId)?.name).filter(Boolean).join(", "))}" /></label>
-      ${customFields.map((field) => `
-        <label>${escapeHtml(fieldLabel(field))} <input name="field:${escapeHtml(fieldStorageKey(field))}" value="${escapeHtml(entity?.customFieldValues?.[fieldStorageKey(field)] ?? entity?.customFieldValues?.[field.name] ?? "")}" /></label>
-      `).join("")}
+      <div class="stack" data-entity-fields>
+        ${customFields.map((field) => renderEntityCustomFieldInput(field, entity)).join("")}
+      </div>
+      <button class="secondary" type="button" data-add-entity-field>${t("addFieldToCategory")}</button>
       <div class="button-row"><button type="submit">${t("save")}</button></div>
     </form>
   `, (form) => {
@@ -2185,6 +2221,24 @@ function openEntityModal(entity) {
     state.selectedCategoryId = categoryId;
     saveState();
     render();
+  });
+  backdrop?.querySelector("[data-add-entity-field]")?.addEventListener("click", () => {
+    const fieldName = String(prompt(t("fieldName")) || "").trim();
+    if (!fieldName) return alert(t("fieldNameRequired"));
+    const fieldType = resolveFieldTypeInput(prompt(fieldTypePromptText(), "1"));
+    if (!fieldType) return alert(t("fieldType"));
+    const field = {
+      id: id("field"),
+      name: fieldName,
+      type: fieldType,
+      required: false,
+      isBuiltIn: false,
+    };
+    selectedCategory.customFields = [...(selectedCategory.customFields || []), field];
+    selectedCategory.updatedAt = now();
+    state.categories = state.categories.map((item) => item.id === selectedCategory.id ? selectedCategory : item);
+    saveState();
+    backdrop.querySelector("[data-entity-fields]")?.insertAdjacentHTML("beforeend", renderEntityCustomFieldInput(field, entity));
   });
 }
 

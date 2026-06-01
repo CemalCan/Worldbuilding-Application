@@ -481,6 +481,54 @@ function renderFieldValue(field, value) {
   return `<p class="muted">${escapeHtml(value)}</p>`;
 }
 
+const fieldTypeOrder = [
+  "text",
+  "longText",
+  "number",
+  "date",
+  "boolean",
+  "select",
+  "multiSelect",
+  "entityReference",
+  "entityReferenceList",
+  "url",
+  "image",
+];
+
+const fieldTypeText = {
+  en: {
+    text: { label: "Text", help: "Short single-line text." },
+    longText: { label: "Long text", help: "Longer multi-line writing." },
+    number: { label: "Number", help: "Numeric values such as age, population, or cost." },
+    date: { label: "Date", help: "A calendar date or in-world date value." },
+    boolean: { label: "Boolean", help: "A yes/no or true/false value." },
+    select: { label: "Select", help: "Choose one value from a defined list." },
+    multiSelect: { label: "Multi-select", help: "Choose multiple values from a defined list." },
+    entityReference: { label: "Entity reference", help: "Link this field to another entry." },
+    entityReferenceList: { label: "Entity reference list", help: "Link this field to multiple entries." },
+    url: { label: "URL", help: "A web address or local URL-style value." },
+    image: { label: "Image", help: "Image URL or supported local image value." },
+  },
+  tr: {
+    text: { label: "Kısa metin", help: "Tek satırlık kısa metin." },
+    longText: { label: "Uzun metin", help: "Daha uzun, çok satırlı yazı." },
+    number: { label: "Sayı", help: "Yaş, nüfus veya bedel gibi sayısal değerler." },
+    date: { label: "Tarih", help: "Takvim tarihi veya kurgu içi tarih değeri." },
+    boolean: { label: "Evet/Hayır", help: "Evet/hayır ya da doğru/yanlış değeri." },
+    select: { label: "Tek seçim", help: "Tanımlı bir listeden tek değer seçin." },
+    multiSelect: { label: "Çoklu seçim", help: "Tanımlı bir listeden birden fazla değer seçin." },
+    entityReference: { label: "Kayıt bağlantısı", help: "Bu alanı başka bir kayda bağlayın." },
+    entityReferenceList: { label: "Kayıt bağlantı listesi", help: "Bu alanı birden fazla kayda bağlayın." },
+    url: { label: "URL", help: "Web adresi veya yerel URL biçimli değer." },
+    image: { label: "Görsel", help: "Görsel URL'si veya desteklenen yerel görsel değeri." },
+  },
+};
+
+function fieldTypeInfo(type) {
+  const language = state?.settings?.language || "en";
+  return fieldTypeText[language]?.[type] || fieldTypeText.en[type] || { label: type, help: "" };
+}
+
 function renderFieldManager(fields, category) {
   const rows = [...fields, ...Array.from({ length: 3 }, () => ({ id: "", name: "", type: "text", required: false }))];
   return `
@@ -497,9 +545,13 @@ function renderFieldManager(fields, category) {
               <input name="fieldName" value="${escapeHtml(fieldLabel(field))}" />
             </label>
             <label>${t("fieldType")}
-              <select name="fieldType">
-                ${["text", "longText", "number", "date", "boolean", "select", "multiSelect", "entityReference", "entityReferenceList", "url", "image"].map((type) => `<option value="${type}" ${field.type === type ? "selected" : ""}>${type}</option>`).join("")}
+              <select name="fieldType" title="${escapeHtml(fieldTypeInfo(field.type || "text").help)}">
+                ${fieldTypeOrder.map((type) => {
+                  const typeInfo = fieldTypeInfo(type);
+                  return `<option value="${type}" title="${escapeHtml(typeInfo.help)}" ${field.type === type ? "selected" : ""}>${escapeHtml(typeInfo.label)}</option>`;
+                }).join("")}
               </select>
+              <small class="muted">${escapeHtml(fieldTypeInfo(field.type || "text").help)}</small>
             </label>
             <label>${t("fieldOrder")}
               <input name="fieldOrder" type="number" min="1" value="${index + 1}" />

@@ -694,6 +694,7 @@ const defaultSettings = {
   fontSize: "medium",
   accentColor: "#9a4f2e",
   compactMode: false,
+  entityViewMode: "cards",
   autoSave: true,
   trashRetentionDays: 30,
   language: "en",
@@ -739,6 +740,10 @@ const translations = {
     hide: "Hide",
     noPages: "No pages in this category",
     noPagesHelp: "Create a character, place, event, quest, or any page you need.",
+    view: "View",
+    cards: "Cards",
+    listView: "List",
+    noSummary: "No summary.",
     createPage: "Create Page",
     editPage: "Edit Page",
     list: "List",
@@ -885,6 +890,10 @@ const translations = {
     hide: "Gizle",
     noPages: "Bu kategoride sayfa yok",
     noPagesHelp: "Karakter, mekan, olay, görev veya kendi ihtiyacına göre herhangi bir sayfa oluştur.",
+    view: "Görünüm",
+    cards: "Kartlar",
+    listView: "Liste",
+    noSummary: "Özet yok.",
     createPage: "Sayfa Oluştur",
     editPage: "Sayfa Düzenle",
     list: "Liste",
@@ -1337,6 +1346,7 @@ function filteredEntities(universeId) {
 }
 
 function renderEntityList(entities, category) {
+  const viewMode = state.settings.entityViewMode === "list" ? "list" : "cards";
   if (!entities.length) {
     return `
       <section class="empty">
@@ -1347,14 +1357,52 @@ function renderEntityList(entities, category) {
     `;
   }
   return `
-    <section class="entity-list">
-      ${entities.map((entity) => `
-        <button class="entity-row" data-action="select-entity" data-id="${entity.id}">
-          <h3>${escapeHtml(entity.title)}</h3>
-          <small>${escapeHtml(entity.summary || "Özet yok.")}</small>
-        </button>
-      `).join("")}
+    <div class="list-toolbar">
+      <div class="segmented-control" aria-label="${escapeHtml(t("view"))}">
+        <button class="${viewMode === "cards" ? "is-active" : ""}" data-action="set-entity-view" data-mode="cards">${t("cards")}</button>
+        <button class="${viewMode === "list" ? "is-active" : ""}" data-action="set-entity-view" data-mode="list">${t("listView")}</button>
+      </div>
+    </div>
+    <section class="entity-list entity-list--${viewMode}">
+      ${entities.map((entity) => viewMode === "list" ? renderEntityRow(entity) : renderEntityCard(entity)).join("")}
     </section>
+  `;
+}
+
+function entityImageValue(entity) {
+  const category = state.categories.find((item) => item.id === entity.categoryId);
+  const imageField = (category?.customFields || []).find((field) => field.type === "image");
+  const value = imageField ? entity.customFieldValues?.[fieldStorageKey(imageField)] || entity.customFieldValues?.[imageField.name] : "";
+  return isPreviewableImageUrl(value) ? value : "";
+}
+
+function entityTagNames(entity) {
+  return (entity.tagIds || [])
+    .map((tagId) => state.tags.find((tag) => tag.id === tagId)?.name)
+    .filter(Boolean);
+}
+
+function renderEntityRow(entity) {
+  return `
+    <button class="entity-row" data-action="select-entity" data-id="${entity.id}">
+      <h3>${escapeHtml(entity.title)}</h3>
+      <small>${escapeHtml(entity.summary || t("noSummary"))}</small>
+    </button>
+  `;
+}
+
+function renderEntityCard(entity) {
+  const imageValue = entityImageValue(entity);
+  const tags = entityTagNames(entity).slice(0, 3);
+  return `
+    <button class="entity-card" data-action="select-entity" data-id="${entity.id}">
+      ${imageValue ? `<img class="entity-card__image" src="${escapeHtml(imageValue)}" alt="${escapeHtml(entity.title)}" loading="lazy" />` : ""}
+      <span class="entity-card__body">
+        <strong>${escapeHtml(entity.title)}</strong>
+        <small>${escapeHtml(entity.summary || t("noSummary"))}</small>
+        ${tags.length ? `<span class="tag-row">${tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</span>` : ""}
+      </span>
+    </button>
   `;
 }
 
@@ -1650,6 +1698,11 @@ const actions = {
   },
   "new-entity"() {
     openEntityModal();
+  },
+  "set-entity-view"({ mode }) {
+    state.settings.entityViewMode = mode === "list" ? "list" : "cards";
+    saveState();
+    refreshSearchResults();
   },
   "select-entity"({ id: entityId }) {
     const entity = state.entities.find((item) => item.id === entityId);

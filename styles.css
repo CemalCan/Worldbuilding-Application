@@ -203,11 +203,38 @@ label {
 .topbar__actions,
 .toolbar,
 .row,
+.list-toolbar,
 .button-row {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.list-toolbar {
+  justify-content: flex-end;
+}
+
+.segmented-control {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.segmented-control button {
+  border: 0;
+  border-radius: 0;
+  min-height: 34px;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.segmented-control button.is-active {
+  background: var(--accent);
+  color: white;
 }
 
 .recovery-banner {
@@ -383,6 +410,54 @@ label {
 .entity-list {
   display: grid;
   gap: 10px;
+}
+
+.entity-list--cards {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.entity-card {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  align-content: start;
+  min-height: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.entity-card__image {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+
+.entity-card__body {
+  display: grid;
+  gap: 5px;
+}
+
+.entity-card small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: var(--muted);
+  font-size: 0.75rem;
 }
 
 .detail {

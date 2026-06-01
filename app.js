@@ -436,12 +436,14 @@ function renderRightPanel() {
   const outgoing = activeItems(state.relationships).filter((rel) => rel.sourceEntityId === entity.id);
   const incoming = activeItems(state.relationships).filter((rel) => rel.targetEntityId === entity.id);
   const notes = activeItems(state.notes).filter((note) => note.entityId === entity.id);
+  const relationshipTargets = getRelationshipTargets(entity);
   return `
     <aside class="side stack">
       <div class="row">
         <h2>Bağlantılar</h2>
-        <button class="icon-button" data-action="new-relationship" title="İlişki ekle">+</button>
+        <button class="icon-button" data-action="new-relationship" title="İlişki ekle" ${relationshipTargets.length ? "" : "disabled"}>+</button>
       </div>
+      ${relationshipTargets.length ? "" : `<p class="muted">İlişki oluşturmak için bu evrende en az bir başka sayfa olmalı.</p>`}
       ${outgoing.length ? outgoing.map((rel) => renderRelationship(rel, false)).join("") : `<p class="muted">Çıkış ilişkisi yok.</p>`}
       <h2>Backlinks</h2>
       ${incoming.length ? incoming.map((rel) => renderRelationship(rel, true)).join("") : `<p class="muted">Gelen ilişki yok.</p>`}
@@ -465,6 +467,11 @@ function renderRelationship(rel, incoming) {
     </button>
     <button class="secondary" data-action="delete-relationship" data-id="${rel.id}">İlişkiyi Sil</button>
   `;
+}
+
+function getRelationshipTargets(source) {
+  if (!source) return [];
+  return universeEntities(source.universeId).filter((entity) => entity.id !== source.id);
 }
 
 function renderNoteCard(note) {
@@ -953,7 +960,16 @@ function ensureTags(tagText) {
 
 function openRelationshipModal() {
   const source = currentEntity();
-  const targets = universeEntities().filter((entity) => entity.id !== source?.id);
+  const targets = getRelationshipTargets(source);
+  if (!source || !targets.length) {
+    openModal("İlişki Oluştur", `
+      <section class="empty">
+        <h3>Hedef sayfa yok</h3>
+        <p>İlişki oluşturmak için bu evrende seçili sayfa dışında en az bir sayfa daha olmalı.</p>
+      </section>
+    `);
+    return;
+  }
   openModal("İlişki Oluştur", `
     <form class="form-grid">
       <label>Hedef sayfa
@@ -977,12 +993,17 @@ function openRelationshipModal() {
       <div class="button-row"><button type="submit">Bağla</button></div>
     </form>
   `, (form) => {
-    if (!source) return;
+    const targetEntityId = form.get("targetEntityId");
+    const validTarget = getRelationshipTargets(source).some((entity) => entity.id === targetEntityId);
+    if (!source || !validTarget || targetEntityId === source.id) {
+      alert("Geçerli bir hedef sayfa seçilmedi.");
+      return;
+    }
     state.relationships.push({
       id: id("relationship"),
       universeId: state.selectedUniverseId,
       sourceEntityId: source.id,
-      targetEntityId: form.get("targetEntityId"),
+      targetEntityId,
       type: form.get("type"),
       reverseType: form.get("reverseType"),
       description: form.get("description"),

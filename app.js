@@ -584,14 +584,16 @@ function renderFieldManager(fields, category) {
               </select>
               <small class="muted">${escapeHtml(fieldTypeInfo(field.type || "text").help)}</small>
             </label>
-            <label>${t("fieldOrder")}
-              <input name="fieldOrder" type="number" min="1" value="${index + 1}" />
-            </label>
+            <div class="field-row-actions" aria-label="${escapeHtml(t("fieldActions"))}">
+              <button class="secondary" type="button" data-move-field-up title="${escapeHtml(t("moveFieldUp"))}">↑ ${t("moveFieldUp")}</button>
+              <button class="secondary" type="button" data-move-field-down title="${escapeHtml(t("moveFieldDown"))}">↓ ${t("moveFieldDown")}</button>
+              <button class="secondary danger-text" type="button" data-remove-category-field title="${escapeHtml(t("removeField"))}">× ${t("removeField")}</button>
+            </div>
+            <input name="fieldOrder" type="hidden" value="${index + 1}" />
             <input type="hidden" name="fieldId" value="${escapeHtml(field.id || "")}" />
             <input type="hidden" name="fieldPresetKey" value="${escapeHtml(field.presetKey || "")}" />
             <input type="hidden" name="fieldOriginalName" value="${escapeHtml(field.name || "")}" />
             <input type="hidden" name="fieldBuiltIn" value="${field.isBuiltIn ? "true" : "false"}" />
-            <button class="secondary danger-text" type="button" data-remove-category-field>${t("removeField")}</button>
           </div>
         `).join("")}
       </div>
@@ -600,23 +602,16 @@ function renderFieldManager(fields, category) {
 }
 
 function collectCategoryFields(form) {
-  const names = form.getAll("fieldName");
-  const types = form.getAll("fieldType");
-  const orders = form.getAll("fieldOrder");
-  const ids = form.getAll("fieldId");
-  const presetKeys = form.getAll("fieldPresetKey");
-  const originalNames = form.getAll("fieldOriginalName");
-  const builtIns = form.getAll("fieldBuiltIn");
-  return names
-    .map((name, index) => ({
-      id: ids[index] || id("field"),
-      name: String(name || "").trim(),
-      type: types[index] || "text",
-      order: Number(orders[index] || index + 1),
+  return [...form.querySelectorAll("[data-field-editor-row]")]
+    .map((row, index) => ({
+      id: row.querySelector('[name="fieldId"]')?.value || id("field"),
+      name: String(row.querySelector('[name="fieldName"]')?.value || "").trim(),
+      type: row.querySelector('[name="fieldType"]')?.value || "text",
+      order: index + 1,
       required: false,
-      presetKey: presetKeys[index] || undefined,
-      isBuiltIn: builtIns[index] === "true",
-      originalName: originalNames[index] || "",
+      presetKey: row.querySelector('[name="fieldPresetKey"]')?.value || undefined,
+      isBuiltIn: row.querySelector('[name="fieldBuiltIn"]')?.value === "true",
+      originalName: row.querySelector('[name="fieldOriginalName"]')?.value || "",
     }))
     .filter((field) => field.name)
     .sort((a, b) => a.order - b.order)
@@ -675,6 +670,20 @@ function attachCategoryFieldActions(category) {
       const fieldName = row.querySelector('[name="fieldName"]')?.value?.trim();
       if (fieldName && !confirmFieldRemoval(category, field)) return;
       row.remove();
+    });
+  });
+  document.querySelectorAll("[data-move-field-up]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const row = button.closest("[data-field-editor-row]");
+      const previous = row?.previousElementSibling;
+      if (row && previous) row.parentElement.insertBefore(row, previous);
+    });
+  });
+  document.querySelectorAll("[data-move-field-down]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const row = button.closest("[data-field-editor-row]");
+      const next = row?.nextElementSibling;
+      if (row && next) row.parentElement.insertBefore(next, row);
     });
   });
 }
@@ -838,10 +847,13 @@ const translations = {
     fieldName: "Field name",
     fieldType: "Field type",
     fieldOrder: "Order",
-    addFieldHint: "Use empty rows to add custom fields. Clear a field name to remove it. Change order numbers to reorder.",
+    addFieldHint: "Use empty rows to add custom fields. Use the row buttons to move or remove fields.",
     resetFields: "Reset fields to default",
     removedFieldWarning: "Some removed fields have existing page values. The values will be preserved as raw data, but hidden from the category form. Continue?",
     addFieldToCategory: "Add field to this category",
+    fieldActions: "Field actions",
+    moveFieldUp: "Move up",
+    moveFieldDown: "Move down",
     removeField: "Remove field",
     deleteField: "Delete field",
     confirmRemoveField: "Remove field?",
@@ -992,10 +1004,13 @@ const translations = {
     fieldName: "Alan adı",
     fieldType: "Alan türü",
     fieldOrder: "Sıra",
-    addFieldHint: "Özel alan eklemek için boş satırları kullanın. Bir alanı kaldırmak için adını boş bırakın. Sıralamak için sıra numaralarını değiştirin.",
+    addFieldHint: "Özel alan eklemek için boş satırları kullanın. Alanları taşımak veya kaldırmak için satır düğmelerini kullanın.",
     resetFields: "Alanları varsayılana döndür",
     removedFieldWarning: "Kaldırılan bazı alanlarda mevcut sayfa verileri var. Veriler ham veri olarak korunacak, ancak kategori formunda gizlenecek. Devam edilsin mi?",
     addFieldToCategory: "Bu kategoriye alan ekle",
+    fieldActions: "Alan işlemleri",
+    moveFieldUp: "Yukarı taşı",
+    moveFieldDown: "Aşağı taşı",
     removeField: "Alanı kaldır",
     deleteField: "Alanı sil",
     confirmRemoveField: "Alan kaldırılsın mı?",

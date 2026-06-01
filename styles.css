@@ -518,6 +518,22 @@ label {
   align-items: end;
 }
 
+.field-editor-row {
+  grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr);
+}
+
+.field-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+}
+
+.field-row-actions button {
+  min-height: 32px;
+  padding: 0 10px;
+}
+
 .field-entry {
   display: grid;
   grid-template-columns: 1fr auto;

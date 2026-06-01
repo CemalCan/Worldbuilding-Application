@@ -519,14 +519,37 @@ label {
 }
 
 .field-editor-row {
-  grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr);
+  grid-template-columns: auto minmax(160px, 1fr) minmax(160px, 1fr);
+}
+
+.field-editor-row.is-dragging {
+  opacity: 0.55;
+}
+
+.field-editor-row.is-drop-target {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.field-drag-handle {
+  align-self: stretch;
+  min-width: 38px;
+  padding: 0 8px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  cursor: grab;
+}
+
+.field-drag-handle:active {
+  cursor: grabbing;
 }
 
 .field-row-actions {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  grid-column: 1 / -1;
+  grid-column: 2 / -1;
 }
 
 .field-row-actions button {

@@ -590,6 +590,7 @@ function renderFieldManager(fields, category) {
       <div class="stack">
         ${rows.map((field, index) => `
           <div class="field-editor-row two-col" data-field-editor-row>
+            <button class="field-drag-handle" type="button" draggable="true" data-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</button>
             <label>${t("fieldName")}
               <input name="fieldName" value="${escapeHtml(fieldLabel(field))}" />
             </label>
@@ -701,6 +702,49 @@ function attachCategoryFieldActions(category) {
       const row = button.closest("[data-field-editor-row]");
       const next = row?.nextElementSibling;
       if (row && next) row.parentElement.insertBefore(next, row);
+    });
+  });
+  attachFieldDragReorder();
+}
+
+function attachFieldDragReorder() {
+  const manager = document.querySelector("[data-field-manager]");
+  if (!manager) return;
+  let draggedRow = null;
+  manager.querySelectorAll("[data-field-drag-handle]").forEach((handle) => {
+    handle.addEventListener("dragstart", (event) => {
+      draggedRow = handle.closest("[data-field-editor-row]");
+      if (!draggedRow) return;
+      draggedRow.classList.add("is-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", draggedRow.querySelector('[name="fieldId"]')?.value || "");
+    });
+    handle.addEventListener("dragend", () => {
+      draggedRow?.classList.remove("is-dragging");
+      draggedRow = null;
+      manager.querySelectorAll("[data-field-editor-row]").forEach((row) => row.classList.remove("is-drop-target"));
+    });
+  });
+  manager.querySelectorAll("[data-field-editor-row]").forEach((row) => {
+    row.addEventListener("dragover", (event) => {
+      if (!draggedRow || draggedRow === row) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      row.classList.add("is-drop-target");
+    });
+    row.addEventListener("dragleave", () => row.classList.remove("is-drop-target"));
+    row.addEventListener("drop", (event) => {
+      if (!draggedRow || draggedRow === row) return;
+      event.preventDefault();
+      row.classList.remove("is-drop-target");
+      const rows = [...row.parentElement.querySelectorAll("[data-field-editor-row]")];
+      const draggedIndex = rows.indexOf(draggedRow);
+      const targetIndex = rows.indexOf(row);
+      if (draggedIndex < targetIndex) {
+        row.after(draggedRow);
+      } else {
+        row.before(draggedRow);
+      }
     });
   });
 }
@@ -879,6 +923,7 @@ const translations = {
     imageUrlOption: "Or paste image URL",
     imageTooLarge: "Image file is too large. Please choose an image under 2 MB.",
     fieldActions: "Field actions",
+    dragToReorder: "Drag to reorder",
     moveFieldUp: "Move up",
     moveFieldDown: "Move down",
     removeField: "Remove field",
@@ -1039,6 +1084,7 @@ const translations = {
     imageUrlOption: "Ya da görsel URL’si yapıştır",
     imageTooLarge: "Görsel dosyası çok büyük. Lütfen 2 MB altında bir görsel seç.",
     fieldActions: "Alan işlemleri",
+    dragToReorder: "Sıralamak için sürükle",
     moveFieldUp: "Yukarı taşı",
     moveFieldDown: "Aşağı taşı",
     removeField: "Alanı kaldır",

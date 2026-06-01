@@ -308,6 +308,13 @@ const translations = {
     export: "Export",
     settings: "Settings",
     newUniverse: "New Universe",
+    deletedUniverses: "Deleted Universes",
+    itemUniverse: "Universe",
+    itemCategory: "Category",
+    itemPage: "Page",
+    itemNote: "Note",
+    itemRelationship: "Relationship",
+    itemTag: "Tag",
     universes: "Universes",
     localData: "Data is stored locally in this browser.",
     searchUniverses: "Search universes",
@@ -437,6 +444,13 @@ const translations = {
     export: "Export",
     settings: "Ayarlar",
     newUniverse: "Yeni Evren",
+    deletedUniverses: "Silinen Evrenler",
+    itemUniverse: "Evren",
+    itemCategory: "Kategori",
+    itemPage: "Sayfa",
+    itemNote: "Not",
+    itemRelationship: "İlişki",
+    itemTag: "Etiket",
     universes: "Evrenler",
     localData: "Veriler bu tarayıcıda yerel olarak saklanır.",
     searchUniverses: "Evren ara",
@@ -712,7 +726,7 @@ function render() {
     <div class="app-shell">
       ${renderTopbar(universe)}
       ${storageRecoveryMessage ? `<section class="recovery-banner">${escapeHtml(storageRecoveryMessage)}</section>` : ""}
-      ${universe && state.view !== "home" ? renderWorkspace(universe) : renderHome()}
+      ${state.view === "trash" && !universe ? renderTrash(null) : universe && state.view !== "home" ? renderWorkspace(universe) : renderHome()}
     </div>
   `;
   bindEvents();
@@ -749,6 +763,7 @@ function renderHome() {
         <div class="toolbar">
           <input class="search-box" data-search placeholder="${t("searchUniverses")}" value="${escapeHtml(state.search)}" />
           <button class="secondary" data-action="import-universe">Import</button>
+          <button class="secondary" data-action="trash">${t("trash")}</button>
         </div>
       </section>
       <div data-home-results>
@@ -1063,19 +1078,23 @@ function renderTemplates() {
 }
 
 function renderTrash(universe) {
-  const deleted = [
-    ...state.categories.filter((item) => item.universeId === universe.id && item.deletedAt).map((item) => ["Kategori", item]),
-    ...state.entities.filter((item) => item.universeId === universe.id && item.deletedAt).map((item) => ["Sayfa", item]),
-    ...state.notes.filter((item) => item.universeId === universe.id && item.deletedAt).map((item) => ["Not", item]),
-    ...state.relationships.filter((item) => item.universeId === universe.id && item.deletedAt).map((item) => ["İlişki", item]),
-    ...state.tags.filter((item) => item.universeId === universe.id && item.deletedAt).map((item) => ["Etiket", item]),
-  ];
+  const universeId = universe?.id || state.selectedUniverseId;
+  const deletedUniverses = state.universes.filter((item) => item.deletedAt).map((item) => ["universe", item]);
+  const deletedUniverseItems = universeId ? [
+    ...state.categories.filter((item) => item.universeId === universeId && item.deletedAt).map((item) => ["category", item]),
+    ...state.entities.filter((item) => item.universeId === universeId && item.deletedAt).map((item) => ["page", item]),
+    ...state.notes.filter((item) => item.universeId === universeId && item.deletedAt).map((item) => ["note", item]),
+    ...state.relationships.filter((item) => item.universeId === universeId && item.deletedAt).map((item) => ["relationship", item]),
+    ...state.tags.filter((item) => item.universeId === universeId && item.deletedAt).map((item) => ["tag", item]),
+  ] : [];
+  const deleted = [...deletedUniverses, ...deletedUniverseItems];
   return `
     <main class="main stack">
       <h2>${t("trash")}</h2>
+      ${deletedUniverses.length ? `<p class="muted">${t("deletedUniverses")}: ${deletedUniverses.length}</p>` : ""}
       ${deleted.length ? deleted.map(([type, item]) => `
         <article class="trash-row">
-          <strong>${type}: ${escapeHtml(item.name || item.title || item.type || item.content?.slice(0, 32) || item.id)}</strong>
+          <strong>${trashKindLabel(type)}: ${escapeHtml(item.name || item.title || item.type || item.content?.slice(0, 32) || item.id)}</strong>
           <small>${t("deletedAt")}: ${new Date(item.deletedAt).toLocaleString(state.settings.language === "tr" ? "tr-TR" : "en-US")}</small>
           <div class="button-row">
             <button data-action="restore-item" data-kind="${type}" data-id="${item.id}">${t("restore")}</button>
@@ -1149,7 +1168,14 @@ const actions = {
   "delete-universe"({ id: universeId }) {
     if (!confirm(t("confirmUniverseDelete"))) return;
     softDelete("universes", universeId);
-    setState({ view: "home", selectedUniverseId: null });
+    if (state.selectedUniverseId === universeId) {
+      state.selectedUniverseId = null;
+      state.selectedCategoryId = null;
+      state.selectedEntityId = null;
+      state.view = "home";
+    }
+    saveState();
+    render();
   },
   "select-category"({ id: categoryId }) {
     setState({ selectedCategoryId: categoryId, selectedEntityId: null, view: "universe" });
@@ -1249,12 +1275,24 @@ const actions = {
 
 function collectionForKind(kind) {
   return {
-    Kategori: "categories",
-    Sayfa: "entities",
-    Not: "notes",
-    İlişki: "relationships",
-    Etiket: "tags",
+    universe: "universes",
+    category: "categories",
+    page: "entities",
+    note: "notes",
+    relationship: "relationships",
+    tag: "tags",
   }[kind] || "entities";
+}
+
+function trashKindLabel(kind) {
+  return {
+    universe: t("itemUniverse"),
+    category: t("itemCategory"),
+    page: t("itemPage"),
+    note: t("itemNote"),
+    relationship: t("itemRelationship"),
+    tag: t("itemTag"),
+  }[kind] || kind;
 }
 
 function activeEntityExists(entityId) {
@@ -1278,6 +1316,17 @@ function restoreTrashItem(kind, itemId) {
   const collection = collectionForKind(kind);
   const item = state[collection].find((entry) => entry.id === itemId);
   if (!item) return;
+
+  if (collection === "universes") {
+    updateItem(collection, itemId, { deletedAt: null });
+    state.selectedUniverseId = itemId;
+    state.selectedCategoryId = universeCategories(itemId)[0]?.id || null;
+    state.selectedEntityId = null;
+    state.view = "universe";
+    saveState();
+    render();
+    return;
+  }
 
   if (collection === "entities" && !activeCategoryExists(item.categoryId)) {
     const fallback = pickFallbackCategory(item.universeId, item.categoryId);
@@ -1311,10 +1360,21 @@ function purgeEntityCascade(entityIds) {
   );
 }
 
+function purgeUniverseCascade(universeId) {
+  state.relationships = state.relationships.filter((relationship) => relationship.universeId !== universeId);
+  state.notes = state.notes.filter((note) => note.universeId !== universeId);
+  state.tags = state.tags.filter((tag) => tag.universeId !== universeId);
+  state.entities = state.entities.filter((entity) => entity.universeId !== universeId);
+  state.categories = state.categories.filter((category) => category.universeId !== universeId);
+  state.universes = state.universes.filter((universe) => universe.id !== universeId);
+}
+
 function purgeTrashItem(kind, itemId) {
   const collection = collectionForKind(kind);
 
-  if (collection === "categories") {
+  if (collection === "universes") {
+    purgeUniverseCascade(itemId);
+  } else if (collection === "categories") {
     const entityIds = state.entities
       .filter((entity) => entity.categoryId === itemId)
       .map((entity) => entity.id);
@@ -1326,8 +1386,15 @@ function purgeTrashItem(kind, itemId) {
     state[collection] = state[collection].filter((item) => item.id !== itemId);
   }
 
+  if (state.selectedUniverseId === itemId) state.selectedUniverseId = null;
   if (state.selectedCategoryId === itemId) state.selectedCategoryId = universeCategories()[0]?.id || null;
   if (state.selectedEntityId === itemId) state.selectedEntityId = null;
+  if (!currentUniverse()) {
+    state.selectedUniverseId = null;
+    state.selectedCategoryId = null;
+    state.selectedEntityId = null;
+    state.view = state.view === "trash" ? "trash" : "home";
+  }
   saveState();
   render();
 }

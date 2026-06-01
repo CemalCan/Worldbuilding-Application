@@ -30,20 +30,6 @@ Data is stored locally in the browser using `localStorage`. Universes can be mov
 - Permanently delete items with confirmation
 - Import and export universes as JSON
 
-## Not Included Yet
-
-The current MVP intentionally does not include:
-
-- User accounts
-- Cloud sync
-- Payments
-- Collaboration
-- Backend services
-- AI integrations
-- Mobile or desktop packaged apps
-
-These may be explored later as optional or pro features.
-
 ## Running Locally
 
 Open `index.html` in a modern browser.
@@ -55,10 +41,6 @@ No installation is required.
 Loreforge currently stores data in browser `localStorage`.
 
 Clearing browser data may delete saved universes. Use JSON export to keep backups.
-
-## Project Status
-
-This is an early MVP prototype. The goal is to validate the core offline worldbuilding experience before adding higher-risk features such as accounts, sync, collaboration, or AI.
 
 ## Roadmap Ideas
 
@@ -107,20 +89,6 @@ Veriler tarayıcının `localStorage` alanında saklanır. Evrenler JSON import/
 - İkinci onayla kalıcı silme
 - JSON import/export
 
-## Henüz Dahil Değil
-
-Bu MVP bilinçli olarak şunları içermez:
-
-- Kullanıcı hesabı
-- Cloud sync
-- Ödeme sistemi
-- Ortak çalışma
-- Backend servisleri
-- AI entegrasyonu
-- Paketlenmiş mobil veya masaüstü uygulama
-
-Bu özellikler ileride opsiyonel veya pro özellikler olarak değerlendirilebilir.
-
 ## Yerelde Çalıştırma
 
 `index.html` dosyasını modern bir tarayıcıda açmak yeterlidir.
@@ -132,10 +100,6 @@ Kurulum gerekmez.
 Loreforge şu anda verileri tarayıcının `localStorage` alanında saklar.
 
 Tarayıcı verilerini temizlemek kayıtlı evrenleri silebilir. Yedek almak için JSON export kullanın.
-
-## Proje Durumu
-
-Bu proje erken aşama bir MVP prototipidir. Amaç; hesap, sync, ortak çalışma veya AI gibi daha riskli özellikleri eklemeden önce temel offline worldbuilding deneyimini doğrulamaktır.
 
 ## Yol Haritası Fikirleri
 

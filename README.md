@@ -6,7 +6,7 @@ Offline-first worldbuilding workspace for writers, game masters, and RPG creator
 
 Loreforge is a dependency-free offline MVP prototype for creating and organizing fictional worlds, stories, and tabletop RPG campaigns.
 
-It runs directly in the browser by opening `index.html`. No backend, account, cloud service, or npm install is required.
+It runs directly in the browser by opening `index.html`. No npm install is required.
 
 Data is stored locally in the browser using `localStorage`. Universes can be moved between devices manually with JSON import/export.
 
@@ -51,9 +51,6 @@ Clearing browser data may delete saved universes. Use JSON export to keep backup
 - Timeline view
 - Markdown improvements
 - Import/export validation
-- Desktop/mobile packaging
-- Optional sync
-- Optional AI support
 
 ---
 
@@ -65,7 +62,7 @@ Loreforge, yazarlar, oyun yöneticileri ve RPG içerik üreticileri için offlin
 
 Loreforge; kurgusal evrenler, hikayeler ve masaüstü RPG campaign'leri oluşturmak ve düzenlemek için hazırlanmış bağımlılıksız bir offline MVP prototipidir.
 
-Uygulama `index.html` dosyası tarayıcıda açılarak çalışır. Backend, hesap sistemi, cloud servis veya npm kurulumu gerekmez.
+Uygulama `index.html` dosyası tarayıcıda açılarak çalışır. Npm kurulumu gerekmez.
 
 Veriler tarayıcının `localStorage` alanında saklanır. Evrenler JSON import/export ile manuel olarak taşınabilir.
 
@@ -110,6 +107,3 @@ Tarayıcı verilerini temizlemek kayıtlı evrenleri silebilir. Yedek almak içi
 - Zaman çizelgesi görünümü
 - Markdown geliştirmeleri
 - Import/export doğrulama
-- Desktop/mobile paketleme
-- Opsiyonel sync
-- Opsiyonel AI desteği

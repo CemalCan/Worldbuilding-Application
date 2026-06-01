@@ -708,15 +708,11 @@ const actions = {
     setState({ view: "trash", selectedEntityId: null });
   },
   "restore-item"({ kind, id: itemId }) {
-    const collection = collectionForKind(kind);
-    updateItem(collection, itemId, { deletedAt: null });
+    restoreTrashItem(kind, itemId);
   },
   "purge-item"({ kind, id: itemId }) {
     if (!confirm("Bu işlem geri alınamaz. Kalıcı olarak silmek istediğine emin misin?")) return;
-    const collection = collectionForKind(kind);
-    state[collection] = state[collection].filter((item) => item.id !== itemId);
-    saveState();
-    render();
+    purgeTrashItem(kind, itemId);
   },
   settings: openSettingsModal,
   "export-universe": exportUniverse,
@@ -731,6 +727,81 @@ function collectionForKind(kind) {
     İlişki: "relationships",
     Etiket: "tags",
   }[kind] || "entities";
+}
+
+function activeEntityExists(entityId) {
+  return state.entities.some((entity) => entity.id === entityId && !entity.deletedAt);
+}
+
+function activeCategoryExists(categoryId) {
+  return state.categories.some((category) => category.id === categoryId && !category.deletedAt);
+}
+
+function pickFallbackCategory(universeId, currentCategoryId) {
+  const categories = universeCategories(universeId, true).filter((category) => category.id !== currentCategoryId);
+  if (!categories.length) return null;
+  const categoryList = categories.map((category) => category.name).join(", ");
+  const targetName = prompt(`Bu sayfanın kategorisi artık mevcut değil. Geri yüklemek için mevcut bir kategori yaz: ${categoryList}`);
+  if (!targetName) return null;
+  return categories.find((category) => category.name.toLocaleLowerCase("tr") === targetName.toLocaleLowerCase("tr")) || null;
+}
+
+function restoreTrashItem(kind, itemId) {
+  const collection = collectionForKind(kind);
+  const item = state[collection].find((entry) => entry.id === itemId);
+  if (!item) return;
+
+  if (collection === "entities" && !activeCategoryExists(item.categoryId)) {
+    const fallback = pickFallbackCategory(item.universeId, item.categoryId);
+    if (!fallback) {
+      alert("Bu sayfa geri yüklenemedi. Önce kategorisini geri yükleyin veya mevcut bir kategori seçin.");
+      return;
+    }
+    updateItem(collection, itemId, { categoryId: fallback.id, deletedAt: null });
+    return;
+  }
+
+  if (collection === "notes" && item.entityId && !activeEntityExists(item.entityId)) {
+    alert("Bu not geri yüklenemedi çünkü bağlı olduğu sayfa mevcut değil.");
+    return;
+  }
+
+  if (collection === "relationships" && (!activeEntityExists(item.sourceEntityId) || !activeEntityExists(item.targetEntityId))) {
+    alert("Bu ilişki geri yüklenemedi çünkü bağlı sayfalardan biri mevcut değil.");
+    return;
+  }
+
+  updateItem(collection, itemId, { deletedAt: null });
+}
+
+function purgeEntityCascade(entityIds) {
+  const ids = new Set(entityIds);
+  state.entities = state.entities.filter((entity) => !ids.has(entity.id));
+  state.notes = state.notes.filter((note) => !note.entityId || !ids.has(note.entityId));
+  state.relationships = state.relationships.filter((relationship) =>
+    !ids.has(relationship.sourceEntityId) && !ids.has(relationship.targetEntityId)
+  );
+}
+
+function purgeTrashItem(kind, itemId) {
+  const collection = collectionForKind(kind);
+
+  if (collection === "categories") {
+    const entityIds = state.entities
+      .filter((entity) => entity.categoryId === itemId)
+      .map((entity) => entity.id);
+    purgeEntityCascade(entityIds);
+    state.categories = state.categories.filter((category) => category.id !== itemId);
+  } else if (collection === "entities") {
+    purgeEntityCascade([itemId]);
+  } else {
+    state[collection] = state[collection].filter((item) => item.id !== itemId);
+  }
+
+  if (state.selectedCategoryId === itemId) state.selectedCategoryId = universeCategories()[0]?.id || null;
+  if (state.selectedEntityId === itemId) state.selectedEntityId = null;
+  saveState();
+  render();
 }
 
 function softDelete(collection, itemId) {

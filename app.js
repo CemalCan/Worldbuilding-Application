@@ -194,11 +194,6 @@ function renderTopbar(universe) {
 }
 
 function renderHome() {
-  const universes = activeItems(state.universes);
-  const query = state.search.trim().toLocaleLowerCase("tr");
-  const visibleUniverses = universes.filter((universe) =>
-    !query || `${universe.name} ${universe.description || ""}`.toLocaleLowerCase("tr").includes(query)
-  );
   return `
     <main class="home">
       <section class="home__header">
@@ -211,7 +206,20 @@ function renderHome() {
           <button class="secondary" data-action="import-universe">Import</button>
         </div>
       </section>
-      ${visibleUniverses.length ? `
+      <div data-home-results>
+        ${renderHomeResults()}
+      </div>
+    </main>
+  `;
+}
+
+function renderHomeResults() {
+  const universes = activeItems(state.universes);
+  const query = state.search.trim().toLocaleLowerCase("tr");
+  const visibleUniverses = universes.filter((universe) =>
+    !query || `${universe.name} ${universe.description || ""}`.toLocaleLowerCase("tr").includes(query)
+  );
+  return visibleUniverses.length ? `
         <section class="grid">
           ${visibleUniverses.map(renderUniverseCard).join("")}
         </section>
@@ -221,9 +229,7 @@ function renderHome() {
           <p>Bir şablon seçerek ya da boş evrenle başlayarak yerel arşivini oluştur.</p>
           <button data-action="new-universe">Yeni Evren</button>
         </section>
-      `}
-    </main>
-  `;
+      `;
 }
 
 function renderUniverseCard(universe) {
@@ -301,6 +307,14 @@ function renderLeftPanel(universe) {
 function renderMainPanel(universe) {
   if (state.view === "trash") return renderTrash(universe);
   if (state.view === "templates") return renderTemplates();
+  return `
+    <main class="main stack" data-main-panel>
+      ${renderMainPanelContent(universe)}
+    </main>
+  `;
+}
+
+function renderMainPanelContent(universe) {
   const category = currentCategory() || universeCategories(universe.id)[0];
   if (category && category.id !== state.selectedCategoryId) {
     state.selectedCategoryId = category.id;
@@ -309,7 +323,6 @@ function renderMainPanel(universe) {
   const entity = currentEntity();
   const entities = category ? filteredEntities(universe.id).filter((item) => item.categoryId === category.id) : [];
   return `
-    <main class="main stack">
       <section class="toolbar">
         <h2>${escapeHtml(category?.name || "Kategori yok")}</h2>
         ${category ? `
@@ -322,7 +335,6 @@ function renderMainPanel(universe) {
         ` : ""}
       </section>
       ${entity ? renderEntityDetail(entity) : renderEntityList(entities)}
-    </main>
   `;
 }
 
@@ -524,20 +536,41 @@ function renderTrash(universe) {
 }
 
 function bindEvents() {
-  document.querySelectorAll("[data-action]").forEach((element) => {
+  bindActionEvents(document);
+  document.querySelectorAll("[data-search]").forEach((input) => {
+    input.addEventListener("input", (event) => {
+      state.search = event.target.value;
+      saveState();
+      refreshSearchResults();
+    });
+  });
+}
+
+function bindActionEvents(root) {
+  root.querySelectorAll("[data-action]").forEach((element) => {
     element.addEventListener("click", (event) => {
       const action = event.currentTarget.dataset.action;
       const dataset = event.currentTarget.dataset;
       actions[action]?.(dataset);
     });
   });
-  document.querySelectorAll("[data-search]").forEach((input) => {
-    input.addEventListener("input", (event) => {
-      state.search = event.target.value;
-      saveState();
-      render();
-    });
-  });
+}
+
+function refreshSearchResults() {
+  if (state.view === "home" || !currentUniverse()) {
+    const homeResults = document.querySelector("[data-home-results]");
+    if (!homeResults) return render();
+    homeResults.innerHTML = renderHomeResults();
+    bindActionEvents(homeResults);
+    return;
+  }
+
+  if (state.view !== "universe") return;
+  const universe = currentUniverse();
+  const mainPanel = document.querySelector("[data-main-panel]");
+  if (!universe || !mainPanel) return render();
+  mainPanel.innerHTML = renderMainPanelContent(universe);
+  bindActionEvents(mainPanel);
 }
 
 const actions = {

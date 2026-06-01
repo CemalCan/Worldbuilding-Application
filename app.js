@@ -411,6 +411,11 @@ function cloneFieldDefinitions(fields = []) {
   return fields.map((field) => ({ ...field, id: id("field") }));
 }
 
+function defaultFieldsForCategory(category) {
+  if (!category?.isDefault) return [];
+  return createFieldDefinitions(category.name);
+}
+
 function fieldPresetKey(name) {
   return `preset:${String(name)
     .toLowerCase()
@@ -426,6 +431,89 @@ function fieldLabel(field) {
   if (!field?.isBuiltIn && !field?.presetKey) return field?.name || "";
   if (state.settings.language === "tr") return fieldPresetLabelTranslations[field.name] || field.name;
   return field.name;
+}
+
+function renderFieldManager(fields, category) {
+  const rows = [...fields, ...Array.from({ length: 3 }, () => ({ id: "", name: "", type: "text", required: false }))];
+  return `
+    <section class="card stack" data-field-manager>
+      <div class="row">
+        <h3 class="section-title">${t("customFieldsLabel")}</h3>
+        <button class="secondary" type="button" data-reset-category-fields>${t("resetFields")}</button>
+      </div>
+      <p class="muted">${t("addFieldHint")}</p>
+      <div class="stack">
+        ${rows.map((field, index) => `
+          <div class="two-col">
+            <label>${t("fieldName")}
+              <input name="fieldName" value="${escapeHtml(fieldLabel(field))}" />
+            </label>
+            <label>${t("fieldType")}
+              <select name="fieldType">
+                ${["text", "longText", "number", "date", "boolean", "select", "multiSelect", "entityReference", "entityReferenceList", "url", "image"].map((type) => `<option value="${type}" ${field.type === type ? "selected" : ""}>${type}</option>`).join("")}
+              </select>
+            </label>
+            <label>${t("fieldOrder")}
+              <input name="fieldOrder" type="number" min="1" value="${index + 1}" />
+            </label>
+            <input type="hidden" name="fieldId" value="${escapeHtml(field.id || "")}" />
+            <input type="hidden" name="fieldPresetKey" value="${escapeHtml(field.presetKey || "")}" />
+            <input type="hidden" name="fieldOriginalName" value="${escapeHtml(field.name || "")}" />
+            <input type="hidden" name="fieldBuiltIn" value="${field.isBuiltIn ? "true" : "false"}" />
+          </div>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function collectCategoryFields(form) {
+  const names = form.getAll("fieldName");
+  const types = form.getAll("fieldType");
+  const orders = form.getAll("fieldOrder");
+  const ids = form.getAll("fieldId");
+  const presetKeys = form.getAll("fieldPresetKey");
+  const originalNames = form.getAll("fieldOriginalName");
+  const builtIns = form.getAll("fieldBuiltIn");
+  return names
+    .map((name, index) => ({
+      id: ids[index] || id("field"),
+      name: String(name || "").trim(),
+      type: types[index] || "text",
+      order: Number(orders[index] || index + 1),
+      required: false,
+      presetKey: presetKeys[index] || undefined,
+      isBuiltIn: builtIns[index] === "true",
+      originalName: originalNames[index] || "",
+    }))
+    .filter((field) => field.name)
+    .sort((a, b) => a.order - b.order)
+    .map(({ order, originalName, ...field }) => {
+      if (field.isBuiltIn && field.presetKey && originalName) return { ...field, name: originalName };
+      return { ...field, isBuiltIn: false, presetKey: undefined };
+    });
+}
+
+function removedFieldsHaveValues(category, nextFields) {
+  if (!category) return false;
+  const nextKeys = new Set(nextFields.flatMap((field) => [fieldStorageKey(field), field.name]));
+  return (category.customFields || []).some((field) => {
+    const keys = [fieldStorageKey(field), field.name].filter(Boolean);
+    if (keys.some((key) => nextKeys.has(key))) return false;
+    return state.entities.some((entity) =>
+      entity.categoryId === category.id && keys.some((key) => entity.customFieldValues?.[key])
+    );
+  });
+}
+
+function attachCategoryFieldReset(category) {
+  document.querySelector("[data-reset-category-fields]")?.addEventListener("click", () => {
+    const form = document.querySelector(".modal-backdrop form");
+    const fieldSection = form?.querySelector("[data-field-manager]");
+    if (!fieldSection) return;
+    fieldSection.outerHTML = renderFieldManager(defaultFieldsForCategory(category), category);
+    attachCategoryFieldReset(category);
+  });
 }
 
 function hydrateCategoryFields(category) {
@@ -579,6 +667,12 @@ const translations = {
     icon: "Icon",
     color: "Color",
     customFieldsLabel: "Custom fields",
+    fieldName: "Field name",
+    fieldType: "Field type",
+    fieldOrder: "Order",
+    addFieldHint: "Use empty rows to add custom fields. Clear a field name to remove it. Change order numbers to reorder.",
+    resetFields: "Reset fields to default",
+    removedFieldWarning: "Some removed fields have existing page values. The values will be preserved as raw data, but hidden from the category form. Continue?",
     title: "Title",
     summary: "Summary",
     content: "Content",
@@ -715,6 +809,12 @@ const translations = {
     icon: "İkon",
     color: "Renk",
     customFieldsLabel: "Özel alanlar",
+    fieldName: "Alan adı",
+    fieldType: "Alan türü",
+    fieldOrder: "Sıra",
+    addFieldHint: "Özel alan eklemek için boş satırları kullanın. Bir alanı kaldırmak için adını boş bırakın. Sıralamak için sıra numaralarını değiştirin.",
+    resetFields: "Alanları varsayılana döndür",
+    removedFieldWarning: "Kaldırılan bazı alanlarda mevcut sayfa verileri var. Veriler ham veri olarak korunacak, ancak kategori formunda gizlenecek. Devam edilsin mi?",
     title: "Başlık",
     summary: "Özet",
     content: "İçerik",
@@ -1864,6 +1964,7 @@ function openUniverseWizard() {
 }
 
 function openCategoryModal(category) {
+  const fields = category?.customFields || [];
   openModal(category ? t("categoryEdit") : t("categoryCreate"), `
     <form class="form-grid">
       <label>${t("name")} <input name="name" required value="${escapeHtml(category?.name || "")}" /></label>
@@ -1872,18 +1973,12 @@ function openCategoryModal(category) {
         <label>${t("icon")} <input name="icon" value="${escapeHtml(category?.icon || "")}" /></label>
         <label>${t("color")} <input name="color" type="color" value="${escapeHtml(category?.color || "#9a4f2e")}" /></label>
       </div>
-      <label>${t("customFieldsLabel")} <textarea name="customFields" placeholder="Name:text&#10;Age:number">${escapeHtml((category?.customFields || []).map((field) => `${field.name}:${field.type}`).join("\n"))}</textarea></label>
+      ${renderFieldManager(fields, category)}
       <div class="button-row"><button type="submit">${t("save")}</button></div>
     </form>
   `, (form) => {
-    const fields = String(form.get("customFields") || "")
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [name, type = "text"] = line.split(":").map((part) => part.trim());
-        return { id: id("field"), name, type, required: false };
-      });
+    const fields = collectCategoryFields(form);
+    if (removedFieldsHaveValues(category, fields) && !confirm(t("removedFieldWarning"))) return false;
     if (category) {
       updateItem("categories", category.id, {
         name: form.get("name"),
@@ -1913,6 +2008,7 @@ function openCategoryModal(category) {
     saveState();
     render();
   });
+  attachCategoryFieldReset(category);
 }
 
 function openEntityModal(entity) {

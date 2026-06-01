@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hikaye</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <template id="modal-template">
+      <div class="modal-backdrop" data-modal-close>
+        <section class="modal" role="dialog" aria-modal="true">
+          <header class="modal__header">
+            <h2 data-modal-title></h2>
+            <button class="icon-button" type="button" data-modal-close aria-label="Kapat">×</button>
+          </header>
+          <div data-modal-body></div>
+        </section>
+      </div>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -107,6 +107,10 @@ button.danger {
   background: var(--danger);
 }
 
+button.danger-text {
+  color: var(--danger);
+}
+
 button.ghost {
   background: transparent;
   color: var(--text);
@@ -506,6 +510,17 @@ label {
 .two-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.field-editor-row,
+.field-entry {
+  align-items: end;
+}
+
+.field-entry {
+  display: grid;
+  grid-template-columns: 1fr auto;
   gap: 10px;
 }
 

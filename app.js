@@ -551,9 +551,12 @@ function resolveFieldTypeInput(value) {
 
 function renderEntityCustomFieldInput(field, entity) {
   return `
-    <label>${escapeHtml(fieldLabel(field))}
-      <input name="field:${escapeHtml(fieldStorageKey(field))}" value="${escapeHtml(entity?.customFieldValues?.[fieldStorageKey(field)] ?? entity?.customFieldValues?.[field.name] ?? "")}" />
-    </label>
+    <div class="field-entry" data-entity-field data-field-id="${escapeHtml(field.id || "")}" data-field-key="${escapeHtml(fieldStorageKey(field))}" data-field-name="${escapeHtml(field.name || "")}">
+      <label>${escapeHtml(fieldLabel(field))}
+        <input name="field:${escapeHtml(fieldStorageKey(field))}" value="${escapeHtml(entity?.customFieldValues?.[fieldStorageKey(field)] ?? entity?.customFieldValues?.[field.name] ?? "")}" />
+      </label>
+      <button class="secondary danger-text" type="button" data-remove-entity-field>${t("removeField")}</button>
+    </div>
   `;
 }
 
@@ -568,7 +571,7 @@ function renderFieldManager(fields, category) {
       <p class="muted">${t("addFieldHint")}</p>
       <div class="stack">
         ${rows.map((field, index) => `
-          <div class="two-col">
+          <div class="field-editor-row two-col" data-field-editor-row>
             <label>${t("fieldName")}
               <input name="fieldName" value="${escapeHtml(fieldLabel(field))}" />
             </label>
@@ -588,6 +591,7 @@ function renderFieldManager(fields, category) {
             <input type="hidden" name="fieldPresetKey" value="${escapeHtml(field.presetKey || "")}" />
             <input type="hidden" name="fieldOriginalName" value="${escapeHtml(field.name || "")}" />
             <input type="hidden" name="fieldBuiltIn" value="${field.isBuiltIn ? "true" : "false"}" />
+            <button class="secondary danger-text" type="button" data-remove-category-field>${t("removeField")}</button>
           </div>
         `).join("")}
       </div>
@@ -634,13 +638,44 @@ function removedFieldsHaveValues(category, nextFields) {
   });
 }
 
-function attachCategoryFieldReset(category) {
+function fieldHasValues(category, field) {
+  if (!category || !field) return false;
+  const keys = [fieldStorageKey(field), field.name].filter(Boolean);
+  return state.entities.some((entity) =>
+    entity.categoryId === category.id && keys.some((key) => entity.customFieldValues?.[key])
+  );
+}
+
+function confirmFieldRemoval(category, field) {
+  if (!confirm(t("confirmRemoveField"))) return false;
+  return !fieldHasValues(category, field) || confirm(t("fieldHasValuesWarning"));
+}
+
+function fieldFromEditorRow(row) {
+  return {
+    id: row.querySelector('[name="fieldId"]')?.value || "",
+    name: row.querySelector('[name="fieldOriginalName"]')?.value || row.querySelector('[name="fieldName"]')?.value || "",
+    presetKey: row.querySelector('[name="fieldPresetKey"]')?.value || undefined,
+  };
+}
+
+function attachCategoryFieldActions(category) {
   document.querySelector("[data-reset-category-fields]")?.addEventListener("click", () => {
     const form = document.querySelector(".modal-backdrop form");
     const fieldSection = form?.querySelector("[data-field-manager]");
     if (!fieldSection) return;
     fieldSection.outerHTML = renderFieldManager(defaultFieldsForCategory(category), category);
-    attachCategoryFieldReset(category);
+    attachCategoryFieldActions(category);
+  });
+  document.querySelectorAll("[data-remove-category-field]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const row = button.closest("[data-field-editor-row]");
+      if (!row) return;
+      const field = fieldFromEditorRow(row);
+      const fieldName = row.querySelector('[name="fieldName"]')?.value?.trim();
+      if (fieldName && !confirmFieldRemoval(category, field)) return;
+      row.remove();
+    });
   });
 }
 
@@ -807,6 +842,10 @@ const translations = {
     resetFields: "Reset fields to default",
     removedFieldWarning: "Some removed fields have existing page values. The values will be preserved as raw data, but hidden from the category form. Continue?",
     addFieldToCategory: "Add field to this category",
+    removeField: "Remove field",
+    deleteField: "Delete field",
+    confirmRemoveField: "Remove field?",
+    fieldHasValuesWarning: "This field has existing values. Remove it anyway?",
     fieldNameRequired: "Field name is required.",
     fieldTypePrompt: "Choose a field type by number or key:",
     categoryLocked: "Category is locked for this entry.",
@@ -957,6 +996,10 @@ const translations = {
     resetFields: "Alanları varsayılana döndür",
     removedFieldWarning: "Kaldırılan bazı alanlarda mevcut sayfa verileri var. Veriler ham veri olarak korunacak, ancak kategori formunda gizlenecek. Devam edilsin mi?",
     addFieldToCategory: "Bu kategoriye alan ekle",
+    removeField: "Alanı kaldır",
+    deleteField: "Alanı sil",
+    confirmRemoveField: "Alan kaldırılsın mı?",
+    fieldHasValuesWarning: "Bu alanın mevcut kayıtlarda değerleri var. Yine de kaldırmak istiyor musun?",
     fieldNameRequired: "Alan adı zorunludur.",
     fieldTypePrompt: "Alan türünü numara veya anahtarla seçin:",
     categoryLocked: "Bu kayıt için kategori kilitlidir.",
@@ -2198,7 +2241,7 @@ function openCategoryModal(category) {
     saveState();
     render();
   });
-  attachCategoryFieldReset(category);
+  attachCategoryFieldActions(category);
 }
 
 function openEntityModal(entity) {
@@ -2239,9 +2282,10 @@ function openEntityModal(entity) {
       return false;
     }
     const tagIds = ensureTags(String(form.get("tags") || ""));
-    const customFieldValues = {};
+    const customFieldValues = isEditing ? { ...(entity.customFieldValues || {}) } : {};
     for (const [key, value] of form.entries()) {
       if (key.startsWith("field:") && value) customFieldValues[key.slice(6)] = value;
+      if (key.startsWith("field:") && !value) delete customFieldValues[key.slice(6)];
     }
     if (isEditing) {
       updateItem("entities", entity.id, {
@@ -2292,6 +2336,25 @@ function openEntityModal(entity) {
     state.categories = state.categories.map((item) => item.id === selectedCategory.id ? selectedCategory : item);
     saveState();
     backdrop.querySelector("[data-entity-fields]")?.insertAdjacentHTML("beforeend", renderEntityCustomFieldInput(field, entity));
+  });
+  backdrop?.querySelector("[data-entity-fields]")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove-entity-field]");
+    if (!button) return;
+    const fieldElement = button.closest("[data-entity-field]");
+    const fieldId = fieldElement?.dataset.fieldId || "";
+    const fieldKey = fieldElement?.dataset.fieldKey || "";
+    const fieldName = fieldElement?.dataset.fieldName || "";
+    const field = (selectedCategory.customFields || []).find((item) =>
+      (fieldId && item.id === fieldId) || fieldStorageKey(item) === fieldKey || item.name === fieldName
+    );
+    if (!confirmFieldRemoval(selectedCategory, field || { name: fieldName, id: fieldId })) return;
+    selectedCategory.customFields = (selectedCategory.customFields || []).filter((item) =>
+      !((fieldId && item.id === fieldId) || fieldStorageKey(item) === fieldKey || item.name === fieldName)
+    );
+    selectedCategory.updatedAt = now();
+    state.categories = state.categories.map((item) => item.id === selectedCategory.id ? selectedCategory : item);
+    saveState();
+    fieldElement?.remove();
   });
 }
 

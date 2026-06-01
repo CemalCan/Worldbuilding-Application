@@ -510,11 +510,11 @@ const fieldTypeText = {
     longText: { label: "Long text", help: "Longer multi-line writing." },
     number: { label: "Number", help: "Numeric values such as age, population, or cost." },
     date: { label: "Date", help: "A calendar date or in-world date value." },
-    boolean: { label: "Boolean", help: "A yes/no or true/false value." },
-    select: { label: "Select", help: "Choose one value from a defined list." },
-    multiSelect: { label: "Multi-select", help: "Choose multiple values from a defined list." },
-    entityReference: { label: "Entity reference", help: "Link this field to another entry." },
-    entityReferenceList: { label: "Entity reference list", help: "Link this field to multiple entries." },
+    boolean: { label: "Yes/No", help: "A yes/no or true/false value." },
+    select: { label: "Single choice", help: "Choose one value from a defined list." },
+    multiSelect: { label: "Multiple choice", help: "Choose multiple values from a defined list." },
+    entityReference: { label: "Entry link", help: "Link this field to another entry." },
+    entityReferenceList: { label: "Entry link list", help: "Link this field to multiple entries." },
     url: { label: "URL", help: "A web address or local URL-style value." },
     image: { label: "Image", help: "Image URL or supported local image value." },
   },
@@ -538,24 +538,11 @@ function fieldTypeInfo(type) {
   return fieldTypeText[language]?.[type] || fieldTypeText.en[type] || { label: type, help: "" };
 }
 
-function fieldTypePromptText() {
-  return `${t("fieldTypePrompt")}\n${fieldTypeOrder.map((type, index) => {
+function renderFieldTypeOptions(selectedType = "text") {
+  return fieldTypeOrder.map((type) => {
     const typeInfo = fieldTypeInfo(type);
-    return `${index + 1}. ${typeInfo.label} (${type}) - ${typeInfo.help}`;
-  }).join("\n")}`;
-}
-
-function resolveFieldTypeInput(value) {
-  const input = String(value || "").trim();
-  const numericIndex = Number(input);
-  if (Number.isInteger(numericIndex) && numericIndex >= 1 && numericIndex <= fieldTypeOrder.length) {
-    return fieldTypeOrder[numericIndex - 1];
-  }
-  const normalized = input.toLocaleLowerCase("tr");
-  return fieldTypeOrder.find((type) => {
-    const typeInfo = fieldTypeInfo(type);
-    return type.toLocaleLowerCase("tr") === normalized || typeInfo.label.toLocaleLowerCase("tr") === normalized;
-  }) || "";
+    return `<option value="${type}" title="${escapeHtml(typeInfo.help)}" ${selectedType === type ? "selected" : ""}>${escapeHtml(typeInfo.label)}</option>`;
+  }).join("");
 }
 
 function renderEntityCustomFieldInput(field, entity) {
@@ -596,10 +583,7 @@ function renderFieldManager(fields, category) {
             </label>
             <label>${t("fieldType")}
               <select name="fieldType" title="${escapeHtml(fieldTypeInfo(field.type || "text").help)}">
-                ${fieldTypeOrder.map((type) => {
-                  const typeInfo = fieldTypeInfo(type);
-                  return `<option value="${type}" title="${escapeHtml(typeInfo.help)}" ${field.type === type ? "selected" : ""}>${escapeHtml(typeInfo.label)}</option>`;
-                }).join("")}
+                ${renderFieldTypeOptions(field.type || "text")}
               </select>
               <small class="muted">${escapeHtml(fieldTypeInfo(field.type || "text").help)}</small>
             </label>
@@ -931,7 +915,6 @@ const translations = {
     confirmRemoveField: "Remove field?",
     fieldHasValuesWarning: "This field has existing values. Remove it anyway?",
     fieldNameRequired: "Field name is required.",
-    fieldTypePrompt: "Choose a field type by number or key:",
     categoryLocked: "Category is locked for this entry.",
     title: "Title",
     summary: "Summary",
@@ -1092,7 +1075,6 @@ const translations = {
     confirmRemoveField: "Alan kaldırılsın mı?",
     fieldHasValuesWarning: "Bu alanın mevcut kayıtlarda değerleri var. Yine de kaldırmak istiyor musun?",
     fieldNameRequired: "Alan adı zorunludur.",
-    fieldTypePrompt: "Alan türünü numara veya anahtarla seçin:",
     categoryLocked: "Bu kayıt için kategori kilitlidir.",
     title: "Başlık",
     summary: "Özet",
@@ -2411,22 +2393,35 @@ function openEntityModal(entity) {
     render();
   });
   backdrop?.querySelector("[data-add-entity-field]")?.addEventListener("click", () => {
-    const fieldName = String(prompt(t("fieldName")) || "").trim();
-    if (!fieldName) return alert(t("fieldNameRequired"));
-    const fieldType = resolveFieldTypeInput(prompt(fieldTypePromptText(), "1"));
-    if (!fieldType) return alert(t("fieldType"));
-    const field = {
-      id: id("field"),
-      name: fieldName,
-      type: fieldType,
-      required: false,
-      isBuiltIn: false,
-    };
-    selectedCategory.customFields = [...(selectedCategory.customFields || []), field];
-    selectedCategory.updatedAt = now();
-    state.categories = state.categories.map((item) => item.id === selectedCategory.id ? selectedCategory : item);
-    saveState();
-    backdrop.querySelector("[data-entity-fields]")?.insertAdjacentHTML("beforeend", renderEntityCustomFieldInput(field, entity));
+    openModal(t("addFieldToCategory"), `
+      <form class="form-grid">
+        <label>${t("fieldName")} <input name="fieldName" required /></label>
+        <label>${t("fieldType")}
+          <select name="fieldType">
+            ${renderFieldTypeOptions("text")}
+          </select>
+        </label>
+        <div class="button-row"><button type="submit">${t("addFieldToCategory")}</button></div>
+      </form>
+    `, (form) => {
+      const fieldName = String(form.get("fieldName") || "").trim();
+      if (!fieldName) {
+        alert(t("fieldNameRequired"));
+        return false;
+      }
+      const field = {
+        id: id("field"),
+        name: fieldName,
+        type: form.get("fieldType") || "text",
+        required: false,
+        isBuiltIn: false,
+      };
+      selectedCategory.customFields = [...(selectedCategory.customFields || []), field];
+      selectedCategory.updatedAt = now();
+      state.categories = state.categories.map((item) => item.id === selectedCategory.id ? selectedCategory : item);
+      saveState();
+      backdrop.querySelector("[data-entity-fields]")?.insertAdjacentHTML("beforeend", renderEntityCustomFieldInput(field, entity));
+    });
   });
   backdrop?.querySelector("[data-entity-fields]")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-remove-entity-field]");

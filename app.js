@@ -118,6 +118,91 @@ const categoryFieldPresetGroups = {
   ],
 };
 
+const fieldPresetLabelTranslations = {
+  "First name": "Ad",
+  "Last name": "Soyad",
+  Nickname: "Lakap",
+  Age: "Yaş",
+  Gender: "Cinsiyet",
+  "Species/Race": "Tür/Irk",
+  Occupation: "Meslek",
+  Birthplace: "Doğum yeri",
+  "Current location": "Mevcut konum",
+  Family: "Aile",
+  Personality: "Kişilik",
+  Goal: "Amaç",
+  Fear: "Korku",
+  Secret: "Sır",
+  Backstory: "Geçmiş hikaye",
+  "Family name": "Aile adı",
+  Founder: "Kurucu",
+  "Current head": "Mevcut lider",
+  Members: "Üyeler",
+  Allies: "Müttefikler",
+  Enemies: "Düşmanlar",
+  "Family secret": "Aile sırrı",
+  "Symbol/Crest": "Sembol/Arma",
+  History: "Tarihçe",
+  "Location type": "Mekan türü",
+  Region: "Bölge",
+  Population: "Nüfus",
+  "Ruler/Owner": "Yönetici/Sahip",
+  Climate: "İklim",
+  "Important people": "Önemli kişiler",
+  "Important events": "Önemli olaylar",
+  Description: "Açıklama",
+  "Event type": "Olay türü",
+  Date: "Tarih",
+  Location: "Konum",
+  Participants: "Katılımcılar",
+  Cause: "Sebep",
+  Result: "Sonuç",
+  "Public version": "Herkesin bildiği versiyon",
+  "True version": "Gerçek versiyon",
+  Deities: "Tanrılar",
+  Beliefs: "İnançlar",
+  Rituals: "Ritüeller",
+  "Holy places": "Kutsal mekanlar",
+  Symbols: "Semboller",
+  "Rules/Taboos": "Kurallar/Tabular",
+  Followers: "Takipçiler",
+  "Magic type": "Büyü türü",
+  Source: "Kaynak",
+  "Who can use it": "Kimler kullanabilir",
+  Cost: "Bedel",
+  Limits: "Sınırlar",
+  Risks: "Riskler",
+  "Known users": "Bilinen kullanıcılar",
+  "Item type": "Eşya türü",
+  Owner: "Sahip",
+  "Previous owners": "Önceki sahipler",
+  Origin: "Köken",
+  "Powers/Properties": "Güçler/Özellikler",
+  Value: "Değer",
+  "Organization type": "Örgüt türü",
+  Leader: "Lider",
+  Base: "Merkez",
+  Rules: "Kurallar",
+  Role: "Rol",
+  "Voice/Mannerism": "Ses/Tavır",
+  "Relationship to party": "Partiyle ilişkisi",
+  "Secret goal": "Gizli amaç",
+  "First session seen": "İlk görüldüğü oturum",
+  "Alive/Dead": "Yaşıyor/Ölü",
+  "Quest giver": "Görevi veren",
+  Objective: "Amaç",
+  Reward: "Ödül",
+  Status: "Durum",
+  "Related NPCs": "Bağlı NPC'ler",
+  "Hidden outcome": "Gizli sonuç",
+  "Session number": "Oturum numarası",
+  "Players present": "Katılan oyuncular",
+  Summary: "Özet",
+  "Decisions made": "Alınan kararlar",
+  "Loot/Rewards": "Loot/Ödüller",
+  "Next session prep": "Sonraki oturum hazırlığı",
+};
+
 const categoryPresetAliases = {
   characters: "characters",
   karakterler: "characters",
@@ -315,6 +400,8 @@ function createFieldDefinitions(categoryName) {
   return getFieldPresetNames(categoryName).map((name) => ({
     id: id("field"),
     name,
+    presetKey: fieldPresetKey(name),
+    isBuiltIn: true,
     type: "text",
     required: false,
   }));
@@ -322,6 +409,38 @@ function createFieldDefinitions(categoryName) {
 
 function cloneFieldDefinitions(fields = []) {
   return fields.map((field) => ({ ...field, id: id("field") }));
+}
+
+function fieldPresetKey(name) {
+  return `preset:${String(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "")}`;
+}
+
+function fieldStorageKey(field) {
+  return field?.presetKey || field?.name || "";
+}
+
+function fieldLabel(field) {
+  if (!field?.isBuiltIn && !field?.presetKey) return field?.name || "";
+  if (state.settings.language === "tr") return fieldPresetLabelTranslations[field.name] || field.name;
+  return field.name;
+}
+
+function hydrateCategoryFields(category) {
+  const presetNames = new Set(getFieldPresetNames(category.name));
+  return {
+    ...category,
+    customFields: (category.customFields || []).map((field) => {
+      if (!category.isDefault || field.presetKey || !presetNames.has(field.name)) return field;
+      return {
+        ...field,
+        presetKey: fieldPresetKey(field.name),
+        isBuiltIn: true,
+      };
+    }),
+  };
 }
 
 const builtInTemplates = [
@@ -679,7 +798,7 @@ function loadState() {
       ...createDefaultState(),
       ...parsed,
       universes: Array.isArray(parsed.universes) ? parsed.universes : [],
-      categories: Array.isArray(parsed.categories) ? parsed.categories : [],
+      categories: Array.isArray(parsed.categories) ? parsed.categories.map(hydrateCategoryFields) : [],
       entities: Array.isArray(parsed.entities) ? parsed.entities : [],
       relationships: Array.isArray(parsed.relationships) ? parsed.relationships : [],
       notes: Array.isArray(parsed.notes) ? parsed.notes : [],
@@ -1032,14 +1151,27 @@ function renderEntityDetail(entity) {
 }
 
 function renderCustomFields(entity) {
-  const entries = Object.entries(entity.customFieldValues || {});
+  const category = state.categories.find((item) => item.id === entity.categoryId);
+  const values = entity.customFieldValues || {};
+  const builtInEntries = (category?.customFields || [])
+    .map((field) => {
+      const key = fieldStorageKey(field);
+      const value = values[key] ?? values[field.name];
+      return value ? [fieldLabel(field), value, key] : null;
+    })
+    .filter(Boolean);
+  const knownKeys = new Set((category?.customFields || []).flatMap((field) => [fieldStorageKey(field), field.name]));
+  const extraEntries = Object.entries(values)
+    .filter(([key]) => !knownKeys.has(key))
+    .map(([key, value]) => [key, value, key]);
+  const entries = [...builtInEntries, ...extraEntries];
   if (!entries.length) return "";
   return `
     <section class="card stack">
       <h3 class="section-title">${t("customFields")}</h3>
-      ${entries.map(([key, value]) => `
+      ${entries.map(([label, value]) => `
         <div>
-          <strong>${escapeHtml(key)}</strong>
+          <strong>${escapeHtml(label)}</strong>
           <p class="muted">${escapeHtml(value)}</p>
         </div>
       `).join("")}
@@ -1801,7 +1933,7 @@ function openEntityModal(entity) {
       <label>${t("content")} <textarea name="content" placeholder="${t("markdownSupported")}">${escapeHtml(entity?.content || "")}</textarea></label>
       <label>${t("tags")} <input name="tags" placeholder="Main character, Secret" value="${escapeHtml((entity?.tagIds || []).map((tagId) => state.tags.find((tag) => tag.id === tagId)?.name).filter(Boolean).join(", "))}" /></label>
       ${customFields.map((field) => `
-        <label>${escapeHtml(field.name)} <input name="field:${escapeHtml(field.name)}" value="${escapeHtml(entity?.customFieldValues?.[field.name] || "")}" /></label>
+        <label>${escapeHtml(fieldLabel(field))} <input name="field:${escapeHtml(fieldStorageKey(field))}" value="${escapeHtml(entity?.customFieldValues?.[fieldStorageKey(field)] ?? entity?.customFieldValues?.[field.name] ?? "")}" /></label>
       `).join("")}
       <div class="button-row"><button type="submit">${t("save")}</button></div>
     </form>

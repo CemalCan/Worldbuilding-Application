@@ -544,6 +544,10 @@ label {
   align-items: start;
 }
 
+.field-entry--image label {
+  gap: 7px;
+}
+
 .field-entry--image .image-field-preview-slot {
   grid-column: 1 / -1;
 }

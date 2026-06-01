@@ -1,6 +1,7 @@
 const STORAGE_KEY = "hikaye.mvp.state.v1";
 const now = () => new Date().toISOString();
 const id = (prefix) => `${prefix}_${crypto.randomUUID()}`;
+const IMAGE_UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
 
 const categoryFieldPresetGroups = {
   characters: [
@@ -563,6 +564,8 @@ function renderEntityCustomFieldInput(field, entity) {
   return `
     <div class="field-entry ${isImage ? "field-entry--image" : ""}" data-entity-field data-field-id="${escapeHtml(field.id || "")}" data-field-key="${escapeHtml(fieldStorageKey(field))}" data-field-name="${escapeHtml(field.name || "")}">
       <label>${escapeHtml(fieldLabel(field))}
+        ${isImage ? `<span class="muted">${t("uploadImage")}</span><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-image-file-input />` : ""}
+        ${isImage ? `<span class="muted">${t("imageUrlOption")}</span>` : ""}
         <input
           name="field:${escapeHtml(fieldStorageKey(field))}"
           ${isImage ? `inputmode="url" placeholder="${escapeHtml(t("imageFieldPlaceholder"))}" data-image-field-input` : ""}
@@ -872,6 +875,9 @@ const translations = {
     removedFieldWarning: "Some removed fields have existing page values. The values will be preserved as raw data, but hidden from the category form. Continue?",
     addFieldToCategory: "Add field to this category",
     imageFieldPlaceholder: "Paste an image URL",
+    uploadImage: "Upload image",
+    imageUrlOption: "Or paste image URL",
+    imageTooLarge: "Image file is too large. Please choose an image under 2 MB.",
     fieldActions: "Field actions",
     moveFieldUp: "Move up",
     moveFieldDown: "Move down",
@@ -1029,6 +1035,9 @@ const translations = {
     removedFieldWarning: "Kaldırılan bazı alanlarda mevcut sayfa verileri var. Veriler ham veri olarak korunacak, ancak kategori formunda gizlenecek. Devam edilsin mi?",
     addFieldToCategory: "Bu kategoriye alan ekle",
     imageFieldPlaceholder: "Görsel URL’si yapıştır",
+    uploadImage: "Görsel yükle",
+    imageUrlOption: "Ya da görsel URL’si yapıştır",
+    imageTooLarge: "Görsel dosyası çok büyük. Lütfen 2 MB altında bir görsel seç.",
     fieldActions: "Alan işlemleri",
     moveFieldUp: "Yukarı taşı",
     moveFieldDown: "Aşağı taşı",
@@ -2401,6 +2410,27 @@ function openEntityModal(entity) {
     previewSlot.innerHTML = isPreviewableImageUrl(input.value)
       ? renderImageFieldPreview(input.value, fieldElement.dataset.fieldName || "Image")
       : "";
+  });
+  backdrop?.querySelector("[data-entity-fields]")?.addEventListener("change", (event) => {
+    const fileInput = event.target.closest("[data-image-file-input]");
+    if (!fileInput) return;
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    if (file.size > IMAGE_UPLOAD_MAX_BYTES) {
+      fileInput.value = "";
+      alert(t("imageTooLarge"));
+      return;
+    }
+    const fieldElement = fileInput.closest("[data-entity-field]");
+    const valueInput = fieldElement?.querySelector("[data-image-field-input]");
+    const previewSlot = fieldElement?.querySelector(".image-field-preview-slot");
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      const value = String(reader.result || "");
+      if (valueInput) valueInput.value = value;
+      if (previewSlot) previewSlot.innerHTML = renderImageFieldPreview(value, fieldElement.dataset.fieldName || "Image");
+    });
+    reader.readAsDataURL(file);
   });
 }
 

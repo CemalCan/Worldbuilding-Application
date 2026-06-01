@@ -128,7 +128,7 @@ const categoryFieldPresetGroups = {
 const fieldPresetLabelTranslations = {
   "Portrait image": "Portre görseli",
   "Crest image": "Arma görseli",
-  "Location image": "Mekan görseli",
+  "Location image": "Mekân görseli",
   "Item image": "Eşya görseli",
   "Symbol image": "Sembol görseli",
   "First name": "Ad",
@@ -465,20 +465,28 @@ function fieldLabel(field) {
   return field.name;
 }
 
+function fieldInputValue(field, entity) {
+  return entity?.customFieldValues?.[fieldStorageKey(field)] ?? entity?.customFieldValues?.[field.name] ?? "";
+}
+
 function isPreviewableImageUrl(value) {
   return /^(https?:\/\/|data:image\/)/i.test(String(value || "").trim());
 }
 
 function renderFieldValue(field, value) {
   if (field?.type === "image" && isPreviewableImageUrl(value)) {
-    return `
-      <div class="image-field-preview">
-        <img src="${escapeHtml(value)}" alt="${escapeHtml(fieldLabel(field))}" loading="lazy" />
-        <a href="${escapeHtml(value)}" target="_blank" rel="noreferrer">${escapeHtml(value)}</a>
-      </div>
-    `;
+    return renderImageFieldPreview(value, fieldLabel(field));
   }
   return `<p class="muted">${escapeHtml(value)}</p>`;
+}
+
+function renderImageFieldPreview(value, label) {
+  return `
+    <div class="image-field-preview">
+      <img src="${escapeHtml(value)}" alt="${escapeHtml(label)}" loading="lazy" />
+      <a href="${escapeHtml(value)}" target="_blank" rel="noreferrer">${escapeHtml(value)}</a>
+    </div>
+  `;
 }
 
 const fieldTypeOrder = [
@@ -550,11 +558,18 @@ function resolveFieldTypeInput(value) {
 }
 
 function renderEntityCustomFieldInput(field, entity) {
+  const value = fieldInputValue(field, entity);
+  const isImage = field.type === "image";
   return `
-    <div class="field-entry" data-entity-field data-field-id="${escapeHtml(field.id || "")}" data-field-key="${escapeHtml(fieldStorageKey(field))}" data-field-name="${escapeHtml(field.name || "")}">
+    <div class="field-entry ${isImage ? "field-entry--image" : ""}" data-entity-field data-field-id="${escapeHtml(field.id || "")}" data-field-key="${escapeHtml(fieldStorageKey(field))}" data-field-name="${escapeHtml(field.name || "")}">
       <label>${escapeHtml(fieldLabel(field))}
-        <input name="field:${escapeHtml(fieldStorageKey(field))}" value="${escapeHtml(entity?.customFieldValues?.[fieldStorageKey(field)] ?? entity?.customFieldValues?.[field.name] ?? "")}" />
+        <input
+          name="field:${escapeHtml(fieldStorageKey(field))}"
+          ${isImage ? `inputmode="url" placeholder="${escapeHtml(t("imageFieldPlaceholder"))}" data-image-field-input` : ""}
+          value="${escapeHtml(value)}"
+        />
       </label>
+      ${isImage ? `<div class="image-field-preview-slot">${isPreviewableImageUrl(value) ? renderImageFieldPreview(value, fieldLabel(field)) : ""}</div>` : ""}
       <button class="secondary danger-text" type="button" data-remove-entity-field>${t("removeField")}</button>
     </div>
   `;
@@ -690,16 +705,23 @@ function attachCategoryFieldActions(category) {
 
 function hydrateCategoryFields(category) {
   const presetNames = new Set(getFieldPresetNames(category.name));
+  const fields = (category.customFields || []).map((field) => {
+    if (!category.isDefault || field.presetKey || !presetNames.has(field.name)) return field;
+    return {
+      ...field,
+      presetKey: fieldPresetKey(field.name),
+      isBuiltIn: true,
+    };
+  });
+  const knownKeys = new Set(fields.flatMap((field) => [fieldStorageKey(field), field.name]));
+  const missingImageFields = category.isDefault
+    ? createFieldDefinitions(category.name).filter((field) =>
+      field.type === "image" && !knownKeys.has(fieldStorageKey(field)) && !knownKeys.has(field.name)
+    )
+    : [];
   return {
     ...category,
-    customFields: (category.customFields || []).map((field) => {
-      if (!category.isDefault || field.presetKey || !presetNames.has(field.name)) return field;
-      return {
-        ...field,
-        presetKey: fieldPresetKey(field.name),
-        isBuiltIn: true,
-      };
-    }),
+    customFields: [...missingImageFields, ...fields],
   };
 }
 
@@ -851,6 +873,7 @@ const translations = {
     resetFields: "Reset fields to default",
     removedFieldWarning: "Some removed fields have existing page values. The values will be preserved as raw data, but hidden from the category form. Continue?",
     addFieldToCategory: "Add field to this category",
+    imageFieldPlaceholder: "Paste an image URL",
     fieldActions: "Field actions",
     moveFieldUp: "Move up",
     moveFieldDown: "Move down",
@@ -1008,6 +1031,7 @@ const translations = {
     resetFields: "Alanları varsayılana döndür",
     removedFieldWarning: "Kaldırılan bazı alanlarda mevcut sayfa verileri var. Veriler ham veri olarak korunacak, ancak kategori formunda gizlenecek. Devam edilsin mi?",
     addFieldToCategory: "Bu kategoriye alan ekle",
+    imageFieldPlaceholder: "Görsel URL’si yapıştır",
     fieldActions: "Alan işlemleri",
     moveFieldUp: "Yukarı taşı",
     moveFieldDown: "Aşağı taşı",
@@ -2370,6 +2394,16 @@ function openEntityModal(entity) {
     state.categories = state.categories.map((item) => item.id === selectedCategory.id ? selectedCategory : item);
     saveState();
     fieldElement?.remove();
+  });
+  backdrop?.querySelector("[data-entity-fields]")?.addEventListener("input", (event) => {
+    const input = event.target.closest("[data-image-field-input]");
+    if (!input) return;
+    const fieldElement = input.closest("[data-entity-field]");
+    const previewSlot = fieldElement?.querySelector(".image-field-preview-slot");
+    if (!previewSlot) return;
+    previewSlot.innerHTML = isPreviewableImageUrl(input.value)
+      ? renderImageFieldPreview(input.value, fieldElement.dataset.fieldName || "Image")
+      : "";
   });
 }
 

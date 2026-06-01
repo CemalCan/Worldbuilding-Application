@@ -540,6 +540,18 @@ label {
   gap: 10px;
 }
 
+.field-entry--image {
+  align-items: start;
+}
+
+.field-entry--image .image-field-preview-slot {
+  grid-column: 1 / -1;
+}
+
+.field-entry--image .image-field-preview {
+  max-width: 260px;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

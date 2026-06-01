@@ -75,6 +75,7 @@ const translations = {
     noPages: "No pages in this category",
     noPagesHelp: "Create a character, place, event, quest, or any page you need.",
     createPage: "Create Page",
+    editPage: "Edit Page",
     list: "List",
     noTags: "No tags",
     noContent: "No content added.",
@@ -122,6 +123,7 @@ const translations = {
     save: "Save",
     create: "Create",
     universeNameRequired: "Universe name is required.",
+    pageTitleRequired: "Page title is required.",
     categoryEdit: "Edit Category",
     categoryCreate: "Create Category",
     name: "Name",
@@ -202,6 +204,7 @@ const translations = {
     noPages: "Bu kategoride sayfa yok",
     noPagesHelp: "Karakter, mekan, olay, görev veya kendi ihtiyacına göre herhangi bir sayfa oluştur.",
     createPage: "Sayfa Oluştur",
+    editPage: "Sayfa Düzenle",
     list: "Liste",
     noTags: "Etiket yok",
     noContent: "İçerik eklenmedi.",
@@ -249,6 +252,7 @@ const translations = {
     save: "Kaydet",
     create: "Oluştur",
     universeNameRequired: "Evren adı zorunludur.",
+    pageTitleRequired: "Sayfa başlığı zorunludur.",
     categoryEdit: "Kategori Düzenle",
     categoryCreate: "Kategori Oluştur",
     name: "Ad",
@@ -927,7 +931,9 @@ const actions = {
     saveState();
     render();
   },
-  "new-entity": openEntityModal,
+  "new-entity"() {
+    openEntityModal();
+  },
   "select-entity"({ id: entityId }) {
     const entity = state.entities.find((item) => item.id === entityId);
     setState({ selectedEntityId: entityId, selectedCategoryId: entity?.categoryId || state.selectedCategoryId, view: "universe" });
@@ -1388,11 +1394,12 @@ function openCategoryModal(category) {
 }
 
 function openEntityModal(entity) {
+  const isEditing = Boolean(entity?.id);
   const category = currentCategory();
   const categories = universeCategories();
-  const selectedCategory = entity ? state.categories.find((item) => item.id === entity.categoryId) : category;
+  const selectedCategory = isEditing ? state.categories.find((item) => item.id === entity.categoryId) : category;
   const customFields = selectedCategory?.customFields || [];
-  openModal(entity ? "Sayfa Düzenle" : "Sayfa Oluştur", `
+  openModal(isEditing ? t("editPage") : t("createPage"), `
     <form class="form-grid">
       <label>${t("title")} <input name="title" required value="${escapeHtml(entity?.title || "")}" /></label>
       <label>${t("category")}
@@ -1409,15 +1416,24 @@ function openEntityModal(entity) {
       <div class="button-row"><button type="submit">${t("save")}</button></div>
     </form>
   `, (form) => {
+    const title = String(form.get("title") || "").trim();
+    if (!title) {
+      alert(t("pageTitleRequired"));
+      return false;
+    }
     const categoryId = form.get("categoryId");
+    if (!categoryId || !categories.some((item) => item.id === categoryId)) {
+      alert(t("targetCategoryMissing"));
+      return false;
+    }
     const tagIds = ensureTags(String(form.get("tags") || ""));
     const customFieldValues = {};
     for (const [key, value] of form.entries()) {
       if (key.startsWith("field:") && value) customFieldValues[key.slice(6)] = value;
     }
-    if (entity) {
+    if (isEditing) {
       updateItem("entities", entity.id, {
-        title: form.get("title"),
+        title,
         categoryId,
         summary: form.get("summary"),
         content: form.get("content"),
@@ -1431,7 +1447,7 @@ function openEntityModal(entity) {
       id: entityId,
       universeId: state.selectedUniverseId,
       categoryId,
-      title: form.get("title"),
+      title,
       summary: form.get("summary"),
       content: form.get("content"),
       customFieldValues,
@@ -1443,6 +1459,7 @@ function openEntityModal(entity) {
       deletedAt: null,
     });
     state.selectedEntityId = entityId;
+    state.selectedCategoryId = categoryId;
     saveState();
     render();
   });

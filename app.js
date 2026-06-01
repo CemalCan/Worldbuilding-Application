@@ -157,6 +157,20 @@ const translations = {
     importConfirm: "will be imported.",
     importCounts: "categories,",
     importPages: "pages found.",
+    wizardBasicInfo: "Basic Info",
+    wizardTemplate: "Template",
+    wizardCategories: "Categories",
+    wizardAppearance: "Appearance",
+    wizardReview: "Review",
+    next: "Next",
+    back: "Back",
+    selectedCategories: "Selected categories",
+    selectAtLeastOneCategory: "Select at least one category.",
+    reviewName: "Name",
+    reviewTemplate: "Template",
+    reviewAppearance: "Appearance",
+    reviewCategories: "Categories",
+    noDescription: "No description.",
   },
   tr: {
     idea: "Fikir",
@@ -270,6 +284,20 @@ const translations = {
     importConfirm: "import edilecek.",
     importCounts: "kategori,",
     importPages: "sayfa bulundu.",
+    wizardBasicInfo: "Temel Bilgi",
+    wizardTemplate: "Şablon",
+    wizardCategories: "Kategoriler",
+    wizardAppearance: "Görünüm",
+    wizardReview: "Önizleme",
+    next: "İleri",
+    back: "Geri",
+    selectedCategories: "Seçili kategoriler",
+    selectAtLeastOneCategory: "En az bir kategori seçin.",
+    reviewName: "Ad",
+    reviewTemplate: "Şablon",
+    reviewAppearance: "Görünüm",
+    reviewCategories: "Kategoriler",
+    noDescription: "Açıklama yok.",
   },
 };
 
@@ -1090,8 +1118,12 @@ function openModal(title, bodyHtml, onSubmit) {
 
 function openUniverseModal(universe) {
   const isEditing = Boolean(universe?.id);
-  const templates = activeItems(state.templates);
-  openModal(isEditing ? t("universeEdit") : t("universeCreate"), `
+  if (!isEditing) {
+    openUniverseWizard();
+    return;
+  }
+
+  openModal(t("universeEdit"), `
     <form class="form-grid">
       <label>${t("universeName")} <input name="name" required value="${escapeHtml(universe?.name || "")}" /></label>
       <label>${t("description")} <textarea name="description">${escapeHtml(universe?.description || "")}</textarea></label>
@@ -1100,17 +1132,7 @@ function openUniverseModal(universe) {
           ${["system", "light", "dark", "parchment", "neon", "minimal"].map((theme) => `<option value="${theme}" ${universe?.themeId === theme ? "selected" : ""}>${theme}</option>`).join("")}
         </select>
       </label>
-      ${isEditing ? "" : `
-        <div class="template-grid">
-          ${templates.map((template, index) => `
-            <label class="template-option">
-              <span><input type="radio" name="templateId" value="${template.id}" ${index === 0 ? "checked" : ""} /> <strong>${escapeHtml(template.name)}</strong></span>
-              <small>${escapeHtml(template.description || "")}</small>
-            </label>
-          `).join("")}
-        </div>
-      `}
-      <div class="button-row"><button type="submit">${isEditing ? t("save") : t("create")}</button></div>
+      <div class="button-row"><button type="submit">${t("save")}</button></div>
     </form>
   `, (form) => {
     const name = String(form.get("name") || "").trim();
@@ -1119,51 +1141,198 @@ function openUniverseModal(universe) {
       return false;
     }
 
-    if (isEditing) {
-      updateItem("universes", universe.id, {
-        name,
-        description: form.get("description"),
-        themeId: form.get("themeId"),
-      });
-      return;
-    }
-    const universeId = id("universe");
-    const template = state.templates.find((item) => item.id === form.get("templateId")) || builtInTemplates[0];
-    const newUniverse = {
-      id: universeId,
+    updateItem("universes", universe.id, {
       name,
       description: form.get("description"),
-      templateId: template.id,
-      coverImage: "",
       themeId: form.get("themeId"),
-      createdAt: now(),
-      updatedAt: now(),
-      deletedAt: null,
-    };
-    const categories = template.categoryPresets.map((preset, order) => ({
-      id: id("category"),
-      universeId,
-      name: preset.name,
-      description: "",
-      icon: "",
-      color: "",
-      order,
-      isDefault: true,
-      isHidden: false,
-      customFields: [],
-      createdAt: now(),
-      updatedAt: now(),
-      deletedAt: null,
-    }));
-    state.universes.push(newUniverse);
-    state.categories.push(...categories);
-    state.selectedUniverseId = universeId;
-    state.selectedCategoryId = categories[0]?.id || null;
-    state.selectedEntityId = null;
-    state.view = "universe";
-    saveState();
-    render();
+    });
   });
+}
+
+function createUniverseFromSelection({ name, description, templateId, themeId, categoryPresets }) {
+  const universeId = id("universe");
+  const selectedPresets = categoryPresets.length ? categoryPresets : [{ name: t("notes") }];
+  const newUniverse = {
+    id: universeId,
+    name,
+    description,
+    templateId,
+    coverImage: "",
+    themeId,
+    createdAt: now(),
+    updatedAt: now(),
+    deletedAt: null,
+  };
+  const categories = selectedPresets.map((preset, order) => ({
+    id: id("category"),
+    universeId,
+    name: preset.name,
+    description: "",
+    icon: "",
+    color: "",
+    order,
+    isDefault: true,
+    isHidden: false,
+    customFields: [],
+    createdAt: now(),
+    updatedAt: now(),
+    deletedAt: null,
+  }));
+  state.universes.push(newUniverse);
+  state.categories.push(...categories);
+  state.selectedUniverseId = universeId;
+  state.selectedCategoryId = categories[0]?.id || null;
+  state.selectedEntityId = null;
+  state.view = "universe";
+  state.search = "";
+  saveState();
+  render();
+}
+
+function openUniverseWizard() {
+  const templates = activeItems(state.templates);
+  const wizard = {
+    step: 0,
+    name: "",
+    description: "",
+    templateId: templates[0]?.id || builtInTemplates[0].id,
+    themeId: state.settings.theme || "system",
+    selectedCategoryNames: new Set((templates[0] || builtInTemplates[0]).categoryPresets.map((preset) => preset.name)),
+  };
+  const stepKeys = ["wizardBasicInfo", "wizardTemplate", "wizardCategories", "wizardAppearance", "wizardReview"];
+  const template = document.getElementById("modal-template");
+  const fragment = template.content.cloneNode(true);
+  const backdrop = fragment.querySelector(".modal-backdrop");
+  const title = fragment.querySelector("[data-modal-title]");
+  const body = fragment.querySelector("[data-modal-body]");
+
+  const getTemplate = () => templates.find((item) => item.id === wizard.templateId) || templates[0] || builtInTemplates[0];
+  const close = () => backdrop.remove();
+  backdrop.addEventListener("click", (event) => {
+    if (event.target.dataset.modalClose !== undefined) close();
+  });
+
+  function syncInputs() {
+    const nameInput = body.querySelector("[data-wizard-name]");
+    const descriptionInput = body.querySelector("[data-wizard-description]");
+    const themeInput = body.querySelector("[data-wizard-theme]");
+    if (nameInput) wizard.name = nameInput.value.trim();
+    if (descriptionInput) wizard.description = descriptionInput.value;
+    if (themeInput) wizard.themeId = themeInput.value;
+  }
+
+  function validateStep() {
+    syncInputs();
+    if (wizard.step === 0 && !wizard.name) {
+      alert(t("universeNameRequired"));
+      return false;
+    }
+    if (wizard.step === 2 && wizard.selectedCategoryNames.size === 0) {
+      alert(t("selectAtLeastOneCategory"));
+      return false;
+    }
+    return true;
+  }
+
+  function renderWizard() {
+    const currentTemplate = getTemplate();
+    title.textContent = t("universeCreate");
+    const stepLabel = `${wizard.step + 1}. ${t(stepKeys[wizard.step])}`;
+    const categoryPresets = currentTemplate.categoryPresets || [];
+    const selectedCategories = categoryPresets.filter((preset) => wizard.selectedCategoryNames.has(preset.name));
+    const content = [
+      `<div class="wizard-steps">${stepKeys.map((key, index) => `<span class="badge ${index === wizard.step ? "is-active" : ""}">${index + 1}. ${t(key)}</span>`).join("")}</div>`,
+      `<h3>${stepLabel}</h3>`,
+      wizard.step === 0 ? `
+        <div class="form-grid">
+          <label>${t("universeName")} <input data-wizard-name required value="${escapeHtml(wizard.name)}" /></label>
+          <label>${t("description")} <textarea data-wizard-description>${escapeHtml(wizard.description)}</textarea></label>
+        </div>
+      ` : "",
+      wizard.step === 1 ? `
+        <div class="template-grid">
+          ${templates.map((item) => `
+            <label class="template-option">
+              <span><input type="radio" name="wizardTemplate" value="${item.id}" ${item.id === wizard.templateId ? "checked" : ""} /> <strong>${escapeHtml(item.name)}</strong></span>
+              <small>${escapeHtml(item.description || t("noDescription"))}</small>
+            </label>
+          `).join("")}
+        </div>
+      ` : "",
+      wizard.step === 2 ? `
+        <p class="muted">${t("selectedCategories")}: ${selectedCategories.length}</p>
+        <div class="template-grid">
+          ${categoryPresets.map((preset) => `
+            <label class="template-option">
+              <span><input type="checkbox" data-wizard-category value="${escapeHtml(preset.name)}" ${wizard.selectedCategoryNames.has(preset.name) ? "checked" : ""} /> <strong>${escapeHtml(preset.name)}</strong></span>
+            </label>
+          `).join("")}
+        </div>
+      ` : "",
+      wizard.step === 3 ? `
+        <label>${t("theme")}
+          <select data-wizard-theme>
+            ${["system", "light", "dark", "parchment", "neon", "minimal"].map((theme) => `<option value="${theme}" ${wizard.themeId === theme ? "selected" : ""}>${theme}</option>`).join("")}
+          </select>
+        </label>
+      ` : "",
+      wizard.step === 4 ? `
+        <div class="card stack">
+          <p><strong>${t("reviewName")}:</strong> ${escapeHtml(wizard.name)}</p>
+          <p><strong>${t("description")}:</strong> ${escapeHtml(wizard.description || t("noDescription"))}</p>
+          <p><strong>${t("reviewTemplate")}:</strong> ${escapeHtml(currentTemplate.name)}</p>
+          <p><strong>${t("reviewAppearance")}:</strong> ${escapeHtml(wizard.themeId)}</p>
+          <p><strong>${t("reviewCategories")}:</strong> ${selectedCategories.map((preset) => escapeHtml(preset.name)).join(", ")}</p>
+        </div>
+      ` : "",
+      `<div class="button-row">
+        <button class="secondary" type="button" data-wizard-back ${wizard.step === 0 ? "disabled" : ""}>${t("back")}</button>
+        ${wizard.step < stepKeys.length - 1
+          ? `<button type="button" data-wizard-next>${t("next")}</button>`
+          : `<button type="button" data-wizard-create>${t("create")}</button>`}
+      </div>`,
+    ].join("");
+    body.innerHTML = content;
+
+    body.querySelectorAll("input[name='wizardTemplate']").forEach((input) => {
+      input.addEventListener("change", () => {
+        syncInputs();
+        wizard.templateId = input.value;
+        wizard.selectedCategoryNames = new Set(getTemplate().categoryPresets.map((preset) => preset.name));
+        renderWizard();
+      });
+    });
+    body.querySelectorAll("[data-wizard-category]").forEach((input) => {
+      input.addEventListener("change", () => {
+        if (input.checked) wizard.selectedCategoryNames.add(input.value);
+        else wizard.selectedCategoryNames.delete(input.value);
+      });
+    });
+    body.querySelector("[data-wizard-back]")?.addEventListener("click", () => {
+      syncInputs();
+      wizard.step = Math.max(0, wizard.step - 1);
+      renderWizard();
+    });
+    body.querySelector("[data-wizard-next]")?.addEventListener("click", () => {
+      if (!validateStep()) return;
+      wizard.step = Math.min(stepKeys.length - 1, wizard.step + 1);
+      renderWizard();
+    });
+    body.querySelector("[data-wizard-create]")?.addEventListener("click", () => {
+      if (!validateStep()) return;
+      createUniverseFromSelection({
+        name: wizard.name,
+        description: wizard.description,
+        templateId: wizard.templateId,
+        themeId: wizard.themeId,
+        categoryPresets: categoryPresets.filter((preset) => wizard.selectedCategoryNames.has(preset.name)),
+      });
+      close();
+    });
+  }
+
+  renderWizard();
+  document.body.appendChild(fragment);
 }
 
 function openCategoryModal(category) {

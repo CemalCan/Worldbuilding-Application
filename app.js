@@ -179,7 +179,7 @@ function renderTopbar(universe) {
       <button class="brand ghost" data-action="home">
         <span class="brand__mark">H</span>
         <span>
-          <h1>Hikaye</h1>
+          <h1>Loreforge</h1>
           <p>${universe ? escapeHtml(universe.name) : "Offline worldbuilding çekirdeği"}</p>
         </span>
       </button>
@@ -1104,7 +1104,7 @@ function exportUniverse() {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = `${universe.name.replace(/[^\wğüşöçıİĞÜŞÖÇ-]+/gi, "-")}.hikaye.json`;
+  link.download = `${universe.name.replace(/[^\wğüşöçıİĞÜŞÖÇ-]+/gi, "-")}.loreforge.json`;
   link.click();
   URL.revokeObjectURL(link.href);
 }
@@ -1119,7 +1119,7 @@ function importUniverse() {
     try {
       const payload = JSON.parse(await file.text());
       if (!payload.universe || !Array.isArray(payload.categories) || !Array.isArray(payload.entities)) {
-        throw new Error("Geçersiz Hikaye JSON dosyası.");
+        throw new Error("Geçersiz Loreforge JSON dosyası.");
       }
       const ok = confirm(`${payload.universe.name} import edilecek. ${payload.categories.length} kategori, ${payload.entities.length} sayfa bulundu.`);
       if (!ok) return;

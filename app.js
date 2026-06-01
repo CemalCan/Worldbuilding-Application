@@ -38,11 +38,245 @@ const defaultSettings = {
   compactMode: false,
   autoSave: true,
   trashRetentionDays: 30,
-  language: "tr",
+  language: "en",
 };
 
 let storageRecoveryMessage = "";
 let state = loadState();
+
+const translations = {
+  en: {
+    idea: "Idea",
+    export: "Export",
+    settings: "Settings",
+    newUniverse: "New Universe",
+    universes: "Universes",
+    localData: "Data is stored locally in this browser.",
+    searchUniverses: "Search universes",
+    noUniverses: "No universes yet",
+    noUniversesHelp: "Start with a template or a blank universe to create your local archive.",
+    open: "Open",
+    edit: "Edit",
+    delete: "Delete",
+    categories: "Categories",
+    addCategory: "Add category",
+    searchPages: "Search pages, notes, tags",
+    templates: "Templates",
+    trash: "Trash",
+    hiddenCategory: "category hidden.",
+    hiddenCategories: "categories hidden.",
+    show: "show",
+    noCategory: "No category",
+    page: "Page",
+    category: "Category",
+    up: "Up",
+    down: "Down",
+    hide: "Hide",
+    noPages: "No pages in this category",
+    noPagesHelp: "Create a character, place, event, quest, or any page you need.",
+    createPage: "Create Page",
+    list: "List",
+    noTags: "No tags",
+    noContent: "No content added.",
+    customFields: "Custom Fields",
+    ideaInbox: "Idea Inbox",
+    noInboxNotes: "No unattached quick notes.",
+    links: "Links",
+    addRelationship: "Add relationship",
+    relationshipNeedsTarget: "Create another page in this universe before adding a relationship.",
+    noOutgoing: "No outgoing relationships.",
+    noIncoming: "No incoming relationships.",
+    notes: "Notes",
+    addNote: "Add note",
+    noNotes: "No notes on this page.",
+    deleteRelationship: "Delete Relationship",
+    attach: "Attach",
+    customTemplate: "Custom Template",
+    builtIn: "Built-in",
+    custom: "Custom",
+    deletedAt: "Deleted at",
+    restore: "Restore",
+    permanentDelete: "Delete Permanently",
+    emptyTrash: "Trash is empty",
+    emptyTrashHelp: "Deleted items are kept here first.",
+    confirmUniverseDelete: "This universe will be moved to trash. Continue?",
+    categoryDeletePrompt: "Category delete: 1=move pages to trash, 2=move pages to another category, 3=hide only",
+    categoryMovePrompt: "Move pages to which category?",
+    targetCategoryMissing: "Valid target category not found.",
+    confirmPageDelete: "This page will be moved to trash. Continue?",
+    confirmRelationshipDelete: "This relationship will be moved to trash.",
+    confirmNoteDelete: "This note will be moved to trash.",
+    attachNotePrompt: "Which page should this note attach to? Enter the page title.",
+    pageNotFound: "Page not found.",
+    confirmTemplateDelete: "Delete custom template?",
+    confirmPermanentDelete: "This cannot be undone. Are you sure you want to permanently delete it?",
+    fallbackCategoryPrompt: "This page's category no longer exists. Enter an existing category to restore it:",
+    entityRestoreBlocked: "This page could not be restored. Restore its category first or choose an existing category.",
+    noteRestoreBlocked: "This note could not be restored because its linked page does not exist.",
+    relationshipRestoreBlocked: "This relationship could not be restored because one of its linked pages does not exist.",
+    universeEdit: "Edit Universe",
+    universeCreate: "New Universe",
+    universeName: "Universe name",
+    description: "Description",
+    theme: "Theme",
+    save: "Save",
+    create: "Create",
+    universeNameRequired: "Universe name is required.",
+    categoryEdit: "Edit Category",
+    categoryCreate: "Create Category",
+    name: "Name",
+    icon: "Icon",
+    color: "Color",
+    customFieldsLabel: "Custom fields",
+    title: "Title",
+    summary: "Summary",
+    content: "Content",
+    markdownSupported: "Markdown supported",
+    tags: "Tags",
+    targetPageMissingTitle: "No target page",
+    targetPageMissingHelp: "Create at least one other page in this universe before adding a relationship.",
+    targetPage: "Target page",
+    relationshipType: "Relationship type",
+    reverseRelationship: "Reverse relationship",
+    validTargetMissing: "A valid target page was not selected.",
+    noteType: "Type",
+    note: "Note",
+    templateName: "Template name",
+    categoriesLabel: "Categories",
+    fontSize: "Font size",
+    accentColor: "Accent color",
+    trashRetention: "Trash retention days",
+    compactMode: "Compact mode",
+    autoSave: "Auto-save",
+    language: "Language",
+    english: "English",
+    turkish: "Turkish",
+    resetAppearance: "Reset appearance",
+    resetUniverse: "Reset universe visibility",
+    resetApp: "Reset app settings",
+    importConfirm: "will be imported.",
+    importCounts: "categories,",
+    importPages: "pages found.",
+  },
+  tr: {
+    idea: "Fikir",
+    export: "Export",
+    settings: "Ayarlar",
+    newUniverse: "Yeni Evren",
+    universes: "Evrenler",
+    localData: "Veriler bu tarayıcıda yerel olarak saklanır.",
+    searchUniverses: "Evren ara",
+    noUniverses: "Henüz evren yok",
+    noUniversesHelp: "Bir şablon seçerek ya da boş evrenle başlayarak yerel arşivini oluştur.",
+    open: "Aç",
+    edit: "Düzenle",
+    delete: "Sil",
+    categories: "Kategoriler",
+    addCategory: "Kategori ekle",
+    searchPages: "Sayfa, not, etiket ara",
+    templates: "Şablonlar",
+    trash: "Çöp Kutusu",
+    hiddenCategory: "kategori gizli.",
+    hiddenCategories: "kategori gizli.",
+    show: "göster",
+    noCategory: "Kategori yok",
+    page: "Sayfa",
+    category: "Kategori",
+    up: "Yukarı",
+    down: "Aşağı",
+    hide: "Gizle",
+    noPages: "Bu kategoride sayfa yok",
+    noPagesHelp: "Karakter, mekan, olay, görev veya kendi ihtiyacına göre herhangi bir sayfa oluştur.",
+    createPage: "Sayfa Oluştur",
+    list: "Liste",
+    noTags: "Etiket yok",
+    noContent: "İçerik eklenmedi.",
+    customFields: "Özel Alanlar",
+    ideaInbox: "Fikir Kutusu",
+    noInboxNotes: "Bağlanmamış hızlı not yok.",
+    links: "Bağlantılar",
+    addRelationship: "İlişki ekle",
+    relationshipNeedsTarget: "İlişki oluşturmak için bu evrende en az bir başka sayfa olmalı.",
+    noOutgoing: "Çıkış ilişkisi yok.",
+    noIncoming: "Gelen ilişki yok.",
+    notes: "Notlar",
+    addNote: "Not ekle",
+    noNotes: "Bu sayfada not yok.",
+    deleteRelationship: "İlişkiyi Sil",
+    attach: "Bağla",
+    customTemplate: "Özel Şablon",
+    builtIn: "Yerleşik",
+    custom: "Özel",
+    deletedAt: "Silinme tarihi",
+    restore: "Geri Yükle",
+    permanentDelete: "Kalıcı Sil",
+    emptyTrash: "Çöp kutusu boş",
+    emptyTrashHelp: "Silinen öğeler önce burada tutulur.",
+    confirmUniverseDelete: "Bu evren geri dönüşüm kutusuna taşınacak. Devam etmek istiyor musun?",
+    categoryDeletePrompt: "Kategori silme: 1=sayfalarla çöpe taşı, 2=sayfaları başka kategoriye taşı, 3=sadece gizle",
+    categoryMovePrompt: "Sayfalar hangi kategoriye taşınsın?",
+    targetCategoryMissing: "Geçerli hedef kategori bulunamadı.",
+    confirmPageDelete: "Bu sayfa geri dönüşüm kutusuna taşınacak. Devam etmek istiyor musun?",
+    confirmRelationshipDelete: "Bu ilişki geri dönüşüm kutusuna taşınacak.",
+    confirmNoteDelete: "Bu not geri dönüşüm kutusuna taşınacak.",
+    attachNotePrompt: "Not hangi sayfaya bağlansın? Sayfa başlığını yaz.",
+    pageNotFound: "Sayfa bulunamadı.",
+    confirmTemplateDelete: "Özel şablon silinsin mi?",
+    confirmPermanentDelete: "Bu işlem geri alınamaz. Kalıcı olarak silmek istediğine emin misin?",
+    fallbackCategoryPrompt: "Bu sayfanın kategorisi artık mevcut değil. Geri yüklemek için mevcut bir kategori yaz:",
+    entityRestoreBlocked: "Bu sayfa geri yüklenemedi. Önce kategorisini geri yükleyin veya mevcut bir kategori seçin.",
+    noteRestoreBlocked: "Bu not geri yüklenemedi çünkü bağlı olduğu sayfa mevcut değil.",
+    relationshipRestoreBlocked: "Bu ilişki geri yüklenemedi çünkü bağlı sayfalardan biri mevcut değil.",
+    universeEdit: "Evren Düzenle",
+    universeCreate: "Yeni Evren",
+    universeName: "Evren adı",
+    description: "Açıklama",
+    theme: "Tema",
+    save: "Kaydet",
+    create: "Oluştur",
+    universeNameRequired: "Evren adı zorunludur.",
+    categoryEdit: "Kategori Düzenle",
+    categoryCreate: "Kategori Oluştur",
+    name: "Ad",
+    icon: "İkon",
+    color: "Renk",
+    customFieldsLabel: "Özel alanlar",
+    title: "Başlık",
+    summary: "Özet",
+    content: "İçerik",
+    markdownSupported: "Markdown desteklenir",
+    tags: "Etiketler",
+    targetPageMissingTitle: "Hedef sayfa yok",
+    targetPageMissingHelp: "İlişki oluşturmak için bu evrende seçili sayfa dışında en az bir sayfa daha olmalı.",
+    targetPage: "Hedef sayfa",
+    relationshipType: "İlişki tipi",
+    reverseRelationship: "Ters ilişki",
+    validTargetMissing: "Geçerli bir hedef sayfa seçilmedi.",
+    noteType: "Tür",
+    note: "Not",
+    templateName: "Şablon adı",
+    categoriesLabel: "Kategoriler",
+    fontSize: "Yazı boyutu",
+    accentColor: "Ana renk",
+    trashRetention: "Çöp saklama günü",
+    compactMode: "Kompakt mod",
+    autoSave: "Otomatik kaydet",
+    language: "Dil",
+    english: "İngilizce",
+    turkish: "Türkçe",
+    resetAppearance: "Görünümü sıfırla",
+    resetUniverse: "Evren görünürlüğünü sıfırla",
+    resetApp: "Uygulama ayarlarını sıfırla",
+    importConfirm: "import edilecek.",
+    importCounts: "kategori,",
+    importPages: "sayfa bulundu.",
+  },
+};
+
+function t(key) {
+  const language = state?.settings?.language || "en";
+  return translations[language]?.[key] || translations.en[key] || key;
+}
 
 function createDefaultState() {
   return {
@@ -86,7 +320,7 @@ function loadState() {
     };
   } catch (error) {
     console.warn("Loreforge could not read stored data.", error);
-    storageRecoveryMessage = "Kaydedilmiş yerel veri okunamadı. Loreforge güvenli boş durumla başlatıldı. Tarayıcı verilerini temizlemeden önce varsa export yedeğini kontrol edin.";
+    storageRecoveryMessage = "Saved local data could not be read. Loreforge started with a safe empty state. Check any exported backup before clearing browser data.";
     return createDefaultState();
   }
 }
@@ -205,10 +439,10 @@ function renderTopbar(universe) {
         </span>
       </button>
       <div class="topbar__actions">
-        ${universe ? `<button class="secondary" data-action="quick-note">Fikir</button>` : ""}
-        ${universe ? `<button class="secondary" data-action="export-universe">Export</button>` : ""}
-        <button class="secondary" data-action="settings">Ayarlar</button>
-        <button data-action="new-universe">Yeni Evren</button>
+        ${universe ? `<button class="secondary" data-action="quick-note">${t("idea")}</button>` : ""}
+        ${universe ? `<button class="secondary" data-action="export-universe">${t("export")}</button>` : ""}
+        <button class="secondary" data-action="settings">${t("settings")}</button>
+        <button data-action="new-universe">${t("newUniverse")}</button>
       </div>
     </header>
   `;
@@ -219,11 +453,11 @@ function renderHome() {
     <main class="home">
       <section class="home__header">
         <div>
-          <h2>Evrenler</h2>
-          <p>Veriler bu tarayıcıda yerel olarak saklanır.</p>
+          <h2>${t("universes")}</h2>
+          <p>${t("localData")}</p>
         </div>
         <div class="toolbar">
-          <input class="search-box" data-search placeholder="Evren ara" value="${escapeHtml(state.search)}" />
+          <input class="search-box" data-search placeholder="${t("searchUniverses")}" value="${escapeHtml(state.search)}" />
           <button class="secondary" data-action="import-universe">Import</button>
         </div>
       </section>
@@ -246,9 +480,9 @@ function renderHomeResults() {
         </section>
       ` : `
         <section class="empty">
-          <h3>Henüz evren yok</h3>
-          <p>Bir şablon seçerek ya da boş evrenle başlayarak yerel arşivini oluştur.</p>
-          <button data-action="new-universe">Yeni Evren</button>
+          <h3>${t("noUniverses")}</h3>
+          <p>${t("noUniversesHelp")}</p>
+          <button data-action="new-universe">${t("newUniverse")}</button>
         </section>
       `;
 }
@@ -270,9 +504,9 @@ function renderUniverseCard(universe) {
         <span class="badge">${entities} sayfa</span>
       </div>
       <div class="button-row">
-        <button data-action="open-universe" data-id="${universe.id}">Aç</button>
-        <button class="secondary" data-action="edit-universe" data-id="${universe.id}">Düzenle</button>
-        <button class="danger" data-action="delete-universe" data-id="${universe.id}">Sil</button>
+        <button data-action="open-universe" data-id="${universe.id}">${t("open")}</button>
+        <button class="secondary" data-action="edit-universe" data-id="${universe.id}">${t("edit")}</button>
+        <button class="danger" data-action="delete-universe" data-id="${universe.id}">${t("delete")}</button>
       </div>
     </article>
   `;
@@ -294,10 +528,10 @@ function renderLeftPanel(universe) {
   return `
     <aside class="panel stack">
       <div class="row">
-        <h2>Kategoriler</h2>
-        <button class="icon-button" data-action="new-category" title="Kategori ekle">+</button>
+        <h2>${t("categories")}</h2>
+        <button class="icon-button" data-action="new-category" title="${t("addCategory")}">+</button>
       </div>
-      <input data-search placeholder="Sayfa, not, etiket ara" value="${escapeHtml(state.search)}" />
+      <input data-search placeholder="${t("searchPages")}" value="${escapeHtml(state.search)}" />
       <div class="stack">
         ${categories.map((category) => {
           const count = universeEntities(universe.id).filter((entity) => entity.categoryId === category.id).length;
@@ -310,14 +544,14 @@ function renderLeftPanel(universe) {
         }).join("")}
       </div>
       <div class="button-row">
-        <button class="secondary" data-action="templates">Şablonlar</button>
-        <button class="secondary" data-action="trash">Çöp Kutusu</button>
+        <button class="secondary" data-action="templates">${t("templates")}</button>
+        <button class="secondary" data-action="trash">${t("trash")}</button>
       </div>
       ${hiddenCategories.length ? `
         <div class="stack">
-          <p class="muted">${hiddenCategories.length} kategori gizli.</p>
+          <p class="muted">${hiddenCategories.length} ${hiddenCategories.length === 1 ? t("hiddenCategory") : t("hiddenCategories")}</p>
           ${hiddenCategories.map((category) => `
-            <button class="secondary" data-action="show-category" data-id="${category.id}">${escapeHtml(category.name)} göster</button>
+            <button class="secondary" data-action="show-category" data-id="${category.id}">${escapeHtml(category.name)} ${t("show")}</button>
           `).join("")}
         </div>
       ` : ""}
@@ -345,14 +579,14 @@ function renderMainPanelContent(universe) {
   const entities = category ? filteredEntities(universe.id).filter((item) => item.categoryId === category.id) : [];
   return `
       <section class="toolbar">
-        <h2>${escapeHtml(category?.name || "Kategori yok")}</h2>
+        <h2>${escapeHtml(category?.name || t("noCategory"))}</h2>
         ${category ? `
-          <button data-action="new-entity">Sayfa</button>
-          <button class="secondary" data-action="edit-category" data-id="${category.id}">Kategori</button>
-          <button class="secondary" data-action="move-category-up" data-id="${category.id}">Yukarı</button>
-          <button class="secondary" data-action="move-category-down" data-id="${category.id}">Aşağı</button>
-          <button class="secondary" data-action="hide-category" data-id="${category.id}">Gizle</button>
-          <button class="danger" data-action="delete-category" data-id="${category.id}">Sil</button>
+          <button data-action="new-entity">${t("page")}</button>
+          <button class="secondary" data-action="edit-category" data-id="${category.id}">${t("category")}</button>
+          <button class="secondary" data-action="move-category-up" data-id="${category.id}">${t("up")}</button>
+          <button class="secondary" data-action="move-category-down" data-id="${category.id}">${t("down")}</button>
+          <button class="secondary" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
+          <button class="danger" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
         ` : ""}
       </section>
       ${entity ? renderEntityDetail(entity) : renderEntityList(entities)}
@@ -381,9 +615,9 @@ function renderEntityList(entities) {
   if (!entities.length) {
     return `
       <section class="empty">
-        <h3>Bu kategoride sayfa yok</h3>
-        <p>Karakter, mekan, olay, görev veya kendi ihtiyacına göre herhangi bir sayfa oluştur.</p>
-        <button data-action="new-entity">Sayfa Oluştur</button>
+        <h3>${t("noPages")}</h3>
+        <p>${t("noPagesHelp")}</p>
+        <button data-action="new-entity">${t("createPage")}</button>
       </section>
     `;
   }
@@ -413,15 +647,15 @@ function renderEntityDetail(entity) {
           <p>${escapeHtml(entity.summary || "")}</p>
         </div>
         <div class="button-row">
-          <button class="secondary" data-action="back-to-list">Liste</button>
-          <button data-action="edit-entity" data-id="${entity.id}">Düzenle</button>
-          <button class="danger" data-action="delete-entity" data-id="${entity.id}">Sil</button>
+          <button class="secondary" data-action="back-to-list">${t("list")}</button>
+          <button data-action="edit-entity" data-id="${entity.id}">${t("edit")}</button>
+          <button class="danger" data-action="delete-entity" data-id="${entity.id}">${t("delete")}</button>
         </div>
       </div>
       <div class="badge-list">
-        ${tags.map((tag) => `<span class="badge">${escapeHtml(tag.name)}</span>`).join("") || `<span class="badge">Etiket yok</span>`}
+        ${tags.map((tag) => `<span class="badge">${escapeHtml(tag.name)}</span>`).join("") || `<span class="badge">${t("noTags")}</span>`}
       </div>
-      <article class="card markdown">${markdownToHtml(entity.content || "İçerik eklenmedi.")}</article>
+      <article class="card markdown">${markdownToHtml(entity.content || t("noContent"))}</article>
       ${renderCustomFields(entity)}
     </section>
   `;
@@ -432,7 +666,7 @@ function renderCustomFields(entity) {
   if (!entries.length) return "";
   return `
     <section class="card stack">
-      <h3 class="section-title">Özel Alanlar</h3>
+      <h3 class="section-title">${t("customFields")}</h3>
       ${entries.map(([key, value]) => `
         <div>
           <strong>${escapeHtml(key)}</strong>
@@ -449,8 +683,8 @@ function renderRightPanel() {
     const inboxNotes = activeItems(state.notes).filter((note) => note.universeId === state.selectedUniverseId && !note.entityId);
     return `
       <aside class="side stack">
-        <h2>Fikir Kutusu</h2>
-        ${inboxNotes.length ? inboxNotes.map(renderNoteCard).join("") : `<p class="muted">Bağlanmamış hızlı not yok.</p>`}
+        <h2>${t("ideaInbox")}</h2>
+        ${inboxNotes.length ? inboxNotes.map(renderNoteCard).join("") : `<p class="muted">${t("noInboxNotes")}</p>`}
       </aside>
     `;
   }
@@ -461,18 +695,18 @@ function renderRightPanel() {
   return `
     <aside class="side stack">
       <div class="row">
-        <h2>Bağlantılar</h2>
-        <button class="icon-button" data-action="new-relationship" title="İlişki ekle" ${relationshipTargets.length ? "" : "disabled"}>+</button>
+        <h2>${t("links")}</h2>
+        <button class="icon-button" data-action="new-relationship" title="${t("addRelationship")}" ${relationshipTargets.length ? "" : "disabled"}>+</button>
       </div>
-      ${relationshipTargets.length ? "" : `<p class="muted">İlişki oluşturmak için bu evrende en az bir başka sayfa olmalı.</p>`}
-      ${outgoing.length ? outgoing.map((rel) => renderRelationship(rel, false)).join("") : `<p class="muted">Çıkış ilişkisi yok.</p>`}
+      ${relationshipTargets.length ? "" : `<p class="muted">${t("relationshipNeedsTarget")}</p>`}
+      ${outgoing.length ? outgoing.map((rel) => renderRelationship(rel, false)).join("") : `<p class="muted">${t("noOutgoing")}</p>`}
       <h2>Backlinks</h2>
-      ${incoming.length ? incoming.map((rel) => renderRelationship(rel, true)).join("") : `<p class="muted">Gelen ilişki yok.</p>`}
+      ${incoming.length ? incoming.map((rel) => renderRelationship(rel, true)).join("") : `<p class="muted">${t("noIncoming")}</p>`}
       <div class="row">
-        <h2>Notlar</h2>
-        <button class="icon-button" data-action="new-note" title="Not ekle">+</button>
+        <h2>${t("notes")}</h2>
+        <button class="icon-button" data-action="new-note" title="${t("addNote")}">+</button>
       </div>
-      ${notes.length ? notes.map(renderNoteCard).join("") : `<p class="muted">Bu sayfada not yok.</p>`}
+      ${notes.length ? notes.map(renderNoteCard).join("") : `<p class="muted">${t("noNotes")}</p>`}
     </aside>
   `;
 }
@@ -486,7 +720,7 @@ function renderRelationship(rel, incoming) {
       <strong>${escapeHtml(entity?.title || "Silinmiş sayfa")}</strong>
       <small>${escapeHtml(label)}${rel.description ? ` · ${escapeHtml(rel.description)}` : ""}</small>
     </button>
-    <button class="secondary" data-action="delete-relationship" data-id="${rel.id}">İlişkiyi Sil</button>
+    <button class="secondary" data-action="delete-relationship" data-id="${rel.id}">${t("deleteRelationship")}</button>
   `;
 }
 
@@ -504,8 +738,8 @@ function renderNoteCard(note) {
       </div>
       <div class="markdown">${markdownToHtml(note.content)}</div>
       <div class="button-row">
-        ${!note.entityId && currentUniverse() ? `<button class="secondary" data-action="attach-note" data-id="${note.id}">Bağla</button>` : ""}
-        <button class="danger" data-action="delete-note" data-id="${note.id}">Sil</button>
+        ${!note.entityId && currentUniverse() ? `<button class="secondary" data-action="attach-note" data-id="${note.id}">${t("attach")}</button>` : ""}
+        <button class="danger" data-action="delete-note" data-id="${note.id}">${t("delete")}</button>
       </div>
     </article>
   `;
@@ -516,8 +750,8 @@ function renderTemplates() {
   return `
     <main class="main stack">
       <section class="toolbar">
-        <h2>Şablonlar</h2>
-        <button data-action="new-template">Özel Şablon</button>
+        <h2>${t("templates")}</h2>
+        <button data-action="new-template">${t("customTemplate")}</button>
       </section>
       <section class="grid">
         ${templates.map((template) => `
@@ -528,9 +762,9 @@ function renderTemplates() {
             </div>
             <div class="badge-list">
               <span class="badge">${template.categoryPresets.length} kategori</span>
-              <span class="badge">${template.isBuiltIn ? "Yerleşik" : "Özel"}</span>
+              <span class="badge">${template.isBuiltIn ? t("builtIn") : t("custom")}</span>
             </div>
-            ${template.isBuiltIn ? "" : `<button class="danger" data-action="delete-template" data-id="${template.id}">Sil</button>`}
+            ${template.isBuiltIn ? "" : `<button class="danger" data-action="delete-template" data-id="${template.id}">${t("delete")}</button>`}
           </article>
         `).join("")}
       </section>
@@ -548,17 +782,17 @@ function renderTrash(universe) {
   ];
   return `
     <main class="main stack">
-      <h2>Geri Dönüşüm Kutusu</h2>
+      <h2>${t("trash")}</h2>
       ${deleted.length ? deleted.map(([type, item]) => `
         <article class="trash-row">
           <strong>${type}: ${escapeHtml(item.name || item.title || item.type || item.content?.slice(0, 32) || item.id)}</strong>
-          <small>Silinme tarihi: ${new Date(item.deletedAt).toLocaleString("tr-TR")}</small>
+          <small>${t("deletedAt")}: ${new Date(item.deletedAt).toLocaleString(state.settings.language === "tr" ? "tr-TR" : "en-US")}</small>
           <div class="button-row">
-            <button data-action="restore-item" data-kind="${type}" data-id="${item.id}">Geri Yükle</button>
-            <button class="danger" data-action="purge-item" data-kind="${type}" data-id="${item.id}">Kalıcı Sil</button>
+            <button data-action="restore-item" data-kind="${type}" data-id="${item.id}">${t("restore")}</button>
+            <button class="danger" data-action="purge-item" data-kind="${type}" data-id="${item.id}">${t("permanentDelete")}</button>
           </div>
         </article>
-      `).join("") : `<section class="empty"><h3>Çöp kutusu boş</h3><p>Silinen öğeler önce burada tutulur.</p></section>`}
+      `).join("") : `<section class="empty"><h3>${t("emptyTrash")}</h3><p>${t("emptyTrashHelp")}</p></section>`}
     </main>
   `;
 }
@@ -623,7 +857,7 @@ const actions = {
     openUniverseModal(universe);
   },
   "delete-universe"({ id: universeId }) {
-    if (!confirm("Bu evren geri dönüşüm kutusuna taşınacak. Devam etmek istiyor musun?")) return;
+    if (!confirm(t("confirmUniverseDelete"))) return;
     softDelete("universes", universeId);
     setState({ view: "home", selectedUniverseId: null });
   },
@@ -647,12 +881,12 @@ const actions = {
     moveCategory(categoryId, 1);
   },
   "delete-category"({ id: categoryId }) {
-    const choice = prompt("Kategori silme: 1=sayfalarla çöpe taşı, 2=sayfaları başka kategoriye taşı, 3=sadece gizle", "1");
+    const choice = prompt(t("categoryDeletePrompt"), "1");
     if (choice === "3") return updateItem("categories", categoryId, { isHidden: true });
     if (choice === "2") {
-      const targetName = prompt("Sayfalar hangi kategoriye taşınsın?");
+      const targetName = prompt(t("categoryMovePrompt"));
       const target = universeCategories().find((category) => category.name.toLocaleLowerCase("tr") === targetName?.toLocaleLowerCase("tr"));
-      if (!target || target.id === categoryId) return alert("Geçerli hedef kategori bulunamadı.");
+      if (!target || target.id === categoryId) return alert(t("targetCategoryMissing"));
       state.entities = state.entities.map((entity) => entity.categoryId === categoryId ? { ...entity, categoryId: target.id, updatedAt: now() } : entity);
     } else if (choice === "1") {
       state.entities = state.entities.map((entity) => entity.categoryId === categoryId ? { ...entity, deletedAt: now(), updatedAt: now() } : entity);
@@ -677,25 +911,25 @@ const actions = {
     openEntityModal(state.entities.find((entity) => entity.id === entityId));
   },
   "delete-entity"({ id: entityId }) {
-    if (!confirm("Bu sayfa geri dönüşüm kutusuna taşınacak. Devam etmek istiyor musun?")) return;
+    if (!confirm(t("confirmPageDelete"))) return;
     softDelete("entities", entityId);
     setState({ selectedEntityId: null });
   },
   "new-relationship": openRelationshipModal,
   "delete-relationship"({ id: relationshipId }) {
-    if (!confirm("Bu ilişki geri dönüşüm kutusuna taşınacak.")) return;
+    if (!confirm(t("confirmRelationshipDelete"))) return;
     softDelete("relationships", relationshipId);
   },
   "new-note": () => openNoteModal(currentEntity()?.id || null),
   "quick-note": () => openNoteModal(null),
   "delete-note"({ id: noteId }) {
-    if (!confirm("Bu not geri dönüşüm kutusuna taşınacak.")) return;
+    if (!confirm(t("confirmNoteDelete"))) return;
     softDelete("notes", noteId);
   },
   "attach-note"({ id: noteId }) {
-    const title = prompt("Not hangi sayfaya bağlansın? Sayfa başlığını yaz.");
+    const title = prompt(t("attachNotePrompt"));
     const entity = universeEntities().find((item) => item.title.toLocaleLowerCase("tr") === title?.toLocaleLowerCase("tr"));
-    if (!entity) return alert("Sayfa bulunamadı.");
+    if (!entity) return alert(t("pageNotFound"));
     updateItem("notes", noteId, { entityId: entity.id });
   },
   templates() {
@@ -703,7 +937,7 @@ const actions = {
   },
   "new-template": openTemplateModal,
   "delete-template"({ id: templateId }) {
-    if (!confirm("Özel şablon silinsin mi?")) return;
+    if (!confirm(t("confirmTemplateDelete"))) return;
     softDelete("templates", templateId);
   },
   trash() {
@@ -713,7 +947,7 @@ const actions = {
     restoreTrashItem(kind, itemId);
   },
   "purge-item"({ kind, id: itemId }) {
-    if (!confirm("Bu işlem geri alınamaz. Kalıcı olarak silmek istediğine emin misin?")) return;
+    if (!confirm(t("confirmPermanentDelete"))) return;
     purgeTrashItem(kind, itemId);
   },
   settings: openSettingsModal,
@@ -743,7 +977,7 @@ function pickFallbackCategory(universeId, currentCategoryId) {
   const categories = universeCategories(universeId, true).filter((category) => category.id !== currentCategoryId);
   if (!categories.length) return null;
   const categoryList = categories.map((category) => category.name).join(", ");
-  const targetName = prompt(`Bu sayfanın kategorisi artık mevcut değil. Geri yüklemek için mevcut bir kategori yaz: ${categoryList}`);
+  const targetName = prompt(`${t("fallbackCategoryPrompt")} ${categoryList}`);
   if (!targetName) return null;
   return categories.find((category) => category.name.toLocaleLowerCase("tr") === targetName.toLocaleLowerCase("tr")) || null;
 }
@@ -756,7 +990,7 @@ function restoreTrashItem(kind, itemId) {
   if (collection === "entities" && !activeCategoryExists(item.categoryId)) {
     const fallback = pickFallbackCategory(item.universeId, item.categoryId);
     if (!fallback) {
-      alert("Bu sayfa geri yüklenemedi. Önce kategorisini geri yükleyin veya mevcut bir kategori seçin.");
+      alert(t("entityRestoreBlocked"));
       return;
     }
     updateItem(collection, itemId, { categoryId: fallback.id, deletedAt: null });
@@ -764,12 +998,12 @@ function restoreTrashItem(kind, itemId) {
   }
 
   if (collection === "notes" && item.entityId && !activeEntityExists(item.entityId)) {
-    alert("Bu not geri yüklenemedi çünkü bağlı olduğu sayfa mevcut değil.");
+    alert(t("noteRestoreBlocked"));
     return;
   }
 
   if (collection === "relationships" && (!activeEntityExists(item.sourceEntityId) || !activeEntityExists(item.targetEntityId))) {
-    alert("Bu ilişki geri yüklenemedi çünkü bağlı sayfalardan biri mevcut değil.");
+    alert(t("relationshipRestoreBlocked"));
     return;
   }
 
@@ -857,11 +1091,11 @@ function openModal(title, bodyHtml, onSubmit) {
 function openUniverseModal(universe) {
   const isEditing = Boolean(universe?.id);
   const templates = activeItems(state.templates);
-  openModal(isEditing ? "Evren Düzenle" : "Yeni Evren", `
+  openModal(isEditing ? t("universeEdit") : t("universeCreate"), `
     <form class="form-grid">
-      <label>Evren adı <input name="name" required value="${escapeHtml(universe?.name || "")}" /></label>
-      <label>Açıklama <textarea name="description">${escapeHtml(universe?.description || "")}</textarea></label>
-      <label>Tema
+      <label>${t("universeName")} <input name="name" required value="${escapeHtml(universe?.name || "")}" /></label>
+      <label>${t("description")} <textarea name="description">${escapeHtml(universe?.description || "")}</textarea></label>
+      <label>${t("theme")}
         <select name="themeId">
           ${["system", "light", "dark", "parchment", "neon", "minimal"].map((theme) => `<option value="${theme}" ${universe?.themeId === theme ? "selected" : ""}>${theme}</option>`).join("")}
         </select>
@@ -876,12 +1110,12 @@ function openUniverseModal(universe) {
           `).join("")}
         </div>
       `}
-      <div class="button-row"><button type="submit">${isEditing ? "Kaydet" : "Oluştur"}</button></div>
+      <div class="button-row"><button type="submit">${isEditing ? t("save") : t("create")}</button></div>
     </form>
   `, (form) => {
     const name = String(form.get("name") || "").trim();
     if (!name) {
-      alert("Evren adı zorunludur.");
+      alert(t("universeNameRequired"));
       return false;
     }
 
@@ -933,16 +1167,16 @@ function openUniverseModal(universe) {
 }
 
 function openCategoryModal(category) {
-  openModal(category ? "Kategori Düzenle" : "Kategori Oluştur", `
+  openModal(category ? t("categoryEdit") : t("categoryCreate"), `
     <form class="form-grid">
-      <label>Ad <input name="name" required value="${escapeHtml(category?.name || "")}" /></label>
-      <label>Açıklama <textarea name="description">${escapeHtml(category?.description || "")}</textarea></label>
+      <label>${t("name")} <input name="name" required value="${escapeHtml(category?.name || "")}" /></label>
+      <label>${t("description")} <textarea name="description">${escapeHtml(category?.description || "")}</textarea></label>
       <div class="two-col">
-        <label>İkon <input name="icon" value="${escapeHtml(category?.icon || "")}" /></label>
-        <label>Renk <input name="color" type="color" value="${escapeHtml(category?.color || "#9a4f2e")}" /></label>
+        <label>${t("icon")} <input name="icon" value="${escapeHtml(category?.icon || "")}" /></label>
+        <label>${t("color")} <input name="color" type="color" value="${escapeHtml(category?.color || "#9a4f2e")}" /></label>
       </div>
-      <label>Özel alanlar <textarea name="customFields" placeholder="Ad:text&#10;Yaş:number">${escapeHtml((category?.customFields || []).map((field) => `${field.name}:${field.type}`).join("\n"))}</textarea></label>
-      <div class="button-row"><button type="submit">Kaydet</button></div>
+      <label>${t("customFieldsLabel")} <textarea name="customFields" placeholder="Name:text&#10;Age:number">${escapeHtml((category?.customFields || []).map((field) => `${field.name}:${field.type}`).join("\n"))}</textarea></label>
+      <div class="button-row"><button type="submit">${t("save")}</button></div>
     </form>
   `, (form) => {
     const fields = String(form.get("customFields") || "")
@@ -991,19 +1225,19 @@ function openEntityModal(entity) {
   const customFields = selectedCategory?.customFields || [];
   openModal(entity ? "Sayfa Düzenle" : "Sayfa Oluştur", `
     <form class="form-grid">
-      <label>Başlık <input name="title" required value="${escapeHtml(entity?.title || "")}" /></label>
-      <label>Kategori
+      <label>${t("title")} <input name="title" required value="${escapeHtml(entity?.title || "")}" /></label>
+      <label>${t("category")}
         <select name="categoryId">
           ${categories.map((item) => `<option value="${item.id}" ${item.id === selectedCategory?.id ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}
         </select>
       </label>
-      <label>Özet <textarea name="summary">${escapeHtml(entity?.summary || "")}</textarea></label>
-      <label>İçerik <textarea name="content" placeholder="Markdown desteklenir">${escapeHtml(entity?.content || "")}</textarea></label>
-      <label>Etiketler <input name="tags" placeholder="Ana karakter, Gizli" value="${escapeHtml((entity?.tagIds || []).map((tagId) => state.tags.find((tag) => tag.id === tagId)?.name).filter(Boolean).join(", "))}" /></label>
+      <label>${t("summary")} <textarea name="summary">${escapeHtml(entity?.summary || "")}</textarea></label>
+      <label>${t("content")} <textarea name="content" placeholder="${t("markdownSupported")}">${escapeHtml(entity?.content || "")}</textarea></label>
+      <label>${t("tags")} <input name="tags" placeholder="Main character, Secret" value="${escapeHtml((entity?.tagIds || []).map((tagId) => state.tags.find((tag) => tag.id === tagId)?.name).filter(Boolean).join(", "))}" /></label>
       ${customFields.map((field) => `
         <label>${escapeHtml(field.name)} <input name="field:${escapeHtml(field.name)}" value="${escapeHtml(entity?.customFieldValues?.[field.name] || "")}" /></label>
       `).join("")}
-      <div class="button-row"><button type="submit">Kaydet</button></div>
+      <div class="button-row"><button type="submit">${t("save")}</button></div>
     </form>
   `, (form) => {
     const categoryId = form.get("categoryId");
@@ -1063,26 +1297,26 @@ function openRelationshipModal() {
   const source = currentEntity();
   const targets = getRelationshipTargets(source);
   if (!source || !targets.length) {
-    openModal("İlişki Oluştur", `
+    openModal(t("addRelationship"), `
       <section class="empty">
-        <h3>Hedef sayfa yok</h3>
-        <p>İlişki oluşturmak için bu evrende seçili sayfa dışında en az bir sayfa daha olmalı.</p>
+        <h3>${t("targetPageMissingTitle")}</h3>
+        <p>${t("targetPageMissingHelp")}</p>
       </section>
     `);
     return;
   }
-  openModal("İlişki Oluştur", `
+  openModal(t("addRelationship"), `
     <form class="form-grid">
-      <label>Hedef sayfa
+      <label>${t("targetPage")}
         <select name="targetEntityId" required>
           ${targets.map((entity) => `<option value="${entity.id}">${escapeHtml(entity.title)}</option>`).join("")}
         </select>
       </label>
       <div class="two-col">
-        <label>İlişki tipi <input name="type" required placeholder="müttefiki" /></label>
-        <label>Ters ilişki <input name="reverseType" placeholder="müttefiki" /></label>
+        <label>${t("relationshipType")} <input name="type" required placeholder="ally" /></label>
+        <label>${t("reverseRelationship")} <input name="reverseType" placeholder="ally" /></label>
       </div>
-      <label>Açıklama <textarea name="description"></textarea></label>
+      <label>${t("description")} <textarea name="description"></textarea></label>
       <label>Spoiler
         <select name="spoilerLevel">
           <option value="none">none</option>
@@ -1091,13 +1325,13 @@ function openRelationshipModal() {
           <option value="high">high</option>
         </select>
       </label>
-      <div class="button-row"><button type="submit">Bağla</button></div>
+      <div class="button-row"><button type="submit">${t("attach")}</button></div>
     </form>
   `, (form) => {
     const targetEntityId = form.get("targetEntityId");
     const validTarget = getRelationshipTargets(source).some((entity) => entity.id === targetEntityId);
     if (!source || !validTarget || targetEntityId === source.id) {
-      alert("Geçerli bir hedef sayfa seçilmedi.");
+      alert(t("validTargetMissing"));
       return;
     }
     state.relationships.push({
@@ -1122,16 +1356,16 @@ function openRelationshipModal() {
 }
 
 function openNoteModal(entityId) {
-  openModal(entityId ? "Not Ekle" : "Hızlı Fikir", `
+  openModal(entityId ? t("addNote") : t("idea"), `
     <form class="form-grid">
-      <label>Başlık <input name="title" /></label>
-      <label>Tür
+      <label>${t("title")} <input name="title" /></label>
+      <label>${t("noteType")}
         <select name="type">
           ${["general", "hidden", "spoiler", "author", "rpg", "idea", "todo", "inconsistency"].map((type) => `<option value="${type}">${type}</option>`).join("")}
         </select>
       </label>
-      <label>Not <textarea name="content" required placeholder="Markdown desteklenir"></textarea></label>
-      <div class="button-row"><button type="submit">Kaydet</button></div>
+      <label>${t("note")} <textarea name="content" required placeholder="${t("markdownSupported")}"></textarea></label>
+      <div class="button-row"><button type="submit">${t("save")}</button></div>
     </form>
   `, (form) => {
     const type = form.get("type");
@@ -1155,12 +1389,12 @@ function openNoteModal(entityId) {
 }
 
 function openTemplateModal() {
-  openModal("Özel Şablon", `
+  openModal(t("customTemplate"), `
     <form class="form-grid">
-      <label>Ad <input name="name" required /></label>
-      <label>Açıklama <textarea name="description"></textarea></label>
-      <label>Kategoriler <textarea name="categories" required placeholder="Karakterler&#10;Hanedanlar&#10;Şehirler"></textarea></label>
-      <div class="button-row"><button type="submit">Kaydet</button></div>
+      <label>${t("name")} <input name="name" required /></label>
+      <label>${t("description")} <textarea name="description"></textarea></label>
+      <label>${t("categoriesLabel")} <textarea name="categories" required placeholder="Characters&#10;Families&#10;Cities"></textarea></label>
+      <div class="button-row"><button type="submit">${t("save")}</button></div>
     </form>
   `, (form) => {
     const categories = String(form.get("categories"))
@@ -1183,31 +1417,37 @@ function openTemplateModal() {
 }
 
 function openSettingsModal() {
-  openModal("Ayarlar", `
+  openModal(t("settings"), `
     <form class="form-grid">
       <div class="two-col">
-        <label>Tema
+        <label>${t("theme")}
           <select name="theme">
             ${["light", "dark", "system", "parchment", "neon", "minimal"].map((theme) => `<option value="${theme}" ${state.settings.theme === theme ? "selected" : ""}>${theme}</option>`).join("")}
           </select>
         </label>
-        <label>Yazı boyutu
+        <label>${t("fontSize")}
           <select name="fontSize">
             ${["small", "medium", "large"].map((size) => `<option value="${size}" ${state.settings.fontSize === size ? "selected" : ""}>${size}</option>`).join("")}
           </select>
         </label>
       </div>
       <div class="two-col">
-        <label>Ana renk <input name="accentColor" type="color" value="${escapeHtml(state.settings.accentColor || "#9a4f2e")}" /></label>
-        <label>Çöp saklama günü <input name="trashRetentionDays" type="number" min="1" value="${state.settings.trashRetentionDays}" /></label>
+        <label>${t("accentColor")} <input name="accentColor" type="color" value="${escapeHtml(state.settings.accentColor || "#9a4f2e")}" /></label>
+        <label>${t("trashRetention")} <input name="trashRetentionDays" type="number" min="1" value="${state.settings.trashRetentionDays}" /></label>
       </div>
-      <label><span><input name="compactMode" type="checkbox" ${state.settings.compactMode ? "checked" : ""} /> Kompakt mod</span></label>
-      <label><span><input name="autoSave" type="checkbox" ${state.settings.autoSave ? "checked" : ""} /> Otomatik kaydet</span></label>
+      <label>${t("language")}
+        <select name="language">
+          <option value="en" ${state.settings.language === "en" ? "selected" : ""}>${t("english")}</option>
+          <option value="tr" ${state.settings.language === "tr" ? "selected" : ""}>${t("turkish")}</option>
+        </select>
+      </label>
+      <label><span><input name="compactMode" type="checkbox" ${state.settings.compactMode ? "checked" : ""} /> ${t("compactMode")}</span></label>
+      <label><span><input name="autoSave" type="checkbox" ${state.settings.autoSave ? "checked" : ""} /> ${t("autoSave")}</span></label>
       <div class="button-row">
-        <button type="submit">Kaydet</button>
-        <button class="secondary" type="button" data-reset="appearance">Görünümü sıfırla</button>
-        <button class="secondary" type="button" data-reset="universe">Evren görünürlüğünü sıfırla</button>
-        <button class="secondary" type="button" data-reset="app">Uygulama ayarlarını sıfırla</button>
+        <button type="submit">${t("save")}</button>
+        <button class="secondary" type="button" data-reset="appearance">${t("resetAppearance")}</button>
+        <button class="secondary" type="button" data-reset="universe">${t("resetUniverse")}</button>
+        <button class="secondary" type="button" data-reset="app">${t("resetApp")}</button>
       </div>
     </form>
   `, (form) => {
@@ -1216,6 +1456,7 @@ function openSettingsModal() {
       theme: form.get("theme"),
       fontSize: form.get("fontSize"),
       accentColor: form.get("accentColor"),
+      language: form.get("language"),
       compactMode: form.get("compactMode") === "on",
       autoSave: form.get("autoSave") === "on",
       trashRetentionDays: Number(form.get("trashRetentionDays") || 30),
@@ -1369,7 +1610,7 @@ function importUniverse() {
     try {
       const payload = JSON.parse(await file.text());
       const validated = validateImportPayload(payload);
-      const ok = confirm(`${payload.universe.name} import edilecek. ${validated.categories.length} kategori, ${validated.entities.length} sayfa bulundu.`);
+      const ok = confirm(`${payload.universe.name} ${t("importConfirm")} ${validated.categories.length} ${t("importCounts")} ${validated.entities.length} ${t("importPages")}`);
       if (!ok) return;
       const idMap = new Map();
       const mapId = (oldId, prefix) => {

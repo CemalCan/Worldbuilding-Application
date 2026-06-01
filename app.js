@@ -246,6 +246,71 @@ function getFieldPresetNames(categoryName) {
   return group ? categoryFieldPresetGroups[group] || [] : [];
 }
 
+const entityTypeLabels = {
+  en: {
+    characters: { singular: "character", plural: "characters" },
+    families: { singular: "family", plural: "families" },
+    locations: { singular: "location", plural: "locations" },
+    events: { singular: "event", plural: "events" },
+    religions: { singular: "religion", plural: "religions" },
+    magic: { singular: "magic entry", plural: "magic entries" },
+    items: { singular: "item", plural: "items" },
+    organizations: { singular: "organization", plural: "organizations" },
+    rpgNpcs: { singular: "NPC", plural: "NPCs" },
+    quests: { singular: "quest", plural: "quests" },
+    sessionNotes: { singular: "session note", plural: "session notes" },
+    entry: { singular: "entry", plural: "entries" },
+  },
+  tr: {
+    characters: { singular: "Karakter", plural: "karakter" },
+    families: { singular: "Aile", plural: "aile" },
+    locations: { singular: "Mekan", plural: "mekan" },
+    events: { singular: "Olay", plural: "olay" },
+    religions: { singular: "Din", plural: "din" },
+    magic: { singular: "Büyü", plural: "büyü" },
+    items: { singular: "Eşya", plural: "eşya" },
+    organizations: { singular: "Örgüt", plural: "örgüt" },
+    rpgNpcs: { singular: "NPC", plural: "NPC" },
+    quests: { singular: "Görev", plural: "görev" },
+    sessionNotes: { singular: "Oturum notu", plural: "oturum notu" },
+    entry: { singular: "Kayıt", plural: "kayıt" },
+  },
+};
+
+function getCategoryTypeKey(category) {
+  return categoryPresetAliases[normalizeCategoryName(category?.name)] || "entry";
+}
+
+function getEntityTypeLabel(category, form = "singular") {
+  const language = state?.settings?.language || "en";
+  const key = getCategoryTypeKey(category);
+  return entityTypeLabels[language]?.[key]?.[form] || entityTypeLabels.en.entry[form];
+}
+
+function createEntityLabel(category) {
+  const language = state?.settings?.language || "en";
+  const label = getEntityTypeLabel(category, "singular");
+  return language === "tr" ? `${label} oluştur` : `Create ${label}`;
+}
+
+function editEntityLabel(category) {
+  const language = state?.settings?.language || "en";
+  const label = getEntityTypeLabel(category, "singular");
+  return language === "tr" ? `${label} düzenle` : `Edit ${label}`;
+}
+
+function emptyEntityLabel(category) {
+  const language = state?.settings?.language || "en";
+  const label = getEntityTypeLabel(category, "plural");
+  return language === "tr" ? `Henüz ${label} yok` : `No ${label} yet`;
+}
+
+function entityTitleRequiredMessage(category) {
+  const language = state?.settings?.language || "en";
+  const label = getEntityTypeLabel(category, "singular");
+  return language === "tr" ? `${label} başlığı zorunludur.` : `${label[0].toUpperCase()}${label.slice(1)} title is required.`;
+}
+
 function createFieldDefinitions(categoryName) {
   return getFieldPresetNames(categoryName).map((name) => ({
     id: id("field"),
@@ -886,7 +951,7 @@ function renderMainPanelContent(universe) {
       <section class="toolbar">
         <h2>${escapeHtml(category?.name || t("noCategory"))}</h2>
         ${category ? `
-          <button data-action="new-entity">${t("page")}</button>
+          <button data-action="new-entity">${createEntityLabel(category)}</button>
           <button class="secondary" data-action="edit-category" data-id="${category.id}">${t("category")}</button>
           <button class="secondary" data-action="move-category-up" data-id="${category.id}">${t("up")}</button>
           <button class="secondary" data-action="move-category-down" data-id="${category.id}">${t("down")}</button>
@@ -894,7 +959,7 @@ function renderMainPanelContent(universe) {
           <button class="danger" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
         ` : ""}
       </section>
-      ${entity ? renderEntityDetail(entity) : renderEntityList(entities)}
+      ${entity ? renderEntityDetail(entity) : renderEntityList(entities, category)}
   `;
 }
 
@@ -916,13 +981,13 @@ function filteredEntities(universeId) {
   });
 }
 
-function renderEntityList(entities) {
+function renderEntityList(entities, category) {
   if (!entities.length) {
     return `
       <section class="empty">
-        <h3>${t("noPages")}</h3>
+        <h3>${emptyEntityLabel(category)}</h3>
         <p>${t("noPagesHelp")}</p>
-        <button data-action="new-entity">${t("createPage")}</button>
+        <button data-action="new-entity">${createEntityLabel(category)}</button>
       </section>
     `;
   }
@@ -1724,7 +1789,7 @@ function openEntityModal(entity) {
   const categories = universeCategories();
   const selectedCategory = isEditing ? state.categories.find((item) => item.id === entity.categoryId) : category;
   const customFields = selectedCategory?.customFields || [];
-  openModal(isEditing ? t("editPage") : t("createPage"), `
+  openModal(isEditing ? editEntityLabel(selectedCategory) : createEntityLabel(selectedCategory), `
     <form class="form-grid">
       <label>${t("title")} <input name="title" required value="${escapeHtml(entity?.title || "")}" /></label>
       <label>${t("category")}
@@ -1743,7 +1808,7 @@ function openEntityModal(entity) {
   `, (form) => {
     const title = String(form.get("title") || "").trim();
     if (!title) {
-      alert(t("pageTitleRequired"));
+      alert(entityTitleRequiredMessage(selectedCategory));
       return false;
     }
     const categoryId = form.get("categoryId");

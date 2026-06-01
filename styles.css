@@ -297,6 +297,27 @@ label {
   font-size: 0.78rem;
 }
 
+.image-field-preview {
+  display: grid;
+  gap: 6px;
+  max-width: 220px;
+}
+
+.image-field-preview img {
+  width: 100%;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+}
+
+.image-field-preview a {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(280px, 340px);

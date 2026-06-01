@@ -4,6 +4,7 @@ const id = (prefix) => `${prefix}_${crypto.randomUUID()}`;
 
 const categoryFieldPresetGroups = {
   characters: [
+    "Portrait image",
     "First name",
     "Last name",
     "Nickname",
@@ -21,6 +22,7 @@ const categoryFieldPresetGroups = {
     "Backstory",
   ],
   families: [
+    "Crest image",
     "Family name",
     "Founder",
     "Current head",
@@ -32,6 +34,7 @@ const categoryFieldPresetGroups = {
     "History",
   ],
   locations: [
+    "Location image",
     "Location type",
     "Region",
     "Population",
@@ -52,6 +55,7 @@ const categoryFieldPresetGroups = {
     "True version",
   ],
   religions: [
+    "Symbol image",
     "Deities",
     "Beliefs",
     "Rituals",
@@ -70,6 +74,7 @@ const categoryFieldPresetGroups = {
     "Known users",
   ],
   items: [
+    "Item image",
     "Item type",
     "Owner",
     "Previous owners",
@@ -79,6 +84,7 @@ const categoryFieldPresetGroups = {
     "History",
   ],
   organizations: [
+    "Symbol image",
     "Organization type",
     "Leader",
     "Members",
@@ -89,6 +95,7 @@ const categoryFieldPresetGroups = {
     "Rules",
   ],
   rpgNpcs: [
+    "Portrait image",
     "Role",
     "Voice/Mannerism",
     "Location",
@@ -119,6 +126,11 @@ const categoryFieldPresetGroups = {
 };
 
 const fieldPresetLabelTranslations = {
+  "Portrait image": "Portre görseli",
+  "Crest image": "Arma görseli",
+  "Location image": "Mekan görseli",
+  "Item image": "Eşya görseli",
+  "Symbol image": "Sembol görseli",
   "First name": "Ad",
   "Last name": "Soyad",
   Nickname: "Lakap",
@@ -402,9 +414,13 @@ function createFieldDefinitions(categoryName) {
     name,
     presetKey: fieldPresetKey(name),
     isBuiltIn: true,
-    type: "text",
+    type: fieldTypeForPreset(name),
     required: false,
   }));
+}
+
+function fieldTypeForPreset(name) {
+  return /image$/i.test(String(name || "")) ? "image" : "text";
 }
 
 function cloneFieldDefinitions(fields = []) {
@@ -431,6 +447,22 @@ function fieldLabel(field) {
   if (!field?.isBuiltIn && !field?.presetKey) return field?.name || "";
   if (state.settings.language === "tr") return fieldPresetLabelTranslations[field.name] || field.name;
   return field.name;
+}
+
+function isPreviewableImageUrl(value) {
+  return /^(https?:\/\/|data:image\/)/i.test(String(value || "").trim());
+}
+
+function renderFieldValue(field, value) {
+  if (field?.type === "image" && isPreviewableImageUrl(value)) {
+    return `
+      <div class="image-field-preview">
+        <img src="${escapeHtml(value)}" alt="${escapeHtml(fieldLabel(field))}" loading="lazy" />
+        <a href="${escapeHtml(value)}" target="_blank" rel="noreferrer">${escapeHtml(value)}</a>
+      </div>
+    `;
+  }
+  return `<p class="muted">${escapeHtml(value)}</p>`;
 }
 
 function renderFieldManager(fields, category) {
@@ -1259,22 +1291,22 @@ function renderCustomFields(entity) {
     .map((field) => {
       const key = fieldStorageKey(field);
       const value = values[key] ?? values[field.name];
-      return value ? [fieldLabel(field), value, key] : null;
+      return value ? [fieldLabel(field), value, key, field] : null;
     })
     .filter(Boolean);
   const knownKeys = new Set((category?.customFields || []).flatMap((field) => [fieldStorageKey(field), field.name]));
   const extraEntries = Object.entries(values)
     .filter(([key]) => !knownKeys.has(key))
-    .map(([key, value]) => [key, value, key]);
+    .map(([key, value]) => [key, value, key, null]);
   const entries = [...builtInEntries, ...extraEntries];
   if (!entries.length) return "";
   return `
     <section class="card stack">
       <h3 class="section-title">${t("customFields")}</h3>
-      ${entries.map(([label, value]) => `
+      ${entries.map(([label, value, , field]) => `
         <div>
           <strong>${escapeHtml(label)}</strong>
-          <p class="muted">${escapeHtml(value)}</p>
+          ${renderFieldValue(field, value)}
         </div>
       `).join("")}
     </section>

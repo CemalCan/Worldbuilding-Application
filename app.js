@@ -604,7 +604,6 @@ function renderFieldManager(fields, category) {
               <button class="secondary" type="button" data-move-field-down title="${escapeHtml(t("moveFieldDown"))}">↓ ${t("moveFieldDown")}</button>
               <button class="secondary danger-text" type="button" data-remove-category-field title="${escapeHtml(t("removeField"))}">× ${t("removeField")}</button>
             </div>
-            <input name="fieldOrder" type="hidden" value="${index + 1}" />
             <input type="hidden" name="fieldId" value="${escapeHtml(field.id || "")}" />
             <input type="hidden" name="fieldPresetKey" value="${escapeHtml(field.presetKey || "")}" />
             <input type="hidden" name="fieldOriginalName" value="${escapeHtml(field.name || "")}" />
@@ -868,7 +867,6 @@ const translations = {
     customFieldsLabel: "Custom fields",
     fieldName: "Field name",
     fieldType: "Field type",
-    fieldOrder: "Order",
     addFieldHint: "Use empty rows to add custom fields. Use the row buttons to move or remove fields.",
     resetFields: "Reset fields to default",
     removedFieldWarning: "Some removed fields have existing page values. The values will be preserved as raw data, but hidden from the category form. Continue?",
@@ -1026,7 +1024,6 @@ const translations = {
     customFieldsLabel: "Özel alanlar",
     fieldName: "Alan adı",
     fieldType: "Alan türü",
-    fieldOrder: "Sıra",
     addFieldHint: "Özel alan eklemek için boş satırları kullanın. Alanları taşımak veya kaldırmak için satır düğmelerini kullanın.",
     resetFields: "Alanları varsayılana döndür",
     removedFieldWarning: "Kaldırılan bazı alanlarda mevcut sayfa verileri var. Veriler ham veri olarak korunacak, ancak kategori formunda gizlenecek. Devam edilsin mi?",

@@ -408,6 +408,22 @@ function entityTitleRequiredMessage(category) {
   return language === "tr" ? `${label} başlığı zorunludur.` : `${label[0].toUpperCase()}${label.slice(1)} title is required.`;
 }
 
+function lockedCategoryMessage(category) {
+  const language = state?.settings?.language || "en";
+  const typeLabel = getEntityTypeLabel(category, "singular");
+  const categoryName = category?.name || "";
+  if (language === "tr") {
+    const entryLabel = typeLabel ? `${typeLabel[0].toLocaleLowerCase("tr")}${typeLabel.slice(1)}` : "kay\u0131t";
+    return categoryName
+      ? `Bu ${entryLabel} ${categoryName} kategorisine kaydedilecek.`
+      : "Bu kay\u0131t bu kategoriye kaydedilecek.";
+  }
+  const entryLabel = typeLabel ? `${typeLabel[0].toLocaleLowerCase("en")}${typeLabel.slice(1)}` : "entry";
+  return categoryName
+    ? `This ${entryLabel} will be saved under ${categoryName}.`
+    : "This entry will be saved under this category.";
+}
+
 function createFieldDefinitions(categoryName) {
   return getFieldPresetNames(categoryName).map((name) => ({
     id: id("field"),
@@ -2060,7 +2076,7 @@ function openEntityModal(entity) {
       <label>${t("title")} <input name="title" required value="${escapeHtml(entity?.title || "")}" /></label>
       <div class="card stack">
         <strong>${t("category")}: ${escapeHtml(selectedCategory.name)}</strong>
-        <p class="muted">${t("categoryLocked")}</p>
+        <p class="muted">${escapeHtml(lockedCategoryMessage(selectedCategory))}</p>
       </div>
       <label>${t("summary")} <textarea name="summary">${escapeHtml(entity?.summary || "")}</textarea></label>
       <label>${t("content")} <textarea name="content" placeholder="${t("markdownSupported")}">${escapeHtml(entity?.content || "")}</textarea></label>

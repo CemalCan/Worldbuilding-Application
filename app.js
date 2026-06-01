@@ -41,34 +41,54 @@ const defaultSettings = {
   language: "tr",
 };
 
+let storageRecoveryMessage = "";
 let state = loadState();
+
+function createDefaultState() {
+  return {
+    universes: [],
+    templates: builtInTemplates,
+    categories: [],
+    entities: [],
+    relationships: [],
+    notes: [],
+    tags: [],
+    settings: { ...defaultSettings },
+    selectedUniverseId: null,
+    selectedCategoryId: null,
+    selectedEntityId: null,
+    view: "home",
+    search: "",
+  };
+}
 
 function loadState() {
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) {
+  if (!stored) return createDefaultState();
+
+  try {
+    const parsed = JSON.parse(stored);
+    if (!parsed || typeof parsed !== "object") throw new Error("Stored data is not an object.");
+    const customTemplates = Array.isArray(parsed.templates)
+      ? parsed.templates.filter((template) => template && !template.isBuiltIn)
+      : [];
     return {
-      universes: [],
-      templates: builtInTemplates,
-      categories: [],
-      entities: [],
-      relationships: [],
-      notes: [],
-      tags: [],
-      settings: { ...defaultSettings },
-      selectedUniverseId: null,
-      selectedCategoryId: null,
-      selectedEntityId: null,
-      view: "home",
-      search: "",
+      ...createDefaultState(),
+      ...parsed,
+      universes: Array.isArray(parsed.universes) ? parsed.universes : [],
+      categories: Array.isArray(parsed.categories) ? parsed.categories : [],
+      entities: Array.isArray(parsed.entities) ? parsed.entities : [],
+      relationships: Array.isArray(parsed.relationships) ? parsed.relationships : [],
+      notes: Array.isArray(parsed.notes) ? parsed.notes : [],
+      tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+      templates: [...builtInTemplates, ...customTemplates],
+      settings: { ...defaultSettings, ...(parsed.settings || {}) },
     };
+  } catch (error) {
+    console.warn("Loreforge could not read stored data.", error);
+    storageRecoveryMessage = "Kaydedilmiş yerel veri okunamadı. Loreforge güvenli boş durumla başlatıldı. Tarayıcı verilerini temizlemeden önce varsa export yedeğini kontrol edin.";
+    return createDefaultState();
   }
-  const parsed = JSON.parse(stored);
-  const customTemplates = (parsed.templates || []).filter((template) => !template.isBuiltIn);
-  return {
-    ...parsed,
-    templates: [...builtInTemplates, ...customTemplates],
-    settings: { ...defaultSettings, ...(parsed.settings || {}) },
-  };
 }
 
 function saveState() {
@@ -167,6 +187,7 @@ function render() {
   app.innerHTML = `
     <div class="app-shell">
       ${renderTopbar(universe)}
+      ${storageRecoveryMessage ? `<section class="recovery-banner">${escapeHtml(storageRecoveryMessage)}</section>` : ""}
       ${universe && state.view !== "home" ? renderWorkspace(universe) : renderHome()}
     </div>
   `;
@@ -1163,6 +1184,101 @@ function exportUniverse() {
   URL.revokeObjectURL(link.href);
 }
 
+function ensureArray(value, name) {
+  if (!Array.isArray(value)) throw new Error(`Import geçersiz: ${name} listesi eksik veya hatalı.`);
+  return value;
+}
+
+function optionalArray(value, name) {
+  if (value === undefined) return [];
+  return ensureArray(value, name);
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function requireString(value, label) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`Import geçersiz: ${label} eksik veya hatalı.`);
+  }
+}
+
+function ensureUniqueIds(items, label) {
+  const seen = new Set();
+  for (const item of items) {
+    if (!isPlainObject(item)) throw new Error(`Import geçersiz: ${label} içinde hatalı kayıt var.`);
+    requireString(item.id, `${label}.id`);
+    if (seen.has(item.id)) throw new Error(`Import geçersiz: ${label} içinde tekrarlanan id var.`);
+    seen.add(item.id);
+  }
+  return seen;
+}
+
+function validateImportPayload(payload) {
+  if (!isPlainObject(payload)) throw new Error("Geçersiz Loreforge JSON dosyası.");
+  if (!isPlainObject(payload.universe)) throw new Error("Import geçersiz: evren bilgisi eksik.");
+  requireString(payload.universe.id, "universe.id");
+  requireString(payload.universe.name, "universe.name");
+
+  const categories = ensureArray(payload.categories, "categories");
+  const entities = ensureArray(payload.entities, "entities");
+  const relationships = optionalArray(payload.relationships, "relationships");
+  const notes = optionalArray(payload.notes, "notes");
+  const tags = optionalArray(payload.tags, "tags");
+
+  const categoryIds = ensureUniqueIds(categories, "categories");
+  const entityIds = ensureUniqueIds(entities, "entities");
+  const tagIds = ensureUniqueIds(tags, "tags");
+  ensureUniqueIds(relationships, "relationships");
+  ensureUniqueIds(notes, "notes");
+
+  for (const category of categories) {
+    requireString(category.name, "category.name");
+  }
+
+  for (const tag of tags) {
+    requireString(tag.name, "tag.name");
+  }
+
+  for (const entity of entities) {
+    requireString(entity.title, "entity.title");
+    requireString(entity.categoryId, "entity.categoryId");
+    if (!categoryIds.has(entity.categoryId)) {
+      throw new Error(`Import geçersiz: "${entity.title}" sayfası var olmayan bir kategoriye bağlı.`);
+    }
+    if (!Array.isArray(entity.tagIds)) {
+      throw new Error(`Import geçersiz: "${entity.title}" sayfasının tagIds alanı hatalı.`);
+    }
+    for (const tagId of entity.tagIds) {
+      if (!tagIds.has(tagId)) {
+        throw new Error(`Import geçersiz: "${entity.title}" sayfası var olmayan bir etikete bağlı.`);
+      }
+    }
+  }
+
+  for (const relationship of relationships) {
+    requireString(relationship.sourceEntityId, "relationship.sourceEntityId");
+    requireString(relationship.targetEntityId, "relationship.targetEntityId");
+    requireString(relationship.type, "relationship.type");
+    if (!entityIds.has(relationship.sourceEntityId) || !entityIds.has(relationship.targetEntityId)) {
+      throw new Error("Import geçersiz: ilişki var olmayan bir sayfaya bağlı.");
+    }
+    if (relationship.sourceEntityId === relationship.targetEntityId) {
+      throw new Error("Import geçersiz: bir ilişki kendi sayfasını hedefliyor.");
+    }
+  }
+
+  for (const note of notes) {
+    requireString(note.content, "note.content");
+    if (note.entityId !== null && note.entityId !== undefined && !entityIds.has(note.entityId)) {
+      throw new Error("Import geçersiz: not var olmayan bir sayfaya bağlı.");
+    }
+  }
+
+  return { categories, entities, relationships, notes, tags };
+}
+
 function importUniverse() {
   const input = document.createElement("input");
   input.type = "file";
@@ -1172,10 +1288,8 @@ function importUniverse() {
     if (!file) return;
     try {
       const payload = JSON.parse(await file.text());
-      if (!payload.universe || !Array.isArray(payload.categories) || !Array.isArray(payload.entities)) {
-        throw new Error("Geçersiz Loreforge JSON dosyası.");
-      }
-      const ok = confirm(`${payload.universe.name} import edilecek. ${payload.categories.length} kategori, ${payload.entities.length} sayfa bulundu.`);
+      const validated = validateImportPayload(payload);
+      const ok = confirm(`${payload.universe.name} import edilecek. ${validated.categories.length} kategori, ${validated.entities.length} sayfa bulundu.`);
       if (!ok) return;
       const idMap = new Map();
       const mapId = (oldId, prefix) => {
@@ -1184,9 +1298,9 @@ function importUniverse() {
       };
       const universeId = mapId(payload.universe.id, "universe");
       state.universes.push({ ...payload.universe, id: universeId, name: `${payload.universe.name} (Import)`, createdAt: now(), updatedAt: now(), deletedAt: null });
-      state.categories.push(...payload.categories.map((item) => ({ ...item, id: mapId(item.id, "category"), universeId, deletedAt: null })));
-      state.tags.push(...(payload.tags || []).map((item) => ({ ...item, id: mapId(item.id, "tag"), universeId })));
-      state.entities.push(...payload.entities.map((item) => ({
+      state.categories.push(...validated.categories.map((item) => ({ ...item, id: mapId(item.id, "category"), universeId, deletedAt: null })));
+      state.tags.push(...validated.tags.map((item) => ({ ...item, id: mapId(item.id, "tag"), universeId })));
+      state.entities.push(...validated.entities.map((item) => ({
         ...item,
         id: mapId(item.id, "entity"),
         universeId,
@@ -1194,14 +1308,14 @@ function importUniverse() {
         tagIds: (item.tagIds || []).map((tagId) => mapId(tagId, "tag")),
         deletedAt: null,
       })));
-      state.relationships.push(...(payload.relationships || []).map((item) => ({
+      state.relationships.push(...validated.relationships.map((item) => ({
         ...item,
         id: mapId(item.id, "relationship"),
         universeId,
         sourceEntityId: mapId(item.sourceEntityId, "entity"),
         targetEntityId: mapId(item.targetEntityId, "entity"),
       })));
-      state.notes.push(...(payload.notes || []).map((item) => ({
+      state.notes.push(...validated.notes.map((item) => ({
         ...item,
         id: mapId(item.id, "note"),
         universeId,

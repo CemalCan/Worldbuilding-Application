@@ -210,6 +210,15 @@ label {
   flex-wrap: wrap;
 }
 
+.recovery-banner {
+  margin: 12px 18px 0;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  color: var(--text);
+  padding: 10px 12px;
+}
+
 .home {
   padding: 24px;
   max-width: 1180px;

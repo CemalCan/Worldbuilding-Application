@@ -605,7 +605,9 @@ const actions = {
   home() {
     setState({ view: "home", selectedUniverseId: null, selectedCategoryId: null, selectedEntityId: null, search: "" });
   },
-  "new-universe": openUniverseModal,
+  "new-universe"() {
+    openUniverseModal();
+  },
   "open-universe"({ id: universeId }) {
     const firstCategory = universeCategories(universeId)[0];
     setState({
@@ -845,16 +847,17 @@ function openModal(title, bodyHtml, onSubmit) {
   if (form) {
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      onSubmit?.(new FormData(form));
-      backdrop.remove();
+      const result = onSubmit?.(new FormData(form));
+      if (result !== false) backdrop.remove();
     });
   }
   document.body.appendChild(fragment);
 }
 
 function openUniverseModal(universe) {
+  const isEditing = Boolean(universe?.id);
   const templates = activeItems(state.templates);
-  openModal(universe ? "Evren Düzenle" : "Yeni Evren", `
+  openModal(isEditing ? "Evren Düzenle" : "Yeni Evren", `
     <form class="form-grid">
       <label>Evren adı <input name="name" required value="${escapeHtml(universe?.name || "")}" /></label>
       <label>Açıklama <textarea name="description">${escapeHtml(universe?.description || "")}</textarea></label>
@@ -863,7 +866,7 @@ function openUniverseModal(universe) {
           ${["system", "light", "dark", "parchment", "neon", "minimal"].map((theme) => `<option value="${theme}" ${universe?.themeId === theme ? "selected" : ""}>${theme}</option>`).join("")}
         </select>
       </label>
-      ${universe ? "" : `
+      ${isEditing ? "" : `
         <div class="template-grid">
           ${templates.map((template, index) => `
             <label class="template-option">
@@ -873,12 +876,18 @@ function openUniverseModal(universe) {
           `).join("")}
         </div>
       `}
-      <div class="button-row"><button type="submit">${universe ? "Kaydet" : "Oluştur"}</button></div>
+      <div class="button-row"><button type="submit">${isEditing ? "Kaydet" : "Oluştur"}</button></div>
     </form>
   `, (form) => {
-    if (universe) {
+    const name = String(form.get("name") || "").trim();
+    if (!name) {
+      alert("Evren adı zorunludur.");
+      return false;
+    }
+
+    if (isEditing) {
       updateItem("universes", universe.id, {
-        name: form.get("name"),
+        name,
         description: form.get("description"),
         themeId: form.get("themeId"),
       });
@@ -888,7 +897,7 @@ function openUniverseModal(universe) {
     const template = state.templates.find((item) => item.id === form.get("templateId")) || builtInTemplates[0];
     const newUniverse = {
       id: universeId,
-      name: form.get("name"),
+      name,
       description: form.get("description"),
       templateId: template.id,
       coverImage: "",

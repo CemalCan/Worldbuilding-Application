@@ -1255,6 +1255,8 @@ const translations = {
     renameToAdd: "Rename to add",
     addSelectedCategories: "Add selected categories",
     organizationEditMode: "Organization edit mode",
+    done: "Done",
+    organizationEditHelp: "Reorder, edit, hide, or delete categories.",
     appTrash: "App trash",
     projectTrash: "Project trash",
     duplicateCategoryConfirm: "This category already exists. Add another copy anyway?",
@@ -1450,6 +1452,8 @@ const translations = {
     renameToAdd: "Eklemek için yeniden adlandır",
     addSelectedCategories: "Seçili kategorileri ekle",
     organizationEditMode: "Düzenleme modu",
+    done: "Bitir",
+    organizationEditHelp: "Kategorileri sırala, düzenle, gizle veya sil.",
     appTrash: "Uygulama çöp kutusu",
     projectTrash: "Proje çöp kutusu",
     duplicateCategoryConfirm: "Bu kategori zaten var. Yine de bir kopyasını eklemek istiyor musun?",
@@ -1912,12 +1916,13 @@ function renderLeftPanel(universe) {
       <div class="row">
         <h2>${t("categories")}</h2>
         <div class="button-row">
-          <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${t("edit")}</button>
+          <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : t("edit")}</button>
           <button class="icon-button" data-action="new-category" title="${t("addCategory")}">+</button>
         </div>
       </div>
+      ${isEditingOrganization ? `<p class="muted edit-mode-help">${t("organizationEditHelp")}</p>` : ""}
       <input data-search placeholder="${t("searchPages")}" value="${escapeHtml(state.search)}" />
-      <div class="stack">
+      <div class="stack" data-category-list>
         <button class="category-button ${state.view === "projectHome" ? "is-active" : ""}" data-action="project-home">
           <strong>${t("homeNav")}</strong>
           <small>${t("projectHome")}</small>
@@ -1925,17 +1930,15 @@ function renderLeftPanel(universe) {
         ${categories.map((category) => {
           const count = universeEntities(universe.id).filter((entity) => entity.categoryId === category.id).length;
           return `
-            <div class="category-nav-row">
+            <div class="category-nav-row" data-category-row data-id="${category.id}">
               <button class="category-button ${category.id === state.selectedCategoryId ? "is-active" : ""}" data-action="select-category" data-id="${category.id}">
                 <strong>${escapeHtml(category.name)}</strong>
                 <small>${count} ${t("itemPage")}</small>
               </button>
               ${isEditingOrganization ? `
                 <div class="category-controls" aria-label="${escapeHtml(t("organizationEditMode"))}">
-                  <span class="drag-handle" title="${escapeHtml(t("dragToReorder"))}" aria-hidden="true">☰</span>
+                  <span class="drag-handle" draggable="true" data-category-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</span>
                   <button class="secondary" data-action="edit-category" data-id="${category.id}">${t("edit")}</button>
-                  <button class="secondary" data-action="move-category-up" data-id="${category.id}">${t("up")}</button>
-                  <button class="secondary" data-action="move-category-down" data-id="${category.id}">${t("down")}</button>
                   <button class="secondary" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
                   <button class="danger" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
                 </div>
@@ -1982,23 +1985,25 @@ function renderMainPanelContent(universe) {
   const entities = category ? filteredEntities(universe.id).filter((item) => item.categoryId === category.id) : [];
   return `
       <section class="category-overview">
-        <div>
-          <p class="muted">${entities.length} ${t("itemPage")}</p>
-          <h2>${escapeHtml(category?.name || t("noCategory"))}</h2>
-          ${category?.description ? `<p>${escapeHtml(category.description)}</p>` : ""}
-        </div>
-        ${category ? `
-          <div class="button-row">
-            <button data-action="new-entity">${createEntityLabel(category)}</button>
-            ${state.settings.organizationEditMode ? `
-              <button class="secondary" data-action="edit-category" data-id="${category.id}">${t("edit")}</button>
-              <button class="secondary" data-action="move-category-up" data-id="${category.id}">${t("up")}</button>
-              <button class="secondary" data-action="move-category-down" data-id="${category.id}">${t("down")}</button>
-              <button class="secondary" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
-              <button class="danger" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
-            ` : ""}
+        <div class="category-overview__main">
+          <div>
+            <p class="muted">${entities.length} ${t("itemPage")}</p>
+            <h2>${escapeHtml(category?.name || t("noCategory"))}</h2>
+            ${category?.description ? `<p>${escapeHtml(category.description)}</p>` : ""}
           </div>
-          ${renderEntityViewToggle()}
+          ${category ? `
+            <div class="category-overview__actions">
+              <button data-action="new-entity">${createEntityLabel(category)}</button>
+              ${renderEntityViewToggle()}
+            </div>
+          ` : ""}
+        </div>
+        ${category && state.settings.organizationEditMode ? `
+          <div class="button-row category-overview__edit-actions">
+            <button class="secondary" data-action="edit-category" data-id="${category.id}">${t("edit")}</button>
+            <button class="secondary" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
+            <button class="danger" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
+          </div>
         ` : ""}
       </section>
       ${entity ? renderEntityDetail(entity) : renderEntityList(entities, category)}
@@ -2368,7 +2373,10 @@ function renderTemplates() {
   return `
     <main class="main stack">
       <section class="toolbar">
-        <h2>${t("templates")}</h2>
+        <div class="button-row">
+          <button class="secondary" data-action="back-from-subview">← ${t("back")}</button>
+          <h2>${t("templates")}</h2>
+        </div>
         <button data-action="new-template">${t("customTemplate")}</button>
       </section>
       <section class="grid">
@@ -2404,7 +2412,12 @@ function renderTrash(universe) {
   const deleted = isProjectTrash ? deletedUniverseItems : deletedUniverses;
   return `
     <main class="main stack">
-      <h2>${isProjectTrash ? t("projectTrash") : t("appTrash")}</h2>
+      <section class="toolbar">
+        <div class="button-row">
+          <button class="secondary" data-action="back-from-subview">← ${t("back")}</button>
+          <h2>${isProjectTrash ? t("projectTrash") : t("appTrash")}</h2>
+        </div>
+      </section>
       ${deletedUniverses.length ? `<p class="muted">${t("deletedUniverses")}: ${deletedUniverses.length}</p>` : ""}
       ${deleted.length ? deleted.map(([type, item]) => `
         <article class="trash-row">
@@ -2422,11 +2435,46 @@ function renderTrash(universe) {
 
 function bindEvents() {
   bindActionEvents(document);
+  bindCategoryDragEvents(document);
   document.querySelectorAll("[data-search]").forEach((input) => {
     input.addEventListener("input", (event) => {
       state.search = event.target.value;
       saveState();
       refreshSearchResults();
+    });
+  });
+}
+
+function bindCategoryDragEvents(root) {
+  let draggedId = null;
+  root.querySelectorAll("[data-category-drag-handle]").forEach((handle) => {
+    handle.addEventListener("dragstart", (event) => {
+      const row = handle.closest("[data-category-row]");
+      draggedId = row?.dataset.id || null;
+      row?.classList.add("is-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", draggedId || "");
+    });
+    handle.addEventListener("dragend", () => {
+      root.querySelectorAll("[data-category-row].is-dragging").forEach((row) => row.classList.remove("is-dragging"));
+      root.querySelectorAll("[data-category-row].is-drop-target").forEach((row) => row.classList.remove("is-drop-target"));
+      draggedId = null;
+    });
+  });
+
+  root.querySelectorAll("[data-category-row]").forEach((row) => {
+    row.addEventListener("dragover", (event) => {
+      if (!draggedId || draggedId === row.dataset.id) return;
+      event.preventDefault();
+      row.classList.add("is-drop-target");
+    });
+    row.addEventListener("dragleave", () => row.classList.remove("is-drop-target"));
+    row.addEventListener("drop", (event) => {
+      event.preventDefault();
+      row.classList.remove("is-drop-target");
+      const sourceId = event.dataTransfer.getData("text/plain") || draggedId;
+      const targetId = row.dataset.id;
+      if (sourceId && targetId && sourceId !== targetId) reorderCategory(sourceId, targetId);
     });
   });
 }
@@ -2505,6 +2553,13 @@ const actions = {
   },
   "project-home"() {
     setState({ view: "projectHome", selectedEntityId: null, search: "" });
+  },
+  "back-from-subview"() {
+    if (currentUniverse()) {
+      setState({ view: "projectHome", selectedEntityId: null, search: "" });
+    } else {
+      setState({ view: "home", selectedUniverseId: null, selectedCategoryId: null, selectedEntityId: null, search: "" });
+    }
   },
   "new-category": openCategoryModal,
   "add-from-template": openTemplateExpansionModal,
@@ -2763,6 +2818,21 @@ function moveCategory(categoryId, direction) {
     if (category.id === target.id) return { ...category, order: current.order, updatedAt: now() };
     return category;
   });
+  saveState();
+  render();
+}
+
+function reorderCategory(sourceId, targetId) {
+  const categories = universeCategories(state.selectedUniverseId, true);
+  const sourceIndex = categories.findIndex((category) => category.id === sourceId);
+  const targetIndex = categories.findIndex((category) => category.id === targetId);
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+  const [source] = categories.splice(sourceIndex, 1);
+  categories.splice(targetIndex, 0, source);
+  const orderById = new Map(categories.map((category, index) => [category.id, index]));
+  state.categories = state.categories.map((category) =>
+    orderById.has(category.id) ? { ...category, order: orderById.get(category.id), updatedAt: now() } : category
+  );
   saveState();
   render();
 }
@@ -3111,7 +3181,10 @@ function openTemplateExpansionModal() {
           ${renderTemplateExpansionRows(initialTemplate, universe.id)}
         </div>
       </section>
-      <div class="button-row"><button type="submit">${t("addSelectedCategories")}</button></div>
+      <div class="button-row">
+        <button class="secondary" type="button" data-modal-close>← ${t("back")}</button>
+        <button type="submit">${t("addSelectedCategories")}</button>
+      </div>
     </form>
   `, (form) => {
     const template = templates.find((item) => item.id === form.get("templateId")) || initialTemplate;

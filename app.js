@@ -109,12 +109,14 @@ const categoryFieldPresetGroups = {
     "Alive/Dead",
   ],
   quests: [
-    "Quest giver",
+    "Status",
+    "Start date",
+    "End date",
     "Location",
+    "Quest giver",
+    "Related NPCs",
     "Objective",
     "Reward",
-    "Status",
-    "Related NPCs",
     "Hidden outcome",
   ],
   partyMembers: ["Portrait image", "Player", "Character name", "Class/Role", "Level", "Species/Race", "Party role", "Goals", "Secrets", "Important relationships"],
@@ -126,14 +128,14 @@ const categoryFieldPresetGroups = {
     "Decisions made",
     "Important events",
     "Open questions",
-    "Loot/rewards",
+    "Loot/Rewards",
     "Next session prep",
   ],
   species: ["Species/Race", "Origin", "Homeland", "Physical traits", "Culture", "Language", "Abilities", "Weaknesses", "History"],
   cultures: ["Culture name", "Region", "Values", "Traditions", "Taboos", "Language", "Clothing", "Food", "History"],
   languages: ["Language name", "Speakers", "Region", "Writing system", "Common phrases", "Origin", "Related languages"],
   governments: ["Government type", "Ruler/Owner", "Capital", "Laws", "Allies", "Enemies", "History"],
-  wars: ["War name", "Date", "Location", "Participants", "Cause", "Result", "Important events", "Aftermath"],
+  wars: ["War name", "Start date", "End date", "Location", "Sides", "Commanders", "Cause", "Result", "Casualties", "Consequences"],
   creatures: ["Creature image", "Species/Race", "Habitat", "Behavior", "Abilities", "Weaknesses", "Threat level", "Description"],
   myths: ["Title", "Culture", "Origin", "Main figures", "Moral", "Public version", "True version"],
   technologies: ["Technology type", "Creator", "Users", "Purpose", "Limits", "Risks", "History"],
@@ -781,6 +783,7 @@ const referenceFieldTargets = {
   sessionNotes: {
     "Players present": ["partyMembers", "characters"],
     "Loot/rewards": ["lootRewards", "items"],
+    "Loot/Rewards": ["lootRewards", "items"],
   },
   encounters: {
     Enemies: ["creatures", "rpgNpcs"],
@@ -806,6 +809,8 @@ const referenceFieldTargets = {
   wars: {
     Location: ["locations"],
     Participants: ["governments", "organizations", "characters"],
+    Sides: ["governments", "organizations"],
+    Commanders: ["characters"],
     "Important events": ["events"],
   },
   planets: {
@@ -867,7 +872,10 @@ function referenceTargetTypes(categoryName, fieldName) {
     "Related NPCs": ["rpgNpcs", "characters"],
     "Players present": ["partyMembers", "characters"],
     "Loot/rewards": ["lootRewards", "items"],
+    "Loot/Rewards": ["lootRewards", "items"],
     Rewards: ["lootRewards", "items"],
+    Sides: ["governments", "organizations"],
+    Commanders: ["characters"],
     Deities: ["religions"],
     Followers: ["characters", "cultures"],
     "Holy places": ["locations"],
@@ -1678,6 +1686,19 @@ const translations = {
     details: "Details",
     connections: "Connections",
     relationshipOverview: "Relationship Overview",
+    timeline: "Timeline",
+    timelineOrder: "Timeline order",
+    chronologyOrder: "Chronology order",
+    timelineEntries: "Timeline entries",
+    noTimelineEntries: "No timeline entries yet.",
+    noTimelineEntriesHelp: "Add an event to start building your chronology.",
+    allCategories: "All categories",
+    allTags: "All tags",
+    allLocations: "All locations",
+    allParticipants: "All participants",
+    chronology: "Chronology",
+    moveEarlier: "Move earlier",
+    moveLater: "Move later",
     familyTree: "Family Tree",
     founder: "Founder",
     currentHead: "Current head",
@@ -1904,6 +1925,19 @@ const translations = {
     details: "Detaylar",
     connections: "Bağlantılar",
     relationshipOverview: "Bağlantı görünümü",
+    timeline: "Zaman Çizelgesi",
+    timelineOrder: "Zaman çizelgesi sırası",
+    chronologyOrder: "Kronoloji sırası",
+    timelineEntries: "Zaman çizelgesi kayıtları",
+    noTimelineEntries: "Henüz zaman çizelgesi kaydı yok.",
+    noTimelineEntriesHelp: "Kronolojini oluşturmaya başlamak için bir olay ekle.",
+    allCategories: "Tüm kategoriler",
+    allTags: "Tüm etiketler",
+    allLocations: "Tüm mekânlar",
+    allParticipants: "Tüm katılımcılar",
+    chronology: "Kronoloji",
+    moveEarlier: "Daha erkene taşı",
+    moveLater: "Daha geçe taşı",
     familyTree: "Soy Ağacı",
     founder: "Kurucu",
     currentHead: "Mevcut lider",
@@ -2367,6 +2401,10 @@ function renderLeftPanel(universe) {
           <strong>${t("homeNav")}</strong>
           <small>${t("projectHome")}</small>
         </button>
+        <button class="category-button ${state.view === "timeline" ? "is-active" : ""}" data-action="timeline">
+          <strong>${t("timeline")}</strong>
+          <small>${t("chronology")}</small>
+        </button>
         ${categories.map((category) => {
           const count = universeEntities(universe.id).filter((entity) => entity.categoryId === category.id).length;
           return `
@@ -2390,6 +2428,7 @@ function renderLeftPanel(universe) {
       <div class="button-row">
         <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
         <button class="secondary" data-action="templates">${t("templates")}</button>
+        <button class="secondary" data-action="timeline">${t("timeline")}</button>
         <button class="secondary" data-action="trash">${t("trash")}</button>
       </div>
       ${hiddenCategories.length && isEditingOrganization ? `
@@ -2407,6 +2446,7 @@ function renderLeftPanel(universe) {
 function renderMainPanel(universe) {
   if (state.view === "trash") return renderTrash(universe);
   if (state.view === "templates") return renderTemplates();
+  if (state.view === "timeline") return renderTimelineView(universe);
   return `
     <main class="main stack" data-main-panel>
       ${renderMainPanelContent(universe)}
@@ -2485,10 +2525,11 @@ function renderProjectHome(universe) {
         </div>
         <div class="button-row">
           <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : t("edit")}</button>
-          <button data-action="new-entity">${t("createEntry")}</button>
+          <button data-action="new-timeline-entry">${t("createEntry")}</button>
           <button class="secondary" data-action="new-category">${t("addCategory")}</button>
           <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
           <button class="secondary" data-action="open-first-family-tree">${t("familyTree")}</button>
+          <button class="secondary" data-action="timeline">${t("timeline")}</button>
           <button class="secondary" data-action="quick-note">${t("idea")}</button>
         </div>
       </div>
@@ -3072,6 +3113,199 @@ function renderNoteCard(note) {
   `;
 }
 
+const timelineCategoryTypes = new Set(["events", "wars", "sessionNotes", "quests"]);
+
+function timelineFieldValue(entity, names) {
+  const category = entityCategory(entity);
+  for (const name of names) {
+    const value = fieldValueForName(entity, category, name);
+    if (value) return value;
+  }
+  return "";
+}
+
+function timelineDateValue(entity) {
+  return timelineFieldValue(entity, ["Date", "Start date", "Session number"]);
+}
+
+function timelineSortValue(entity) {
+  const dateValue = timelineDateValue(entity);
+  const timestamp = Date.parse(dateValue);
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function timelineOrderValue(entity) {
+  return Number(entity.timelineOrder ?? entity.chronologyOrder ?? Number.MAX_SAFE_INTEGER);
+}
+
+function timelineEntities(universeId = state.selectedUniverseId) {
+  return universeEntities(universeId)
+    .filter((entity) => timelineCategoryTypes.has(entityCategoryType(entity)))
+    .sort((a, b) => {
+      const aDate = timelineSortValue(a);
+      const bDate = timelineSortValue(b);
+      if (aDate !== null && bDate !== null && aDate !== bDate) return aDate - bDate;
+      if (aDate !== null && bDate === null) return -1;
+      if (aDate === null && bDate !== null) return 1;
+      const orderDiff = timelineOrderValue(a) - timelineOrderValue(b);
+      if (orderDiff !== 0) return orderDiff;
+      const createdDiff = String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+      if (createdDiff !== 0) return createdDiff;
+      return a.title.localeCompare(b.title, state.settings.language === "tr" ? "tr" : "en");
+    });
+}
+
+function timelineLinkedEntities(entity, fieldNames) {
+  const category = entityCategory(entity);
+  return fieldNames.flatMap((name) => {
+    const field = fieldByPresetName(category, name);
+    if (!field) return [];
+    const value = entity.customFieldValues?.[fieldStorageKey(field)] || entity.customFieldValues?.[field.name];
+    const ids = field.type === "entityReferenceList" ? normalizeReferenceListValue(value) : [value].filter(Boolean);
+    return ids.map(entityForId).filter(Boolean);
+  });
+}
+
+function timelineLocationEntities(entity) {
+  return timelineLinkedEntities(entity, ["Location", "Map/Location"]);
+}
+
+function timelineParticipantEntities(entity) {
+  return timelineLinkedEntities(entity, ["Participants", "Players present", "Related NPCs", "Quest giver", "Commanders", "Sides"]);
+}
+
+function timelineTags(entity) {
+  return (entity.tagIds || []).map((tagId) => state.tags.find((tag) => tag.id === tagId && !tag.deletedAt)).filter(Boolean);
+}
+
+function timelineFilterOptions(items) {
+  const categories = uniqueEntities(items.map(entityCategory).filter(Boolean));
+  const tags = [...new Map(items.flatMap(timelineTags).map((tag) => [tag.id, tag])).values()];
+  const locations = uniqueEntities(items.flatMap(timelineLocationEntities));
+  const participants = uniqueEntities(items.flatMap(timelineParticipantEntities));
+  return { categories, tags, locations, participants };
+}
+
+function filteredTimelineEntities(items) {
+  const filters = state.timelineFilters || {};
+  const query = String(filters.search || "").trim().toLocaleLowerCase("tr");
+  return items.filter((entity) => {
+    if (filters.categoryId && entity.categoryId !== filters.categoryId) return false;
+    if (filters.tagId && !(entity.tagIds || []).includes(filters.tagId)) return false;
+    if (filters.locationId && !timelineLocationEntities(entity).some((item) => item.id === filters.locationId)) return false;
+    if (filters.participantId && !timelineParticipantEntities(entity).some((item) => item.id === filters.participantId)) return false;
+    if (!query) return true;
+    const haystack = [
+      entity.title,
+      entity.summary,
+      timelineDateValue(entity),
+      entityCategory(entity)?.name,
+      ...timelineLocationEntities(entity).map((item) => item.title),
+      ...timelineParticipantEntities(entity).map((item) => item.title),
+      ...timelineTags(entity).map((tag) => tag.name),
+    ].join(" ").toLocaleLowerCase("tr");
+    return haystack.includes(query);
+  });
+}
+
+function renderTimelineFilters(items) {
+  const filters = state.timelineFilters || {};
+  const { categories, tags, locations, participants } = timelineFilterOptions(items);
+  return `
+    <section class="timeline-filters">
+      <label>${t("category")}
+        <select data-timeline-filter="categoryId">
+          <option value="">${t("allCategories")}</option>
+          ${categories.map((category) => `<option value="${category.id}" ${filters.categoryId === category.id ? "selected" : ""}>${escapeHtml(category.name)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${t("itemTag")}
+        <select data-timeline-filter="tagId">
+          <option value="">${t("allTags")}</option>
+          ${tags.map((tag) => `<option value="${tag.id}" ${filters.tagId === tag.id ? "selected" : ""}>${escapeHtml(tag.name)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${t("locationsGroup")}
+        <select data-timeline-filter="locationId">
+          <option value="">${t("allLocations")}</option>
+          ${locations.map((entity) => `<option value="${entity.id}" ${filters.locationId === entity.id ? "selected" : ""}>${escapeHtml(entity.title)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${t("allParticipants")}
+        <select data-timeline-filter="participantId">
+          <option value="">${t("allParticipants")}</option>
+          ${participants.map((entity) => `<option value="${entity.id}" ${filters.participantId === entity.id ? "selected" : ""}>${escapeHtml(entity.title)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${t("searchPages")}
+        <input data-timeline-filter="search" value="${escapeHtml(filters.search || "")}" />
+      </label>
+    </section>
+  `;
+}
+
+function renderTimelineChipList(entities) {
+  if (!entities.length) return "";
+  return `<span class="tag-row">${entities.slice(0, 4).map((entity) => renderEntityChip(entity)).join("")}</span>`;
+}
+
+function renderTimelineItem(entity, index, total) {
+  const category = entityCategory(entity);
+  const dateLabel = timelineDateValue(entity) || t("chronology");
+  const tags = timelineTags(entity).slice(0, 3);
+  const locations = timelineLocationEntities(entity);
+  const participants = timelineParticipantEntities(entity);
+  return `
+    <article class="timeline-item">
+      <div class="timeline-item__main">
+        <span class="timeline-dot"></span>
+        <span class="timeline-item__body">
+          <span class="timeline-meta">
+            <span class="badge">${escapeHtml(dateLabel)}</span>
+            <span class="badge">${escapeHtml(category?.name || t("category"))}</span>
+          </span>
+          <button class="link-button" data-action="select-entity" data-id="${entity.id}"><strong>${escapeHtml(entity.title)}</strong></button>
+          ${entity.summary ? `<small>${escapeHtml(entity.summary)}</small>` : ""}
+          ${locations.length ? `<small>${t("locationsGroup")}: ${renderTimelineChipList(locations)}</small>` : ""}
+          ${participants.length ? `<small>${t("allParticipants")}: ${renderTimelineChipList(participants)}</small>` : ""}
+          ${tags.length ? `<span class="tag-row">${tags.map((tag) => `<span class="tag">${escapeHtml(tag.name)}</span>`).join("")}</span>` : ""}
+        </span>
+      </div>
+      <div class="timeline-item__actions">
+        <button class="secondary" data-action="move-timeline-item" data-id="${entity.id}" data-direction="-1" ${index === 0 ? "disabled" : ""}>${t("moveEarlier")}</button>
+        <button class="secondary" data-action="move-timeline-item" data-id="${entity.id}" data-direction="1" ${index === total - 1 ? "disabled" : ""}>${t("moveLater")}</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderTimelineView(universe) {
+  const items = timelineEntities(universe.id);
+  const visibleItems = filteredTimelineEntities(items);
+  return `
+    <main class="main stack" data-main-panel>
+      <section class="toolbar">
+        <div class="subview-bar">
+          <button class="secondary" data-action="back-from-subview">← ${t("back")}</button>
+          <h2>${t("timeline")}</h2>
+        </div>
+        <button data-action="new-timeline-entry">${t("createEntry")}</button>
+      </section>
+      ${renderTimelineFilters(items)}
+      ${visibleItems.length ? `
+        <section class="timeline-list">
+          ${visibleItems.map((entity, index) => renderTimelineItem(entity, index, visibleItems.length)).join("")}
+        </section>
+      ` : `
+        <section class="empty">
+          <h3>${t("noTimelineEntries")}</h3>
+          <p>${t("noTimelineEntriesHelp")}</p>
+        </section>
+      `}
+    </main>
+  `;
+}
+
 function renderTemplates() {
   const templates = activeItems(state.templates);
   return `
@@ -3140,6 +3374,7 @@ function renderTrash(universe) {
 function bindEvents() {
   bindActionEvents(document);
   bindCategoryDragEvents(document);
+  bindTimelineFilterEvents(document);
   document.querySelectorAll("[data-search]").forEach((input) => {
     input.addEventListener("input", (event) => {
       state.search = event.target.value;
@@ -3259,6 +3494,9 @@ const actions = {
   "project-home"() {
     setState({ view: "projectHome", selectedEntityId: null, search: "" });
   },
+  timeline() {
+    setState({ view: "timeline", selectedEntityId: null, search: "" });
+  },
   "open-first-family-tree"() {
     const family = universeEntities().find((entity) => entityCategoryType(entity) === "families");
     if (!family) {
@@ -3310,6 +3548,11 @@ const actions = {
     }
     openEntityModal();
   },
+  "new-timeline-entry"() {
+    const eventCategory = universeCategories().find((category) => ["events", "wars", "sessionNotes", "quests"].includes(getCategoryTypeKey(category)));
+    if (eventCategory) state.selectedCategoryId = eventCategory.id;
+    openEntityModal();
+  },
   "set-entity-view"({ mode }) {
     state.settings.entityViewMode = mode === "list" ? "list" : "cards";
     saveState();
@@ -3343,6 +3586,14 @@ const actions = {
   },
   "attach-note"({ id: noteId }) {
     openAttachNoteDialog(noteId);
+  },
+  "timeline-filter"({ filter, value }) {
+    state.timelineFilters = { ...(state.timelineFilters || {}), [filter]: value || "" };
+    saveState();
+    render();
+  },
+  "move-timeline-item"({ id: entityId, direction }) {
+    moveTimelineItem(entityId, Number(direction || 0));
   },
   templates() {
     setState({ view: "templates", selectedEntityId: null });
@@ -3439,6 +3690,18 @@ function openTargetCategoryChoice(currentCategoryId) {
     `, (form) => {
       finish(form.get("targetCategoryId"));
     }, () => finish(null));
+  });
+}
+
+function bindTimelineFilterEvents(root) {
+  root.querySelectorAll("[data-timeline-filter]").forEach((input) => {
+    const eventName = input.tagName === "INPUT" ? "input" : "change";
+    input.addEventListener(eventName, (event) => {
+      const filter = event.currentTarget.dataset.timelineFilter;
+      state.timelineFilters = { ...(state.timelineFilters || {}), [filter]: event.currentTarget.value };
+      saveState();
+      render();
+    });
   });
 }
 
@@ -3901,6 +4164,22 @@ function reorderCategory(sourceId, targetId) {
   const orderById = new Map(categories.map((category, index) => [category.id, index]));
   state.categories = state.categories.map((category) =>
     orderById.has(category.id) ? { ...category, order: orderById.get(category.id), updatedAt: now() } : category
+  );
+  saveState();
+  render();
+}
+
+function moveTimelineItem(entityId, direction) {
+  if (!direction) return;
+  const items = filteredTimelineEntities(timelineEntities());
+  const index = items.findIndex((entity) => entity.id === entityId);
+  const targetIndex = index + direction;
+  if (index < 0 || targetIndex < 0 || targetIndex >= items.length) return;
+  const orderedIds = items.map((entity) => entity.id);
+  [orderedIds[index], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[index]];
+  const orderById = new Map(orderedIds.map((idValue, order) => [idValue, order]));
+  state.entities = state.entities.map((entity) =>
+    orderById.has(entity.id) ? { ...entity, timelineOrder: orderById.get(entity.id), updatedAt: now() } : entity
   );
   saveState();
   render();

@@ -444,8 +444,14 @@ label {
   max-width: 220px;
 }
 
+.image-field-preview[data-image-position-frame] {
+  cursor: move;
+  user-select: none;
+}
+
 .image-field-preview img {
   width: 100%;
+  aspect-ratio: 1 / 1;
   max-height: 160px;
   object-fit: cover;
   border-radius: var(--radius);
@@ -847,6 +853,10 @@ label {
 .field-entry--image [data-remove-image-field] {
   grid-column: 2 / span 1;
   justify-self: start;
+}
+
+.image-position-actions {
+  grid-column: 2 / -1;
 }
 
 .field-entry.is-dragging {

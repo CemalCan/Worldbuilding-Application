@@ -714,6 +714,28 @@ function fieldInputValue(field, entity) {
   return entity?.customFieldValues?.[fieldStorageKey(field)] ?? entity?.customFieldValues?.[field.name] ?? "";
 }
 
+function imagePositionKey(fieldOrKey) {
+  const key = typeof fieldOrKey === "string" ? fieldOrKey : fieldStorageKey(fieldOrKey);
+  return `${key}:position`;
+}
+
+function parseImagePosition(value) {
+  const [rawX, rawY] = String(value || "50,50").split(",");
+  const x = Math.min(100, Math.max(0, Number(rawX) || 50));
+  const y = Math.min(100, Math.max(0, Number(rawY) || 50));
+  return { x, y };
+}
+
+function imagePositionStyle(positionValue) {
+  const { x, y } = parseImagePosition(positionValue);
+  return `object-position: ${x}% ${y}%;`;
+}
+
+function fieldImagePositionValue(field, entity) {
+  const key = fieldStorageKey(field);
+  return entity?.customFieldValues?.[imagePositionKey(key)] || entity?.customFieldValues?.[imagePositionKey(field.name)] || "50,50";
+}
+
 const fieldSectionPresets = {
   campaign: {
     Identity: ["Campaign name", "Setting", "System", "Tone"],
@@ -824,15 +846,15 @@ function isPreviewableImageUrl(value) {
 
 function renderFieldValue(field, value) {
   if (field?.type === "image" && isPreviewableImageUrl(value)) {
-    return renderImageFieldPreview(value, fieldLabel(field));
+    return renderImageFieldPreview(value, fieldLabel(field), "50,50");
   }
   return `<p class="muted">${escapeHtml(value)}</p>`;
 }
 
-function renderImageFieldPreview(value, label) {
+function renderImageFieldPreview(value, label, position = "50,50", options = {}) {
   return `
-    <div class="image-field-preview">
-      <img src="${escapeHtml(value)}" alt="${escapeHtml(label)}" loading="lazy" />
+    <div class="image-field-preview" ${options.interactive ? `data-image-position-frame data-image-position="${escapeHtml(position)}"` : ""}>
+      <img src="${escapeHtml(value)}" alt="${escapeHtml(label)}" loading="lazy" style="${imagePositionStyle(position)}" />
       ${String(value || "").startsWith("data:image/") ? `<span class="muted">${t("uploadedImage")}</span>` : `<a href="${escapeHtml(value)}" target="_blank" rel="noreferrer">${escapeHtml(value)}</a>`}
     </div>
   `;
@@ -897,11 +919,13 @@ function renderEntityCustomFieldInput(field, entity) {
   const value = fieldInputValue(field, entity);
   const isImage = field.type === "image";
   const visibleUrlValue = isImage && String(value).startsWith("data:image/") ? "" : value;
+  const position = isImage ? fieldImagePositionValue(field, entity) : "50,50";
+  const positionKey = imagePositionKey(field);
   return `
     <div class="field-entry ${isImage ? "field-entry--image" : ""}" data-entity-field data-field-id="${escapeHtml(field.id || "")}" data-field-key="${escapeHtml(fieldStorageKey(field))}" data-field-name="${escapeHtml(field.name || "")}">
       <button class="field-drag-handle" type="button" draggable="true" data-entity-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</button>
       <label>${escapeHtml(fieldLabel(field))}
-        ${isImage ? `<span class="muted">${t("uploadImage")}</span><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-image-file-input />` : ""}
+        ${isImage ? `<span class="muted">${t("uploadImage")}</span><small class="muted">${t("imageStorageHelp")}</small><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-image-file-input />` : ""}
         ${isImage ? `<span class="muted">${t("pasteImageUrl")}</span>` : ""}
         <input
           ${isImage ? "" : `name="field:${escapeHtml(fieldStorageKey(field))}"`}
@@ -909,9 +933,10 @@ function renderEntityCustomFieldInput(field, entity) {
           value="${escapeHtml(visibleUrlValue)}"
         />
         ${isImage ? `<input type="hidden" name="field:${escapeHtml(fieldStorageKey(field))}" value="${escapeHtml(value)}" data-image-field-input />` : ""}
+        ${isImage ? `<input type="hidden" name="field:${escapeHtml(positionKey)}" value="${escapeHtml(position)}" data-image-position-input />` : ""}
       </label>
-      ${isImage ? `<div class="image-field-preview-slot">${isPreviewableImageUrl(value) ? renderImageFieldPreview(value, fieldLabel(field)) : ""}</div>` : ""}
-      ${isImage ? `<button class="secondary danger-text" type="button" data-remove-image-field>${t("removeImage")}</button>` : ""}
+      ${isImage ? `<div class="image-field-preview-slot">${isPreviewableImageUrl(value) ? renderImageFieldPreview(value, fieldLabel(field), position, { interactive: true }) : ""}</div>` : ""}
+      ${isImage ? `<div class="button-row image-position-actions"><button class="secondary" type="button" data-reset-image-position>${t("resetImagePosition")}</button><button class="secondary danger-text" type="button" data-remove-image-field>${t("removeImage")}</button></div>` : ""}
       <button class="secondary danger-text" type="button" data-remove-entity-field>${t("removeField")}</button>
     </div>
   `;
@@ -998,6 +1023,26 @@ function reorderEntityFormField(container, category, sourceElement, targetElemen
   state.categories = state.categories.map((item) => item.id === category.id ? category : item);
   saveState();
   refreshEntityFieldSections(container, category, entity, values);
+}
+
+function setImagePreviewPosition(fieldElement, x, y) {
+  const positionInput = fieldElement?.querySelector("[data-image-position-input]");
+  const preview = fieldElement?.querySelector("[data-image-position-frame]");
+  const image = preview?.querySelector("img");
+  const position = `${Math.round(x)},${Math.round(y)}`;
+  if (positionInput) positionInput.value = position;
+  if (preview) preview.dataset.imagePosition = position;
+  if (image) image.style.objectPosition = `${x}% ${y}%`;
+}
+
+function setImagePreviewPositionFromPointer(fieldElement, event) {
+  const preview = fieldElement?.querySelector("[data-image-position-frame]");
+  if (!preview) return;
+  const rect = preview.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const x = Math.min(100, Math.max(0, ((event.clientX - rect.left) / rect.width) * 100));
+  const y = Math.min(100, Math.max(0, ((event.clientY - rect.top) / rect.height) * 100));
+  setImagePreviewPosition(fieldElement, x, y);
 }
 
 function renderFieldManager(fields, category) {
@@ -1390,6 +1435,8 @@ const translations = {
     removeImage: "Remove image",
     uploadedImage: "Uploaded image",
     imageTooLarge: "Image file is too large. Please choose an image under 2 MB.",
+    imageStorageHelp: "Images are stored locally in your browser. Smaller files are recommended.",
+    resetImagePosition: "Reset position",
     fieldActions: "Field actions",
     dragToReorder: "Drag to reorder",
     moveFieldUp: "Move up",
@@ -1592,6 +1639,8 @@ const translations = {
     removeImage: "Görseli kaldır",
     uploadedImage: "Yüklenen görsel",
     imageTooLarge: "Görsel dosyası çok büyük. Lütfen 2 MB altında bir görsel seç.",
+    imageStorageHelp: "Görseller tarayıcında yerel olarak saklanır. Daha küçük dosyalar önerilir.",
+    resetImagePosition: "Konumu sıfırla",
     fieldActions: "Alan işlemleri",
     dragToReorder: "Sıralamak için sürükle",
     moveFieldUp: "Yukarı taşı",
@@ -2146,11 +2195,19 @@ function renderEntityList(entities, category) {
   `;
 }
 
-function entityImageValue(entity) {
+function entityImageInfo(entity) {
   const category = state.categories.find((item) => item.id === entity.categoryId);
   const imageField = (category?.customFields || []).find((field) => field.type === "image");
   const value = imageField ? entity.customFieldValues?.[fieldStorageKey(imageField)] || entity.customFieldValues?.[imageField.name] : "";
-  return isPreviewableImageUrl(value) ? value : "";
+  if (!isPreviewableImageUrl(value)) return null;
+  return {
+    value,
+    position: imageField ? fieldImagePositionValue(imageField, entity) : "50,50",
+  };
+}
+
+function entityImageValue(entity) {
+  return entityImageInfo(entity)?.value || "";
 }
 
 function entityTagNames(entity) {
@@ -2201,11 +2258,11 @@ function renderEntityPreviewFields(entity, limit) {
 }
 
 function renderEntityRow(entity) {
-  const imageValue = entityImageValue(entity);
+  const imageInfo = entityImageInfo(entity);
   const tags = entityTagNames(entity).slice(0, 3);
   return `
     <button class="entity-row entity-row--rich" data-action="select-entity" data-id="${entity.id}">
-      ${imageValue ? `<img class="entity-row__image" src="${escapeHtml(imageValue)}" alt="${escapeHtml(entity.title)}" loading="lazy" />` : ""}
+      ${imageInfo ? `<img class="entity-row__image" src="${escapeHtml(imageInfo.value)}" alt="${escapeHtml(entity.title)}" loading="lazy" style="${imagePositionStyle(imageInfo.position)}" />` : ""}
       <span class="entity-row__body">
         <strong>${escapeHtml(entity.title)}</strong>
         ${entity.summary ? `<small>${escapeHtml(entity.summary)}</small>` : ""}
@@ -2217,11 +2274,11 @@ function renderEntityRow(entity) {
 }
 
 function renderEntityCard(entity) {
-  const imageValue = entityImageValue(entity);
+  const imageInfo = entityImageInfo(entity);
   const tags = entityTagNames(entity).slice(0, 3);
   return `
     <button class="entity-card" data-action="select-entity" data-id="${entity.id}">
-      ${imageValue ? `<img class="entity-card__image" src="${escapeHtml(imageValue)}" alt="${escapeHtml(entity.title)}" loading="lazy" />` : ""}
+      ${imageInfo ? `<img class="entity-card__image" src="${escapeHtml(imageInfo.value)}" alt="${escapeHtml(entity.title)}" loading="lazy" style="${imagePositionStyle(imageInfo.position)}" />` : ""}
       <span class="entity-card__body">
         <strong>${escapeHtml(entity.title)}</strong>
         ${entity.summary ? `<small>${escapeHtml(entity.summary)}</small>` : ""}
@@ -2237,11 +2294,11 @@ function renderEntityDetail(entity) {
   const tags = entity.tagIds
     .map((tagId) => state.tags.find((tag) => tag.id === tagId))
     .filter(Boolean);
-  const imageValue = entityImageValue(entity);
+  const imageInfo = entityImageInfo(entity);
   return `
     <section class="detail">
       <div class="detail-hero">
-        ${imageValue ? `<img class="detail-hero__image" src="${escapeHtml(imageValue)}" alt="${escapeHtml(entity.title)}" loading="lazy" />` : ""}
+        ${imageInfo ? `<img class="detail-hero__image" src="${escapeHtml(imageInfo.value)}" alt="${escapeHtml(entity.title)}" loading="lazy" style="${imagePositionStyle(imageInfo.position)}" />` : ""}
         <div class="detail-hero__body">
           <div class="detail-header">
             <div>
@@ -2283,6 +2340,7 @@ function entityFieldEntries(entity) {
   const knownKeys = new Set((category?.customFields || []).flatMap((field) => [fieldStorageKey(field), field.name]));
   const extraEntries = Object.entries(values)
     .filter(([key]) => !knownKeys.has(key))
+    .filter(([key]) => !key.endsWith(":position"))
     .filter(([, value]) => value)
     .map(([key, value]) => ({ label: key, value, key, field: null, section: "Details" }));
   return [...builtInEntries, ...extraEntries];
@@ -3484,6 +3542,7 @@ function openEntityModal(entity) {
   });
   const entityFieldsContainer = backdrop?.querySelector("[data-entity-fields]");
   let draggedEntityField = null;
+  let draggedImageField = null;
   entityFieldsContainer?.addEventListener("dragstart", (event) => {
     const handle = event.target.closest("[data-entity-field-drag-handle]");
     if (!handle) return;
@@ -3516,14 +3575,22 @@ function openEntityModal(entity) {
     draggedEntityField = null;
   });
   entityFieldsContainer?.addEventListener("click", async (event) => {
+    const resetPositionButton = event.target.closest("[data-reset-image-position]");
+    if (resetPositionButton) {
+      const fieldElement = resetPositionButton.closest("[data-entity-field]");
+      setImagePreviewPosition(fieldElement, 50, 50);
+      return;
+    }
     const removeImageButton = event.target.closest("[data-remove-image-field]");
     if (removeImageButton) {
       const fieldElement = removeImageButton.closest("[data-entity-field]");
       const valueInput = fieldElement?.querySelector("[data-image-field-input]");
+      const positionInput = fieldElement?.querySelector("[data-image-position-input]");
       const urlInput = fieldElement?.querySelector("[data-image-url-input]");
       const fileInput = fieldElement?.querySelector("[data-image-file-input]");
       const previewSlot = fieldElement?.querySelector(".image-field-preview-slot");
       if (valueInput) valueInput.value = "";
+      if (positionInput) positionInput.value = "";
       if (urlInput) urlInput.value = "";
       if (fileInput) fileInput.value = "";
       if (previewSlot) previewSlot.innerHTML = "";
@@ -3547,7 +3614,7 @@ function openEntityModal(entity) {
     saveState();
     fieldElement?.remove();
   });
-  backdrop?.querySelector("[data-entity-fields]")?.addEventListener("input", (event) => {
+  entityFieldsContainer?.addEventListener("input", (event) => {
     const input = event.target.closest("[data-image-url-input]");
     if (!input) return;
     const fieldElement = input.closest("[data-entity-field]");
@@ -3555,11 +3622,12 @@ function openEntityModal(entity) {
     const previewSlot = fieldElement?.querySelector(".image-field-preview-slot");
     if (valueInput) valueInput.value = input.value;
     if (!previewSlot) return;
+    const position = fieldElement?.querySelector("[data-image-position-input]")?.value || "50,50";
     previewSlot.innerHTML = isPreviewableImageUrl(input.value)
-      ? renderImageFieldPreview(input.value, fieldElement.dataset.fieldName || "Image")
+      ? renderImageFieldPreview(input.value, fieldElement.dataset.fieldName || "Image", position, { interactive: true })
       : "";
   });
-  backdrop?.querySelector("[data-entity-fields]")?.addEventListener("change", (event) => {
+  entityFieldsContainer?.addEventListener("change", (event) => {
     const fileInput = event.target.closest("[data-image-file-input]");
     if (!fileInput) return;
     const file = fileInput.files?.[0];
@@ -3578,9 +3646,28 @@ function openEntityModal(entity) {
       if (valueInput) valueInput.value = value;
       const urlInput = fieldElement?.querySelector("[data-image-url-input]");
       if (urlInput) urlInput.value = "";
-      if (previewSlot) previewSlot.innerHTML = renderImageFieldPreview(value, fieldElement.dataset.fieldName || "Image");
+      const position = fieldElement?.querySelector("[data-image-position-input]")?.value || "50,50";
+      if (previewSlot) previewSlot.innerHTML = renderImageFieldPreview(value, fieldElement.dataset.fieldName || "Image", position, { interactive: true });
     });
     reader.readAsDataURL(file);
+  });
+  entityFieldsContainer?.addEventListener("pointerdown", (event) => {
+    const preview = event.target.closest("[data-image-position-frame]");
+    if (!preview) return;
+    draggedImageField = preview.closest("[data-entity-field]");
+    preview.setPointerCapture?.(event.pointerId);
+    setImagePreviewPositionFromPointer(draggedImageField, event);
+  });
+  entityFieldsContainer?.addEventListener("pointermove", (event) => {
+    if (!draggedImageField) return;
+    event.preventDefault();
+    setImagePreviewPositionFromPointer(draggedImageField, event);
+  });
+  entityFieldsContainer?.addEventListener("pointerup", () => {
+    draggedImageField = null;
+  });
+  entityFieldsContainer?.addEventListener("pointercancel", () => {
+    draggedImageField = null;
   });
 }
 

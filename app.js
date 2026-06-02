@@ -1208,6 +1208,7 @@ const defaultSettings = {
   accentColor: "#9a4f2e",
   compactMode: false,
   entityViewMode: "cards",
+  organizationEditMode: false,
   autoSave: true,
   trashRetentionDays: 30,
   language: "en",
@@ -1253,6 +1254,11 @@ const translations = {
     alreadyExists: "Already exists",
     renameToAdd: "Rename to add",
     addSelectedCategories: "Add selected categories",
+    organizationEditMode: "Organization edit mode",
+    appTrash: "App trash",
+    projectTrash: "Project trash",
+    duplicateCategoryConfirm: "This category already exists. Add another copy anyway?",
+    copySuffix: "copy",
     searchPages: "Search pages, notes, tags",
     templates: "Templates",
     trash: "Trash",
@@ -1443,6 +1449,11 @@ const translations = {
     alreadyExists: "Zaten var",
     renameToAdd: "Eklemek için yeniden adlandır",
     addSelectedCategories: "Seçili kategorileri ekle",
+    organizationEditMode: "Düzenleme modu",
+    appTrash: "Uygulama çöp kutusu",
+    projectTrash: "Proje çöp kutusu",
+    duplicateCategoryConfirm: "Bu kategori zaten var. Yine de bir kopyasını eklemek istiyor musun?",
+    copySuffix: "kopya",
     searchPages: "Sayfa, not, etiket ara",
     templates: "Şablonlar",
     trash: "Çöp Kutusu",
@@ -1828,12 +1839,12 @@ function renderHome() {
         <div class="toolbar">
           <input class="search-box" data-search placeholder="${t("searchUniverses")}" value="${escapeHtml(state.search)}" />
           <button class="secondary" data-action="import-universe">Import</button>
-          <button class="secondary" data-action="trash">${t("trash")}</button>
         </div>
       </section>
       <div data-home-results>
         ${renderHomeResults()}
       </div>
+      <button class="home-trash-button secondary" data-action="trash">${t("trash")}</button>
     </main>
   `;
 }
@@ -1895,11 +1906,15 @@ function renderWorkspace(universe) {
 function renderLeftPanel(universe) {
   const categories = universeCategories(universe.id);
   const hiddenCategories = universeCategories(universe.id, true).filter((category) => category.isHidden);
+  const isEditingOrganization = Boolean(state.settings.organizationEditMode);
   return `
     <aside class="panel stack">
       <div class="row">
         <h2>${t("categories")}</h2>
-        <button class="icon-button" data-action="new-category" title="${t("addCategory")}">+</button>
+        <div class="button-row">
+          <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${t("edit")}</button>
+          <button class="icon-button" data-action="new-category" title="${t("addCategory")}">+</button>
+        </div>
       </div>
       <input data-search placeholder="${t("searchPages")}" value="${escapeHtml(state.search)}" />
       <div class="stack">
@@ -1910,10 +1925,22 @@ function renderLeftPanel(universe) {
         ${categories.map((category) => {
           const count = universeEntities(universe.id).filter((entity) => entity.categoryId === category.id).length;
           return `
-            <button class="category-button ${category.id === state.selectedCategoryId ? "is-active" : ""}" data-action="select-category" data-id="${category.id}">
-              <strong>${escapeHtml(category.name)}</strong>
-              <small>${count} sayfa</small>
-            </button>
+            <div class="category-nav-row">
+              <button class="category-button ${category.id === state.selectedCategoryId ? "is-active" : ""}" data-action="select-category" data-id="${category.id}">
+                <strong>${escapeHtml(category.name)}</strong>
+                <small>${count} ${t("itemPage")}</small>
+              </button>
+              ${isEditingOrganization ? `
+                <div class="category-controls" aria-label="${escapeHtml(t("organizationEditMode"))}">
+                  <span class="drag-handle" title="${escapeHtml(t("dragToReorder"))}" aria-hidden="true">☰</span>
+                  <button class="secondary" data-action="edit-category" data-id="${category.id}">${t("edit")}</button>
+                  <button class="secondary" data-action="move-category-up" data-id="${category.id}">${t("up")}</button>
+                  <button class="secondary" data-action="move-category-down" data-id="${category.id}">${t("down")}</button>
+                  <button class="secondary" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
+                  <button class="danger" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
+                </div>
+              ` : ""}
+            </div>
           `;
         }).join("")}
       </div>
@@ -1922,7 +1949,7 @@ function renderLeftPanel(universe) {
         <button class="secondary" data-action="templates">${t("templates")}</button>
         <button class="secondary" data-action="trash">${t("trash")}</button>
       </div>
-      ${hiddenCategories.length ? `
+      ${hiddenCategories.length && isEditingOrganization ? `
         <div class="stack">
           <p class="muted">${hiddenCategories.length} ${hiddenCategories.length === 1 ? t("hiddenCategory") : t("hiddenCategories")}</p>
           ${hiddenCategories.map((category) => `
@@ -1963,11 +1990,13 @@ function renderMainPanelContent(universe) {
         ${category ? `
           <div class="button-row">
             <button data-action="new-entity">${createEntityLabel(category)}</button>
-            <button class="secondary" data-action="edit-category" data-id="${category.id}">${t("category")}</button>
-            <button class="secondary" data-action="move-category-up" data-id="${category.id}">${t("up")}</button>
-            <button class="secondary" data-action="move-category-down" data-id="${category.id}">${t("down")}</button>
-            <button class="secondary" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
-            <button class="danger" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
+            ${state.settings.organizationEditMode ? `
+              <button class="secondary" data-action="edit-category" data-id="${category.id}">${t("edit")}</button>
+              <button class="secondary" data-action="move-category-up" data-id="${category.id}">${t("up")}</button>
+              <button class="secondary" data-action="move-category-down" data-id="${category.id}">${t("down")}</button>
+              <button class="secondary" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
+              <button class="danger" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
+            ` : ""}
           </div>
           ${renderEntityViewToggle()}
         ` : ""}
@@ -2363,7 +2392,8 @@ function renderTemplates() {
 
 function renderTrash(universe) {
   const universeId = universe?.id || state.selectedUniverseId;
-  const deletedUniverses = state.universes.filter((item) => item.deletedAt).map((item) => ["universe", item]);
+  const isProjectTrash = Boolean(universe?.id);
+  const deletedUniverses = isProjectTrash ? [] : state.universes.filter((item) => item.deletedAt).map((item) => ["universe", item]);
   const deletedUniverseItems = universeId ? [
     ...state.categories.filter((item) => item.universeId === universeId && item.deletedAt).map((item) => ["category", item]),
     ...state.entities.filter((item) => item.universeId === universeId && item.deletedAt).map((item) => ["page", item]),
@@ -2371,10 +2401,10 @@ function renderTrash(universe) {
     ...state.relationships.filter((item) => item.universeId === universeId && item.deletedAt).map((item) => ["relationship", item]),
     ...state.tags.filter((item) => item.universeId === universeId && item.deletedAt).map((item) => ["tag", item]),
   ] : [];
-  const deleted = [...deletedUniverses, ...deletedUniverseItems];
+  const deleted = isProjectTrash ? deletedUniverseItems : deletedUniverses;
   return `
     <main class="main stack">
-      <h2>${t("trash")}</h2>
+      <h2>${isProjectTrash ? t("projectTrash") : t("appTrash")}</h2>
       ${deletedUniverses.length ? `<p class="muted">${t("deletedUniverses")}: ${deletedUniverses.length}</p>` : ""}
       ${deleted.length ? deleted.map(([type, item]) => `
         <article class="trash-row">
@@ -2478,6 +2508,11 @@ const actions = {
   },
   "new-category": openCategoryModal,
   "add-from-template": openTemplateExpansionModal,
+  "toggle-organization-edit"() {
+    state.settings.organizationEditMode = !state.settings.organizationEditMode;
+    saveState();
+    render();
+  },
   "edit-category"({ id: categoryId }) {
     openCategoryModal(state.categories.find((category) => category.id === categoryId));
   },
@@ -2627,7 +2662,7 @@ function restoreTrashItem(kind, itemId) {
     state.selectedUniverseId = itemId;
     state.selectedCategoryId = universeCategories(itemId)[0]?.id || null;
     state.selectedEntityId = null;
-    state.view = "universe";
+    state.view = "projectHome";
     saveState();
     render();
     return;
@@ -3047,6 +3082,17 @@ function renderTemplateExpansionRows(template, universeId) {
   `;
 }
 
+function uniqueCategoryCopyName(baseName, existingNames) {
+  const suffix = t("copySuffix");
+  let candidate = `${baseName} ${suffix}`;
+  let index = 2;
+  while (existingNames.has(normalizeCategoryName(candidate))) {
+    candidate = `${baseName} ${suffix} ${index}`;
+    index += 1;
+  }
+  return candidate;
+}
+
 function openTemplateExpansionModal() {
   const universe = currentUniverse();
   if (!universe) return;
@@ -3076,7 +3122,9 @@ function openTemplateExpansionModal() {
     for (const preset of template.categoryPresets || []) {
       if (!selectedIds.has(preset.id)) continue;
       const renamed = String(form.get(`rename:${preset.id}`) || "").trim();
-      const finalName = existingNames.has(normalizeCategoryName(preset.name)) ? renamed : preset.name;
+      const duplicate = existingNames.has(normalizeCategoryName(preset.name));
+      if (duplicate && !confirm(t("duplicateCategoryConfirm"))) continue;
+      const finalName = duplicate ? (renamed || uniqueCategoryCopyName(preset.name, existingNames)) : preset.name;
       if (!finalName || existingNames.has(normalizeCategoryName(finalName))) continue;
       existingNames.add(normalizeCategoryName(finalName));
       const presetFields = preset.customFields?.length ? cloneFieldDefinitions(preset.customFields) : createFieldDefinitions(finalName);

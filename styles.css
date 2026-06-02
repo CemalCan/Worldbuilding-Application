@@ -255,6 +255,7 @@ label {
   max-width: 1180px;
   width: 100%;
   margin: 0 auto;
+  position: relative;
 }
 
 .home__header {
@@ -360,6 +361,14 @@ label {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--line);
+}
+
+.home-trash-button {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 20;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
 }
 
 .template-category-row {
@@ -477,6 +486,38 @@ label {
   border: 1px solid var(--line);
   padding: 10px;
   min-height: auto;
+}
+
+.category-nav-row {
+  display: grid;
+  gap: 6px;
+}
+
+.category-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding-left: 8px;
+}
+
+.category-controls button {
+  min-height: 30px;
+  padding: 5px 8px;
+  font-size: 0.78rem;
+}
+
+.drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  background: var(--surface-soft);
+  cursor: grab;
 }
 
 .category-button.is-active,

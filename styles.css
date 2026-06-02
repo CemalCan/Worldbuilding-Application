@@ -315,6 +315,18 @@ label {
   font-size: 1.8rem;
 }
 
+.category-overview {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.category-overview h2,
+.category-overview p {
+  margin: 0;
+}
+
 .home-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
@@ -330,6 +342,15 @@ label {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--line);
+}
+
+.template-category-row {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 
 .universe-card__cover {

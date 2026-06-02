@@ -124,6 +124,21 @@ const categoryFieldPresetGroups = {
     "Loot/Rewards",
     "Next session prep",
   ],
+  species: ["Species/Race", "Origin", "Homeland", "Physical traits", "Culture", "Language", "Abilities", "Weaknesses", "History"],
+  cultures: ["Culture name", "Region", "Values", "Traditions", "Taboos", "Language", "Clothing", "Food", "History"],
+  languages: ["Language name", "Speakers", "Region", "Writing system", "Common phrases", "Origin", "Related languages"],
+  governments: ["Government type", "Ruler/Owner", "Capital", "Laws", "Allies", "Enemies", "History"],
+  wars: ["War name", "Date", "Location", "Participants", "Cause", "Result", "Important events", "Aftermath"],
+  creatures: ["Creature image", "Species/Race", "Habitat", "Behavior", "Abilities", "Weaknesses", "Threat level", "Description"],
+  myths: ["Title", "Culture", "Origin", "Main figures", "Moral", "Public version", "True version"],
+  technologies: ["Technology type", "Creator", "Users", "Purpose", "Limits", "Risks", "History"],
+  planets: ["Planet image", "Region", "Population", "Climate", "Important people", "Important events", "Description"],
+  starSystems: ["System name", "Region", "Planets", "Star type", "Factions", "Important events", "Description"],
+  spaceships: ["Ship image", "Ship type", "Owner", "Crew", "Origin", "Powers/Properties", "History"],
+  crimeCases: ["Case type", "Date", "Location", "Victim", "Suspects", "Evidence", "Clues", "Status", "True version"],
+  evidence: ["Evidence type", "Location found", "Related people", "Public version", "True version", "Status"],
+  clues: ["Clue type", "Location", "Related case", "Meaning", "False lead", "Status"],
+  encounters: ["Encounter type", "Location", "Participants", "Objective", "Threat level", "Reward", "Result"],
 };
 
 const fieldPresetLabelTranslations = {
@@ -132,6 +147,9 @@ const fieldPresetLabelTranslations = {
   "Location image": "Mekân görseli",
   "Item image": "Eşya görseli",
   "Symbol image": "Sembol görseli",
+  "Creature image": "Yaratık görseli",
+  "Planet image": "Gezegen görseli",
+  "Ship image": "Gemi görseli",
   "First name": "Ad",
   "Last name": "Soyad",
   Nickname: "Lakap",
@@ -214,6 +232,57 @@ const fieldPresetLabelTranslations = {
   "Decisions made": "Alınan kararlar",
   "Loot/Rewards": "Loot/Ödüller",
   "Next session prep": "Sonraki oturum hazırlığı",
+  Origin: "Köken",
+  Homeland: "Anayurt",
+  "Physical traits": "Fiziksel özellikler",
+  Culture: "Kültür",
+  Language: "Dil",
+  Abilities: "Yetenekler",
+  Weaknesses: "Zayıflıklar",
+  "Culture name": "Kültür adı",
+  Values: "Değerler",
+  Traditions: "Gelenekler",
+  Taboos: "Tabular",
+  Clothing: "Giyim",
+  Food: "Yemek",
+  "Language name": "Dil adı",
+  Speakers: "Konuşanlar",
+  "Writing system": "Yazı sistemi",
+  "Common phrases": "Yaygın ifadeler",
+  "Related languages": "İlgili diller",
+  "Government type": "Yönetim türü",
+  Capital: "Başkent",
+  Laws: "Yasalar",
+  "War name": "Savaş adı",
+  Aftermath: "Sonrası",
+  Habitat: "Yaşam alanı",
+  Behavior: "Davranış",
+  "Threat level": "Tehdit seviyesi",
+  "Main figures": "Ana figürler",
+  Moral: "Ders",
+  "Technology type": "Teknoloji türü",
+  Creator: "Yaratıcı",
+  Users: "Kullanıcılar",
+  Purpose: "Amaç",
+  "System name": "Sistem adı",
+  Planets: "Gezegenler",
+  "Star type": "Yıldız türü",
+  Factions: "Fraksiyonlar",
+  "Ship type": "Gemi türü",
+  Crew: "Mürettebat",
+  "Case type": "Dosya türü",
+  Victim: "Kurban",
+  Suspects: "Şüpheliler",
+  Evidence: "Kanıt",
+  Clues: "İpuçları",
+  "Evidence type": "Kanıt türü",
+  "Location found": "Bulunduğu yer",
+  "Related people": "İlgili kişiler",
+  "Clue type": "İpucu türü",
+  "Related case": "İlgili dosya",
+  Meaning: "Anlam",
+  "False lead": "Yanlış ipucu",
+  "Encounter type": "Karşılaşma türü",
 };
 
 const categoryPresetAliases = {
@@ -330,6 +399,70 @@ const categoryPresetAliases = {
   "görev kayıtları": "quests",
   "session notes": "sessionNotes",
   "oturum notları": "sessionNotes",
+  species: "species",
+  races: "species",
+  "species/races": "species",
+  irklar: "species",
+  türler: "species",
+  "uzaylı türler": "species",
+  cultures: "cultures",
+  kültürler: "cultures",
+  languages: "languages",
+  diller: "languages",
+  governments: "governments",
+  kingdoms: "governments",
+  empires: "governments",
+  "governments/kingdoms": "governments",
+  krallıklar: "governments",
+  imparatorluklar: "governments",
+  wars: "wars",
+  savaşlar: "wars",
+  creatures: "creatures",
+  bestiary: "creatures",
+  monsters: "creatures",
+  canavarlar: "creatures",
+  yaratıklar: "creatures",
+  "creatures/bestiary": "creatures",
+  myths: "myths",
+  legends: "myths",
+  "myths/legends": "myths",
+  efsaneler: "myths",
+  mitler: "myths",
+  prophecies: "myths",
+  kehanetler: "myths",
+  technologies: "technologies",
+  teknolojiler: "technologies",
+  "siber implantlar": "technologies",
+  "antik teknolojiler": "technologies",
+  planets: "planets",
+  gezegenler: "planets",
+  "star systems": "starSystems",
+  "yıldız sistemleri": "starSystems",
+  spaceships: "spaceships",
+  "space ships": "spaceships",
+  "uzay gemileri": "spaceships",
+  corporations: "organizations",
+  şirketler: "organizations",
+  gangs: "organizations",
+  çeteler: "organizations",
+  "crime cases": "crimeCases",
+  "suç dosyaları": "crimeCases",
+  mysteries: "crimeCases",
+  gizemler: "crimeCases",
+  evidence: "evidence",
+  deliller: "evidence",
+  witnesses: "evidence",
+  tanıklar: "evidence",
+  statements: "evidence",
+  ifadeler: "evidence",
+  clues: "clues",
+  ipuçları: "clues",
+  alibis: "clues",
+  alibiler: "clues",
+  motives: "clues",
+  motifler: "clues",
+  encounters: "encounters",
+  "encounter'lar": "encounters",
 };
 
 function normalizeCategoryName(name) {
@@ -357,6 +490,21 @@ const entityTypeLabels = {
     rpgNpcs: { singular: "NPC", plural: "NPCs" },
     quests: { singular: "quest", plural: "quests" },
     sessionNotes: { singular: "session note", plural: "session notes" },
+    species: { singular: "species", plural: "species" },
+    cultures: { singular: "culture", plural: "cultures" },
+    languages: { singular: "language", plural: "languages" },
+    governments: { singular: "government", plural: "governments" },
+    wars: { singular: "war", plural: "wars" },
+    creatures: { singular: "creature", plural: "creatures" },
+    myths: { singular: "myth", plural: "myths" },
+    technologies: { singular: "technology", plural: "technologies" },
+    planets: { singular: "planet", plural: "planets" },
+    starSystems: { singular: "star system", plural: "star systems" },
+    spaceships: { singular: "spaceship", plural: "spaceships" },
+    crimeCases: { singular: "crime case", plural: "crime cases" },
+    evidence: { singular: "evidence item", plural: "evidence" },
+    clues: { singular: "clue", plural: "clues" },
+    encounters: { singular: "encounter", plural: "encounters" },
     entry: { singular: "entry", plural: "entries" },
   },
   tr: {
@@ -371,6 +519,21 @@ const entityTypeLabels = {
     rpgNpcs: { singular: "NPC", plural: "NPC" },
     quests: { singular: "Görev", plural: "görev" },
     sessionNotes: { singular: "Oturum notu", plural: "oturum notu" },
+    species: { singular: "Tür", plural: "tür" },
+    cultures: { singular: "Kültür", plural: "kültür" },
+    languages: { singular: "Dil", plural: "dil" },
+    governments: { singular: "Yönetim", plural: "yönetim" },
+    wars: { singular: "Savaş", plural: "savaş" },
+    creatures: { singular: "Yaratık", plural: "yaratık" },
+    myths: { singular: "Efsane", plural: "efsane" },
+    technologies: { singular: "Teknoloji", plural: "teknoloji" },
+    planets: { singular: "Gezegen", plural: "gezegen" },
+    starSystems: { singular: "Yıldız sistemi", plural: "yıldız sistemi" },
+    spaceships: { singular: "Uzay gemisi", plural: "uzay gemisi" },
+    crimeCases: { singular: "Suç dosyası", plural: "suç dosyası" },
+    evidence: { singular: "Kanıt", plural: "kanıt" },
+    clues: { singular: "İpucu", plural: "ipucu" },
+    encounters: { singular: "Karşılaşma", plural: "karşılaşma" },
     entry: { singular: "Kayıt", plural: "kayıt" },
   },
 };
@@ -401,6 +564,14 @@ function emptyEntityLabel(category) {
   const language = state?.settings?.language || "en";
   const label = getEntityTypeLabel(category, "plural");
   return language === "tr" ? `Henüz ${label} yok` : `No ${label} yet`;
+}
+
+function emptyEntityHelp(category) {
+  const key = getCategoryTypeKey(category);
+  if (key === "characters") return t("noCharactersHelp");
+  if (key === "locations") return t("noLocationsHelp");
+  if (key === "quests") return t("noQuestsHelp");
+  return t("noPagesHelp");
 }
 
 function entityTitleRequiredMessage(category) {
@@ -830,6 +1001,11 @@ const translations = {
     noRecentEntries: "No recent entries yet.",
     createEntry: "Create entry",
     addCategory: "Add category",
+    addFromTemplate: "Add from template",
+    templateCategories: "Template categories",
+    alreadyExists: "Already exists",
+    renameToAdd: "Rename to add",
+    addSelectedCategories: "Add selected categories",
     searchPages: "Search pages, notes, tags",
     templates: "Templates",
     trash: "Trash",
@@ -844,6 +1020,9 @@ const translations = {
     hide: "Hide",
     noPages: "No pages in this category",
     noPagesHelp: "Create a character, place, event, quest, or any page you need.",
+    noCharactersHelp: "No characters yet. Create your first character to start building this cast.",
+    noLocationsHelp: "No locations yet. Add a place where your story can happen.",
+    noQuestsHelp: "No quests yet. Add your first quest hook.",
     view: "View",
     cards: "Cards",
     listView: "List",
@@ -1001,6 +1180,11 @@ const translations = {
     noRecentEntries: "Henüz son kayıt yok.",
     createEntry: "Kayıt oluştur",
     addCategory: "Kategori ekle",
+    addFromTemplate: "Şablondan ekle",
+    templateCategories: "Şablon kategorileri",
+    alreadyExists: "Zaten var",
+    renameToAdd: "Eklemek için yeniden adlandır",
+    addSelectedCategories: "Seçili kategorileri ekle",
     searchPages: "Sayfa, not, etiket ara",
     templates: "Şablonlar",
     trash: "Çöp Kutusu",
@@ -1015,6 +1199,9 @@ const translations = {
     hide: "Gizle",
     noPages: "Bu kategoride sayfa yok",
     noPagesHelp: "Karakter, mekan, olay, görev veya kendi ihtiyacına göre herhangi bir sayfa oluştur.",
+    noCharactersHelp: "Henüz karakter yok. Kadronu oluşturmaya başlamak için ilk karakterini oluştur.",
+    noLocationsHelp: "Henüz mekân yok. Hikâyenin geçeceği bir yer ekle.",
+    noQuestsHelp: "Henüz görev yok. İlk görev fikrini ekle.",
     view: "Görünüm",
     cards: "Kartlar",
     listView: "Liste",
@@ -1463,6 +1650,7 @@ function renderLeftPanel(universe) {
         }).join("")}
       </div>
       <div class="button-row">
+        <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
         <button class="secondary" data-action="templates">${t("templates")}</button>
         <button class="secondary" data-action="trash">${t("trash")}</button>
       </div>
@@ -1498,18 +1686,37 @@ function renderMainPanelContent(universe) {
   const entity = currentEntity();
   const entities = category ? filteredEntities(universe.id).filter((item) => item.categoryId === category.id) : [];
   return `
-      <section class="toolbar">
-        <h2>${escapeHtml(category?.name || t("noCategory"))}</h2>
+      <section class="category-overview">
+        <div>
+          <p class="muted">${entities.length} ${t("itemPage")}</p>
+          <h2>${escapeHtml(category?.name || t("noCategory"))}</h2>
+          ${category?.description ? `<p>${escapeHtml(category.description)}</p>` : ""}
+        </div>
         ${category ? `
-          <button data-action="new-entity">${createEntityLabel(category)}</button>
-          <button class="secondary" data-action="edit-category" data-id="${category.id}">${t("category")}</button>
-          <button class="secondary" data-action="move-category-up" data-id="${category.id}">${t("up")}</button>
-          <button class="secondary" data-action="move-category-down" data-id="${category.id}">${t("down")}</button>
-          <button class="secondary" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
-          <button class="danger" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
+          <div class="button-row">
+            <button data-action="new-entity">${createEntityLabel(category)}</button>
+            <button class="secondary" data-action="edit-category" data-id="${category.id}">${t("category")}</button>
+            <button class="secondary" data-action="move-category-up" data-id="${category.id}">${t("up")}</button>
+            <button class="secondary" data-action="move-category-down" data-id="${category.id}">${t("down")}</button>
+            <button class="secondary" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
+            <button class="danger" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
+          </div>
+          ${renderEntityViewToggle()}
         ` : ""}
       </section>
       ${entity ? renderEntityDetail(entity) : renderEntityList(entities, category)}
+  `;
+}
+
+function renderEntityViewToggle() {
+  const viewMode = state.settings.entityViewMode === "list" ? "list" : "cards";
+  return `
+    <div class="list-toolbar">
+      <div class="segmented-control" aria-label="${escapeHtml(t("view"))}">
+        <button class="${viewMode === "cards" ? "is-active" : ""}" data-action="set-entity-view" data-mode="cards">${t("cards")}</button>
+        <button class="${viewMode === "list" ? "is-active" : ""}" data-action="set-entity-view" data-mode="list">${t("listView")}</button>
+      </div>
+    </div>
   `;
 }
 
@@ -1533,6 +1740,7 @@ function renderProjectHome(universe) {
         <div class="button-row">
           <button data-action="new-entity">${t("createEntry")}</button>
           <button class="secondary" data-action="new-category">${t("addCategory")}</button>
+          <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
           <button class="secondary" data-action="quick-note">${t("idea")}</button>
         </div>
       </div>
@@ -1587,18 +1795,12 @@ function renderEntityList(entities, category) {
     return `
       <section class="empty">
         <h3>${emptyEntityLabel(category)}</h3>
-        <p>${t("noPagesHelp")}</p>
+        <p>${emptyEntityHelp(category)}</p>
         <button data-action="new-entity">${createEntityLabel(category)}</button>
       </section>
     `;
   }
   return `
-    <div class="list-toolbar">
-      <div class="segmented-control" aria-label="${escapeHtml(t("view"))}">
-        <button class="${viewMode === "cards" ? "is-active" : ""}" data-action="set-entity-view" data-mode="cards">${t("cards")}</button>
-        <button class="${viewMode === "list" ? "is-active" : ""}" data-action="set-entity-view" data-mode="list">${t("listView")}</button>
-      </div>
-    </div>
     <section class="entity-list entity-list--${viewMode}">
       ${entities.map((entity) => viewMode === "list" ? renderEntityRow(entity) : renderEntityCard(entity)).join("")}
     </section>
@@ -1901,6 +2103,7 @@ const actions = {
     setState({ view: "projectHome", selectedEntityId: null, search: "" });
   },
   "new-category": openCategoryModal,
+  "add-from-template": openTemplateExpansionModal,
   "edit-category"({ id: categoryId }) {
     openCategoryModal(state.categories.find((category) => category.id === categoryId));
   },
@@ -2441,6 +2644,91 @@ function openCategoryModal(category) {
     render();
   });
   attachCategoryFieldActions(category);
+}
+
+function renderTemplateExpansionRows(template, universeId) {
+  const existingNames = new Set(universeCategories(universeId, true).map((category) => normalizeCategoryName(category.name)));
+  return `
+    <div class="stack" data-template-category-list>
+      ${(template?.categoryPresets || []).map((preset) => {
+        const exists = existingNames.has(normalizeCategoryName(preset.name));
+        return `
+          <label class="template-category-row">
+            <span>
+              <input name="templateCategory" type="checkbox" value="${escapeHtml(preset.id)}" ${exists ? "" : "checked"} />
+              <strong>${escapeHtml(preset.name)}</strong>
+              ${exists ? `<span class="badge">${t("alreadyExists")}</span>` : ""}
+            </span>
+            ${exists ? `<input name="rename:${escapeHtml(preset.id)}" placeholder="${t("renameToAdd")}" />` : ""}
+          </label>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function openTemplateExpansionModal() {
+  const universe = currentUniverse();
+  if (!universe) return;
+  const templates = activeItems(state.templates);
+  const initialTemplate = templates[0] || builtInTemplates[0];
+  const backdrop = openModal(t("addFromTemplate"), `
+    <form class="form-grid">
+      <label>${t("templates")}
+        <select name="templateId" data-template-picker>
+          ${templates.map((template) => `<option value="${template.id}">${escapeHtml(template.name)}</option>`).join("")}
+        </select>
+      </label>
+      <section class="stack">
+        <h3 class="section-title">${t("templateCategories")}</h3>
+        <div data-template-preview>
+          ${renderTemplateExpansionRows(initialTemplate, universe.id)}
+        </div>
+      </section>
+      <div class="button-row"><button type="submit">${t("addSelectedCategories")}</button></div>
+    </form>
+  `, (form) => {
+    const template = templates.find((item) => item.id === form.get("templateId")) || initialTemplate;
+    const selectedIds = new Set(form.getAll("templateCategory"));
+    const existingNames = new Set(universeCategories(universe.id, true).map((category) => normalizeCategoryName(category.name)));
+    const startOrder = universeCategories(universe.id, true).length;
+    const added = [];
+    for (const preset of template.categoryPresets || []) {
+      if (!selectedIds.has(preset.id)) continue;
+      const renamed = String(form.get(`rename:${preset.id}`) || "").trim();
+      const finalName = existingNames.has(normalizeCategoryName(preset.name)) ? renamed : preset.name;
+      if (!finalName || existingNames.has(normalizeCategoryName(finalName))) continue;
+      existingNames.add(normalizeCategoryName(finalName));
+      const presetFields = preset.customFields?.length ? cloneFieldDefinitions(preset.customFields) : createFieldDefinitions(finalName);
+      added.push({
+        id: id("category"),
+        universeId: universe.id,
+        name: finalName,
+        description: "",
+        icon: "",
+        color: "",
+        order: startOrder + added.length,
+        isDefault: template.isBuiltIn || Boolean(getFieldPresetNames(finalName).length),
+        isHidden: false,
+        customFields: presetFields.length ? presetFields : createFieldDefinitions(finalName),
+        createdAt: now(),
+        updatedAt: now(),
+        deletedAt: null,
+      });
+    }
+    if (!added.length) return;
+    state.categories.push(...added);
+    state.selectedCategoryId = added[0].id;
+    state.selectedEntityId = null;
+    state.view = "universe";
+    saveState();
+    render();
+  });
+  backdrop?.querySelector("[data-template-picker]")?.addEventListener("change", (event) => {
+    const template = templates.find((item) => item.id === event.target.value) || initialTemplate;
+    const preview = backdrop.querySelector("[data-template-preview]");
+    if (preview) preview.innerHTML = renderTemplateExpansionRows(template, universe.id);
+  });
 }
 
 function openEntityModal(entity) {

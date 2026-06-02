@@ -1675,6 +1675,21 @@ const translations = {
     noIncoming: "No incoming relationships.",
     backlinks: "Backlinks",
     referencedBy: "Referenced by",
+    details: "Details",
+    connections: "Connections",
+    relationshipOverview: "Relationship Overview",
+    familyTree: "Family Tree",
+    founder: "Founder",
+    currentHead: "Current head",
+    members: "Members",
+    relatedCharacters: "Related characters",
+    locationsGroup: "Locations",
+    organizationsGroup: "Organizations",
+    itemsGroup: "Items",
+    eventsGroup: "Events",
+    questsGroup: "Quests/RPG",
+    otherGroup: "Other",
+    noConnections: "No connections yet.",
     notes: "Notes",
     addNote: "Add note",
     noNotes: "No notes on this page.",
@@ -1886,6 +1901,21 @@ const translations = {
     noIncoming: "Gelen ilişki yok.",
     backlinks: "Geri bağlantılar",
     referencedBy: "Başvuran kayıtlar",
+    details: "Detaylar",
+    connections: "Bağlantılar",
+    relationshipOverview: "Bağlantı görünümü",
+    familyTree: "Soy Ağacı",
+    founder: "Kurucu",
+    currentHead: "Mevcut lider",
+    members: "Üyeler",
+    relatedCharacters: "Bağlı karakterler",
+    locationsGroup: "Mekânlar",
+    organizationsGroup: "Örgütler",
+    itemsGroup: "Eşyalar",
+    eventsGroup: "Olaylar",
+    questsGroup: "Görevler/RPG",
+    otherGroup: "Diğer",
+    noConnections: "Henüz bağlantı yok.",
     notes: "Notlar",
     addNote: "Not ekle",
     noNotes: "Bu sayfada not yok.",
@@ -2458,6 +2488,7 @@ function renderProjectHome(universe) {
           <button data-action="new-entity">${t("createEntry")}</button>
           <button class="secondary" data-action="new-category">${t("addCategory")}</button>
           <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
+          <button class="secondary" data-action="open-first-family-tree">${t("familyTree")}</button>
           <button class="secondary" data-action="quick-note">${t("idea")}</button>
         </div>
       </div>
@@ -2625,6 +2656,7 @@ function renderEntityDetail(entity) {
     .map((tagId) => state.tags.find((tag) => tag.id === tagId))
     .filter(Boolean);
   const imageInfo = entityImageInfo(entity);
+  const showFamilyTree = hasFamilyTree(entity);
   return `
     <section class="detail">
       <div class="subview-bar">
@@ -2640,12 +2672,18 @@ function renderEntityDetail(entity) {
               <p>${escapeHtml(entity.summary || "")}</p>
             </div>
             <div class="button-row">
+              ${showFamilyTree ? `<button class="secondary" data-action="scroll-family-tree">${t("familyTree")}</button>` : ""}
               <button data-action="edit-entity" data-id="${entity.id}">${t("edit")}</button>
               <button class="danger" data-action="delete-entity" data-id="${entity.id}">${t("delete")}</button>
             </div>
           </div>
           <div class="badge-list">
             ${tags.map((tag) => `<span class="badge">${escapeHtml(tag.name)}</span>`).join("") || `<span class="badge">${t("noTags")}</span>`}
+          </div>
+          <div class="detail-tabs">
+            <span class="badge">${t("details")}</span>
+            <span class="badge">${t("connections")}</span>
+            ${showFamilyTree ? `<span class="badge">${t("familyTree")}</span>` : ""}
           </div>
           ${renderKeyFields(entity)}
         </div>
@@ -2655,6 +2693,8 @@ function renderEntityDetail(entity) {
         <h3 class="section-title">${sectionLabel("Notes")}</h3>
         <article class="markdown">${markdownToHtml(entity.content || t("noContent"))}</article>
       </section>
+      ${renderRelationshipOverview(entity)}
+      ${showFamilyTree ? renderFamilyTree(entity) : ""}
     </section>
   `;
 }
@@ -2724,6 +2764,217 @@ function renderCustomFields(entity) {
         </section>
       `).join("")}
     </div>
+  `;
+}
+
+function entityCategory(entity) {
+  return state.categories.find((item) => item.id === entity?.categoryId);
+}
+
+function entityCategoryType(entity) {
+  return getCategoryTypeKey(entityCategory(entity));
+}
+
+function uniqueEntities(entities) {
+  const seen = new Set();
+  return entities.filter((entity) => {
+    if (!entity?.id || seen.has(entity.id)) return false;
+    seen.add(entity.id);
+    return true;
+  });
+}
+
+function entityForId(entityId) {
+  return state.entities.find((entity) => entity.id === entityId && !entity.deletedAt) || null;
+}
+
+function familyForCharacter(character) {
+  const category = entityCategory(character);
+  const familyId = fieldValueForName(character, category, "Family");
+  return entityForId(familyId);
+}
+
+function hasFamilyTree(entity) {
+  if (entityCategoryType(entity) === "families") return true;
+  return entityCategoryType(entity) === "characters" && Boolean(familyForCharacter(entity));
+}
+
+function renderEntityChip(entity, label = "") {
+  if (!entity) return `<span class="badge">${escapeHtml(missingReferenceLabel(label))}</span>`;
+  return `<button class="badge link-chip" data-action="select-entity" data-id="${entity.id}">${escapeHtml(entity.title)}</button>`;
+}
+
+function renderConnectionItemChip(item) {
+  return renderEntityChip(item.entity, item.label || "");
+}
+
+function uniqueConnectionItems(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    const key = item.entity?.id || `${item.id || ""}:${item.label || ""}`;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function renderConnectionItemGroup(title, items, options = {}) {
+  const chips = uniqueConnectionItems(items).map(renderConnectionItemChip).join("");
+  if (!chips && options.hideEmpty) return "";
+  return `
+    <section class="connection-group">
+      <h4>${escapeHtml(title)}</h4>
+      <div class="tag-row">${chips || `<span class="muted">${t("noConnections")}</span>`}</div>
+    </section>
+  `;
+}
+
+function referenceItemsForName(entity, category, presetName) {
+  const field = fieldByPresetName(category, presetName);
+  if (!field) return [];
+  const key = fieldStorageKey(field);
+  const value = entity.customFieldValues?.[key] || entity.customFieldValues?.[field.name];
+  const labels = field.type === "entityReferenceList"
+    ? referenceLabelsSnapshot(entity.customFieldValues || {}, key)
+    : { [value]: referenceLabelSnapshot(entity.customFieldValues || {}, key) };
+  return normalizeReferenceListValue(value).map((entityId) => ({
+    id: entityId,
+    entity: entityForId(entityId),
+    label: labels[entityId] || "",
+  }));
+}
+
+function familyTreeData(entity) {
+  const family = entityCategoryType(entity) === "families" ? entity : familyForCharacter(entity);
+  if (!family) return null;
+  const familyCategory = entityCategory(family);
+  const founderItems = referenceItemsForName(family, familyCategory, "Founder");
+  const currentHeadItems = referenceItemsForName(family, familyCategory, "Current head");
+  const explicitMemberItems = referenceItemsForName(family, familyCategory, "Members");
+  const linkedCharacters = universeEntities(family.universeId).filter((item) => {
+    if (entityCategoryType(item) !== "characters") return false;
+    return fieldValueForName(item, entityCategory(item), "Family") === family.id;
+  });
+  const linkedMemberItems = linkedCharacters.map((item) => ({ id: item.id, entity: item, label: "" }));
+  const memberItems = uniqueConnectionItems([...explicitMemberItems, ...linkedMemberItems, ...founderItems, ...currentHeadItems]);
+  const leaderIds = new Set([...founderItems, ...currentHeadItems].map((item) => item.entity?.id || item.id).filter(Boolean));
+  const relatedItems = memberItems.filter((item) => !leaderIds.has(item.entity?.id || item.id));
+  return { family, founderItems, currentHeadItems, memberItems, relatedItems };
+}
+
+function renderFamilyTree(entity) {
+  const data = familyTreeData(entity);
+  if (!data) return "";
+  return `
+    <section class="card stack relationship-view" data-family-tree-view>
+      <div class="row">
+        <h3 class="section-title">${t("familyTree")}</h3>
+        ${renderEntityChip(data.family)}
+      </div>
+      <div class="connection-grid">
+        ${renderConnectionItemGroup(t("founder"), data.founderItems)}
+        ${renderConnectionItemGroup(t("currentHead"), data.currentHeadItems)}
+        ${renderConnectionItemGroup(t("members"), data.memberItems)}
+        ${renderConnectionItemGroup(t("relatedCharacters"), data.relatedItems)}
+      </div>
+    </section>
+  `;
+}
+
+function connectionGroupKey(entity) {
+  const type = entityCategoryType(entity);
+  if (type === "families" || type === "characters") return "family";
+  if (type === "locations" || type === "planets" || type === "starSystems" || type === "dungeons") return "locations";
+  if (type === "organizations" || type === "governments" || type === "cultures" || type === "religions") return "organizations";
+  if (type === "items" || type === "lootRewards" || type === "technologies" || type === "evidence" || type === "clues") return "items";
+  if (type === "events" || type === "wars" || type === "myths") return "events";
+  if (type === "quests" || type === "rpgNpcs" || type === "partyMembers" || type === "encounters" || type === "creatures" || type === "ruleNotes" || type === "campaign") return "quests";
+  return "other";
+}
+
+function connectionGroupLabel(groupKey) {
+  return {
+    family: t("familyTree"),
+    locations: t("locationsGroup"),
+    organizations: t("organizationsGroup"),
+    items: t("itemsGroup"),
+    events: t("eventsGroup"),
+    quests: t("questsGroup"),
+    other: t("otherGroup"),
+  }[groupKey] || t("otherGroup");
+}
+
+function addConnection(groups, entity, sourceLabel = "") {
+  if (!entity) return;
+  const groupKey = connectionGroupKey(entity);
+  if (!groups[groupKey]) groups[groupKey] = new Map();
+  if (!groups[groupKey].has(entity.id)) groups[groupKey].set(entity.id, { entity, labels: new Set() });
+  if (sourceLabel) groups[groupKey].get(entity.id).labels.add(sourceLabel);
+}
+
+function linkedFieldConnections(entity) {
+  const category = entityCategory(entity);
+  const values = entity.customFieldValues || {};
+  return (category?.customFields || []).flatMap((field) => {
+    if (field.type !== "entityReference" && field.type !== "entityReferenceList") return [];
+    const value = values[fieldStorageKey(field)] || values[field.name];
+    const ids = field.type === "entityReferenceList" ? normalizeReferenceListValue(value) : [value].filter(Boolean);
+    return ids.map((entityId) => ({ entity: entityForId(entityId), label: fieldLabel(field) })).filter((item) => item.entity);
+  });
+}
+
+function manualRelationshipConnections(entity) {
+  return activeItems(state.relationships)
+    .filter((relationship) => relationship.sourceEntityId === entity.id || relationship.targetEntityId === entity.id)
+    .map((relationship) => {
+      const incoming = relationship.targetEntityId === entity.id;
+      const targetId = incoming ? relationship.sourceEntityId : relationship.targetEntityId;
+      return {
+        entity: entityForId(targetId),
+        label: incoming ? (relationship.reverseType || relationship.type) : relationship.type,
+      };
+    })
+    .filter((item) => item.entity);
+}
+
+function backReferenceConnections(entity) {
+  return entityFieldBackReferences(entity).map((reference) => ({ entity: reference.entity, label: fieldLabel(reference.field) }));
+}
+
+function relationshipOverviewGroups(entity) {
+  const groups = {};
+  [...manualRelationshipConnections(entity), ...linkedFieldConnections(entity), ...backReferenceConnections(entity)].forEach((connection) => {
+    addConnection(groups, connection.entity, connection.label);
+  });
+  return groups;
+}
+
+function renderRelationshipOverview(entity) {
+  const groups = relationshipOverviewGroups(entity);
+  const order = ["family", "locations", "organizations", "items", "events", "quests", "other"];
+  const content = order.map((groupKey) => {
+    const entries = [...(groups[groupKey]?.values() || [])];
+    if (!entries.length) return "";
+    return `
+      <section class="connection-group">
+        <h4>${connectionGroupLabel(groupKey)}</h4>
+        <div class="connection-card-grid">
+          ${entries.map(({ entity: linkedEntity, labels }) => `
+            <button class="connection-card" data-action="select-entity" data-id="${linkedEntity.id}">
+              <strong>${escapeHtml(linkedEntity.title)}</strong>
+              <small>${escapeHtml(entityCategory(linkedEntity)?.name || t("category"))}</small>
+              ${labels.size ? `<span class="muted">${escapeHtml([...labels].join(", "))}</span>` : ""}
+            </button>
+          `).join("")}
+        </div>
+      </section>
+    `;
+  }).join("");
+  return `
+    <section class="card stack relationship-view">
+      <h3 class="section-title">${t("relationshipOverview")}</h3>
+      ${content || `<p class="muted">${t("noConnections")}</p>`}
+    </section>
   `;
 }
 
@@ -3007,6 +3258,17 @@ const actions = {
   },
   "project-home"() {
     setState({ view: "projectHome", selectedEntityId: null, search: "" });
+  },
+  "open-first-family-tree"() {
+    const family = universeEntities().find((entity) => entityCategoryType(entity) === "families");
+    if (!family) {
+      alert(t("noConnections"));
+      return;
+    }
+    setState({ selectedCategoryId: family.categoryId, selectedEntityId: family.id, view: "universe" });
+  },
+  "scroll-family-tree"() {
+    document.querySelector("[data-family-tree-view]")?.scrollIntoView({ behavior: "smooth", block: "start" });
   },
   "back-from-subview"() {
     if (currentUniverse()) {

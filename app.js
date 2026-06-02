@@ -1382,7 +1382,7 @@ const translations = {
     emptyTrash: "Trash is empty",
     emptyTrashHelp: "Deleted items are kept here first.",
     confirmUniverseDelete: "This universe will be moved to trash. Continue?",
-    categoryDeletePrompt: "Category delete: 1=move pages to trash, 2=move pages to another category, 3=hide only",
+    categoryDeletePrompt: "Choose how to handle this category and its entries.",
     categoryMovePrompt: "Move pages to which category?",
     targetCategoryMissing: "Valid target category not found.",
     confirmPageDelete: "This page will be moved to trash. Continue?",
@@ -1392,7 +1392,7 @@ const translations = {
     pageNotFound: "Page not found.",
     confirmTemplateDelete: "Delete custom template?",
     confirmPermanentDelete: "This cannot be undone. Are you sure you want to permanently delete it?",
-    fallbackCategoryPrompt: "This page's category no longer exists. Enter an existing category to restore it:",
+    fallbackCategoryPrompt: "This page's category no longer exists. Choose a category to restore it into.",
     entityRestoreBlocked: "This page could not be restored. Restore its category first or choose an existing category.",
     noteRestoreBlocked: "This note could not be restored because its linked page does not exist.",
     relationshipRestoreBlocked: "This relationship could not be restored because one of its linked pages does not exist.",
@@ -1414,7 +1414,7 @@ const translations = {
     customFieldsLabel: "Custom fields",
     fieldName: "Field name",
     fieldType: "Field type",
-    addFieldHint: "Use empty rows to add custom fields. Use the row buttons to move or remove fields.",
+    addFieldHint: "Use empty rows to add custom fields. Drag rows to reorder or use remove to hide a field.",
     resetFields: "Reset fields to default",
     removedFieldWarning: "Some removed fields have existing page values. The values will be preserved as raw data, but hidden from the category form. Continue?",
     addFieldToCategory: "Add field to this category",
@@ -1586,7 +1586,7 @@ const translations = {
     emptyTrash: "Çöp kutusu boş",
     emptyTrashHelp: "Silinen öğeler önce burada tutulur.",
     confirmUniverseDelete: "Bu evren geri dönüşüm kutusuna taşınacak. Devam etmek istiyor musun?",
-    categoryDeletePrompt: "Kategori silme: 1=sayfalarla çöpe taşı, 2=sayfaları başka kategoriye taşı, 3=sadece gizle",
+    categoryDeletePrompt: "Bu kategori ve içindeki kayıtlar için ne yapılacağını seç.",
     categoryMovePrompt: "Sayfalar hangi kategoriye taşınsın?",
     targetCategoryMissing: "Geçerli hedef kategori bulunamadı.",
     confirmPageDelete: "Bu sayfa geri dönüşüm kutusuna taşınacak. Devam etmek istiyor musun?",
@@ -1596,7 +1596,7 @@ const translations = {
     pageNotFound: "Sayfa bulunamadı.",
     confirmTemplateDelete: "Özel şablon silinsin mi?",
     confirmPermanentDelete: "Bu işlem geri alınamaz. Kalıcı olarak silmek istediğine emin misin?",
-    fallbackCategoryPrompt: "Bu sayfanın kategorisi artık mevcut değil. Geri yüklemek için mevcut bir kategori yaz:",
+    fallbackCategoryPrompt: "Bu sayfanın kategorisi artık mevcut değil. Geri yüklemek için bir kategori seç.",
     entityRestoreBlocked: "Bu sayfa geri yüklenemedi. Önce kategorisini geri yükleyin veya mevcut bir kategori seçin.",
     noteRestoreBlocked: "Bu not geri yüklenemedi çünkü bağlı olduğu sayfa mevcut değil.",
     relationshipRestoreBlocked: "Bu ilişki geri yüklenemedi çünkü bağlı sayfalardan biri mevcut değil.",
@@ -2739,10 +2739,7 @@ const actions = {
     softDelete("notes", noteId);
   },
   "attach-note"({ id: noteId }) {
-    const title = prompt(t("attachNotePrompt"));
-    const entity = universeEntities().find((item) => item.title.toLocaleLowerCase("tr") === title?.toLocaleLowerCase("tr"));
-    if (!entity) return alert(t("pageNotFound"));
-    updateItem("notes", noteId, { entityId: entity.id });
+    openAttachNoteDialog(noteId);
   },
   templates() {
     setState({ view: "templates", selectedEntityId: null });
@@ -2755,11 +2752,15 @@ const actions = {
   trash() {
     setState({ view: "trash", selectedEntityId: null });
   },
-  "restore-item"({ kind, id: itemId }) {
-    restoreTrashItem(kind, itemId);
+  "restore-item": async function ({ kind, id: itemId }) {
+    await restoreTrashItem(kind, itemId);
   },
-  "purge-item"({ kind, id: itemId }) {
-    if (!confirm(t("confirmPermanentDelete"))) return;
+  "purge-item": async function ({ kind, id: itemId }) {
+    const confirmed = await openChoiceModal(t("permanentDelete"), t("confirmPermanentDelete"), [
+      { value: "delete", label: t("permanentDelete"), className: "danger" },
+      { value: "cancel", label: t("cancel"), className: "secondary" },
+    ]);
+    if (confirmed !== "delete") return;
     purgeTrashItem(kind, itemId);
   },
   settings: openSettingsModal,
@@ -2834,10 +2835,35 @@ function openTargetCategoryChoice(currentCategoryId) {
       </form>
     `, (form) => {
       finish(form.get("targetCategoryId"));
-    });
-    backdrop.addEventListener("click", (event) => {
-      if (event.target === backdrop || event.target.dataset.modalClose !== undefined) finish(null);
-    });
+    }, () => finish(null));
+  });
+}
+
+function openAttachNoteDialog(noteId) {
+  const entities = universeEntities();
+  if (!entities.length) {
+    alert(t("pageNotFound"));
+    return;
+  }
+  openModal(t("attach"), `
+    <form class="form-grid">
+      <label>${t("page")}
+        <select name="entityId">
+          ${entities.map((entity) => `<option value="${entity.id}">${escapeHtml(entity.title)}</option>`).join("")}
+        </select>
+      </label>
+      <div class="button-row">
+        <button type="submit">${t("attach")}</button>
+        <button class="secondary" type="button" data-modal-close>${t("cancel")}</button>
+      </div>
+    </form>
+  `, (form) => {
+    const entity = entities.find((item) => item.id === form.get("entityId"));
+    if (!entity) {
+      alert(t("pageNotFound"));
+      return false;
+    }
+    updateItem("notes", noteId, { entityId: entity.id });
   });
 }
 
@@ -2863,13 +2889,34 @@ function activeCategoryExists(categoryId) {
 function pickFallbackCategory(universeId, currentCategoryId) {
   const categories = universeCategories(universeId, true).filter((category) => category.id !== currentCategoryId);
   if (!categories.length) return null;
-  const categoryList = categories.map((category) => category.name).join(", ");
-  const targetName = prompt(`${t("fallbackCategoryPrompt")} ${categoryList}`);
-  if (!targetName) return null;
-  return categories.find((category) => category.name.toLocaleLowerCase("tr") === targetName.toLocaleLowerCase("tr")) || null;
+  return new Promise((resolve) => {
+    let resolved = false;
+    const finish = (value) => {
+      if (resolved) return;
+      resolved = true;
+      resolve(value || null);
+    };
+    openModal(t("restore"), `
+      <form class="form-grid">
+        <p>${escapeHtml(t("fallbackCategoryPrompt"))}</p>
+        <label>${t("category")}
+          <select name="targetCategoryId">
+            ${categories.map((category) => `<option value="${category.id}">${escapeHtml(category.name)}</option>`).join("")}
+          </select>
+        </label>
+        <div class="button-row">
+          <button type="submit">${t("restore")}</button>
+          <button class="secondary" type="button" data-modal-close>${t("cancel")}</button>
+        </div>
+      </form>
+    `, (form) => {
+      const targetId = form.get("targetCategoryId");
+      finish(categories.find((category) => category.id === targetId) || null);
+    }, () => finish(null));
+  });
 }
 
-function restoreTrashItem(kind, itemId) {
+async function restoreTrashItem(kind, itemId) {
   const collection = collectionForKind(kind);
   const item = state[collection].find((entry) => entry.id === itemId);
   if (!item) return;
@@ -2886,7 +2933,7 @@ function restoreTrashItem(kind, itemId) {
   }
 
   if (collection === "entities" && !activeCategoryExists(item.categoryId)) {
-    const fallback = pickFallbackCategory(item.universeId, item.categoryId);
+    const fallback = await pickFallbackCategory(item.universeId, item.categoryId);
     if (!fallback) {
       alert(t("entityRestoreBlocked"));
       return;

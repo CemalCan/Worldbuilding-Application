@@ -682,6 +682,29 @@ label {
   font-size: 0.75rem;
 }
 
+.link-chip {
+  min-height: 0;
+  background: var(--surface-soft);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.reference-checkbox-list {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-soft);
+}
+
+.checkbox-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
 .detail {
   display: grid;
   gap: 14px;

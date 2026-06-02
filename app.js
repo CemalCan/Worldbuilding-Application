@@ -670,18 +670,220 @@ function lockedCategoryMessage(category) {
 }
 
 function createFieldDefinitions(categoryName) {
-  return getFieldPresetNames(categoryName).map((name) => ({
-    id: id("field"),
-    name,
-    presetKey: fieldPresetKey(name),
-    isBuiltIn: true,
-    type: fieldTypeForPreset(name),
-    required: false,
-  }));
+  return getFieldPresetNames(categoryName).map((name) => {
+    const targetCategoryTypes = referenceTargetTypes(categoryName, name);
+    return {
+      id: id("field"),
+      name,
+      presetKey: fieldPresetKey(name),
+      isBuiltIn: true,
+      type: targetCategoryTypes.length
+        ? (referenceListFieldNames.has(name) ? "entityReferenceList" : "entityReference")
+        : fieldTypeForPreset(name),
+      targetCategoryTypes,
+      required: false,
+    };
+  });
 }
 
 function fieldTypeForPreset(name) {
-  return /image$/i.test(String(name || "")) ? "image" : "text";
+  const fieldName = String(name || "");
+  if (/image$/i.test(fieldName)) return "image";
+  return referenceTargetTypes(null, fieldName).length
+    ? (referenceListFieldNames.has(fieldName) ? "entityReferenceList" : "entityReference")
+    : "text";
+}
+
+const referenceListFieldNames = new Set([
+  "Members",
+  "Allies",
+  "Enemies",
+  "Important people",
+  "Important events",
+  "Participants",
+  "Related organizations",
+  "Related items",
+  "Deities",
+  "Followers",
+  "Holy places",
+  "Previous owners",
+  "Players present",
+  "Loot/rewards",
+  "Enemies",
+  "Who received it",
+  "Crew",
+  "Planets",
+  "Factions",
+  "Suspects",
+  "Evidence",
+  "Clues",
+  "Related people",
+  "Related NPCs",
+  "Rewards",
+]);
+
+const referenceFieldTargets = {
+  campaign: {
+    "Important factions": ["organizations"],
+  },
+  characters: {
+    Family: ["families"],
+    Birthplace: ["locations"],
+    "Current location": ["locations"],
+    Religion: ["religions"],
+    Organization: ["organizations"],
+    Faction: ["organizations"],
+    "Owned items": ["items"],
+    Items: ["items"],
+  },
+  families: {
+    Founder: ["characters"],
+    "Current head": ["characters"],
+    Members: ["characters"],
+    Allies: ["families", "organizations"],
+    Enemies: ["families", "organizations"],
+  },
+  locations: {
+    "Ruler/Owner": ["characters", "governments", "organizations"],
+    "Important people": ["characters"],
+    "Important events": ["events"],
+  },
+  events: {
+    Location: ["locations"],
+    Participants: ["characters"],
+    "Related organizations": ["organizations"],
+    "Related items": ["items"],
+  },
+  religions: {
+    Deities: ["religions"],
+    Followers: ["characters", "cultures"],
+    "Holy places": ["locations"],
+  },
+  items: {
+    Owner: ["characters"],
+    "Previous owners": ["characters"],
+    Origin: ["locations"],
+    Location: ["locations"],
+  },
+  organizations: {
+    Leader: ["characters"],
+    Members: ["characters"],
+    Base: ["locations"],
+    Allies: ["organizations"],
+    Enemies: ["organizations"],
+  },
+  quests: {
+    "Quest giver": ["rpgNpcs", "characters"],
+    "Related NPCs": ["rpgNpcs", "characters"],
+    Location: ["locations", "dungeons"],
+    Reward: ["lootRewards", "items"],
+  },
+  sessionNotes: {
+    "Players present": ["partyMembers", "characters"],
+    "Loot/rewards": ["lootRewards", "items"],
+  },
+  encounters: {
+    Enemies: ["creatures", "rpgNpcs"],
+    "Map/Location": ["locations", "dungeons"],
+    Rewards: ["lootRewards", "items"],
+  },
+  dungeons: {
+    Location: ["locations"],
+    Enemies: ["creatures", "rpgNpcs"],
+    Treasure: ["lootRewards", "items"],
+  },
+  lootRewards: {
+    Owner: ["characters"],
+    "Who received it": ["partyMembers", "characters"],
+    Origin: ["locations"],
+  },
+  governments: {
+    "Ruler/Owner": ["characters"],
+    Capital: ["locations"],
+    Allies: ["governments", "organizations"],
+    Enemies: ["governments", "organizations"],
+  },
+  wars: {
+    Location: ["locations"],
+    Participants: ["governments", "organizations", "characters"],
+    "Important events": ["events"],
+  },
+  planets: {
+    "Important people": ["characters"],
+    "Important events": ["events"],
+  },
+  starSystems: {
+    Planets: ["planets"],
+    Factions: ["organizations", "governments"],
+    "Important events": ["events"],
+  },
+  spaceships: {
+    Owner: ["characters", "organizations"],
+    Crew: ["characters", "partyMembers"],
+    Origin: ["locations", "planets"],
+  },
+  crimeCases: {
+    Location: ["locations"],
+    Suspects: ["characters"],
+    Evidence: ["evidence"],
+    Clues: ["clues"],
+  },
+  evidence: {
+    "Location found": ["locations"],
+    "Related people": ["characters"],
+  },
+  clues: {
+    Location: ["locations"],
+    "Related case": ["crimeCases"],
+  },
+};
+
+function referenceTargetTypes(categoryName, fieldName) {
+  const categoryType = categoryName ? getCategoryTypeKey({ name: categoryName }) : null;
+  const name = String(fieldName || "");
+  const byCategory = categoryType ? referenceFieldTargets[categoryType]?.[name] : null;
+  if (byCategory) return byCategory;
+  const generic = {
+    Family: ["families"],
+    Birthplace: ["locations"],
+    "Current location": ["locations"],
+    Location: ["locations"],
+    "Map/Location": ["locations", "dungeons"],
+    "Ruler/Owner": ["characters", "organizations", "governments"],
+    Owner: ["characters"],
+    "Previous owners": ["characters"],
+    Origin: ["locations"],
+    Founder: ["characters"],
+    "Current head": ["characters"],
+    Members: ["characters"],
+    Allies: ["organizations", "families"],
+    Enemies: ["organizations", "families"],
+    Leader: ["characters"],
+    Base: ["locations"],
+    Participants: ["characters"],
+    "Important people": ["characters"],
+    "Important events": ["events"],
+    "Quest giver": ["rpgNpcs", "characters"],
+    "Related NPCs": ["rpgNpcs", "characters"],
+    "Players present": ["partyMembers", "characters"],
+    "Loot/rewards": ["lootRewards", "items"],
+    Rewards: ["lootRewards", "items"],
+    Deities: ["religions"],
+    Followers: ["characters", "cultures"],
+    "Holy places": ["locations"],
+  };
+  return generic[name] || [];
+}
+
+function enrichFieldDefinition(category, field) {
+  if (!field?.isBuiltIn && !field?.presetKey) return field;
+  const targets = field.targetCategoryTypes?.length ? field.targetCategoryTypes : referenceTargetTypes(category?.name, field.name);
+  if (!targets.length) return field;
+  return {
+    ...field,
+    type: field.type === "text" ? (referenceListFieldNames.has(field.name) ? "entityReferenceList" : "entityReference") : field.type,
+    targetCategoryTypes: targets,
+  };
 }
 
 function cloneFieldDefinitions(fields = []) {
@@ -848,7 +1050,55 @@ function renderFieldValue(field, value) {
   if (field?.type === "image" && isPreviewableImageUrl(value)) {
     return renderImageFieldPreview(value, fieldLabel(field), "50,50");
   }
+  if (field?.type === "entityReference") {
+    return renderReferenceValue(value);
+  }
+  if (field?.type === "entityReferenceList") {
+    return renderReferenceListValue(value);
+  }
   return `<p class="muted">${escapeHtml(value)}</p>`;
+}
+
+function entityByReferenceId(entityId) {
+  return state.entities.find((entity) => entity.id === entityId && !entity.deletedAt) || null;
+}
+
+function renderReferenceChip(entityId) {
+  const entity = entityByReferenceId(entityId);
+  if (!entity) return `<span class="badge">${t("missingEntry")}</span>`;
+  return `<button class="badge link-chip" data-action="select-entity" data-id="${entity.id}">${escapeHtml(entity.title)}</button>`;
+}
+
+function renderReferenceValue(value) {
+  if (!value) return `<p class="muted">${t("noneCreateNew")}</p>`;
+  if (!isExistingEntityId(value)) return `<p class="muted">${escapeHtml(String(value))}</p>`;
+  return `<div class="tag-row">${renderReferenceChip(value)}</div>`;
+}
+
+function renderReferenceListValue(value) {
+  const values = normalizeReferenceListValue(value);
+  if (!values.length) return `<p class="muted">${t("noneCreateNew")}</p>`;
+  const known = values.filter(isExistingEntityId);
+  const legacy = values.filter((item) => !isExistingEntityId(item));
+  return `
+    <div class="tag-row">
+      ${known.map(renderReferenceChip).join("")}
+      ${legacy.map((item) => `<span class="badge">${escapeHtml(item)}</span>`).join("")}
+    </div>
+  `;
+}
+
+function referenceDisplayText(field, value) {
+  if (field?.type === "entityReference") {
+    if (!value) return "";
+    return entityByReferenceId(value)?.title || (isExistingEntityId(value) ? t("missingEntry") : String(value));
+  }
+  if (field?.type === "entityReferenceList") {
+    return normalizeReferenceListValue(value)
+      .map((item) => entityByReferenceId(item)?.title || (isExistingEntityId(item) ? t("missingEntry") : item))
+      .join(", ");
+  }
+  return String(value);
 }
 
 function renderImageFieldPreview(value, label, position = "50,50", options = {}) {
@@ -924,6 +1174,8 @@ function renderFieldTypeOptions(selectedType = "text") {
 function renderEntityCustomFieldInput(field, entity) {
   const value = fieldInputValue(field, entity);
   const isImage = field.type === "image";
+  const isReference = field.type === "entityReference" || field.type === "entityReferenceList";
+  if (isReference) return renderReferenceFieldInput(field, entity, value);
   const visibleUrlValue = isImage && String(value).startsWith("data:image/") ? "" : value;
   const position = isImage ? fieldImagePositionValue(field, entity) : "50,50";
   const positionKey = imagePositionKey(field);
@@ -1080,6 +1332,7 @@ function renderFieldManager(fields, category) {
             <input type="hidden" name="fieldPresetKey" value="${escapeHtml(field.presetKey || "")}" />
             <input type="hidden" name="fieldOriginalName" value="${escapeHtml(field.name || "")}" />
             <input type="hidden" name="fieldBuiltIn" value="${field.isBuiltIn ? "true" : "false"}" />
+            <input type="hidden" name="fieldTargetTypes" value="${escapeHtml(JSON.stringify(field.targetCategoryTypes || []))}" />
           </div>
         `).join("")}
       </div>
@@ -1097,6 +1350,7 @@ function collectCategoryFields(form) {
       required: false,
       presetKey: row.querySelector('[name="fieldPresetKey"]')?.value || undefined,
       isBuiltIn: row.querySelector('[name="fieldBuiltIn"]')?.value === "true",
+      targetCategoryTypes: parseJsonArray(row.querySelector('[name="fieldTargetTypes"]')?.value),
       originalName: row.querySelector('[name="fieldOriginalName"]')?.value || "",
     }))
     .filter((field) => field.name)
@@ -1105,6 +1359,15 @@ function collectCategoryFields(form) {
       if (field.isBuiltIn && field.presetKey && originalName) return { ...field, name: originalName };
       return { ...field, isBuiltIn: false, presetKey: undefined };
     });
+}
+
+function parseJsonArray(value) {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function removedFieldsHaveValues(category, nextFields) {
@@ -1222,7 +1485,7 @@ function hydrateCategoryFields(category) {
       presetKey: fieldPresetKey(field.name),
       isBuiltIn: true,
     };
-  });
+  }).map((field) => enrichFieldDefinition(category, field));
   const knownKeys = new Set(fields.flatMap((field) => [fieldStorageKey(field), field.name]));
   const missingImageFields = category.isDefault
     ? createFieldDefinitions(category.name).filter((field) =>
@@ -1322,6 +1585,9 @@ const translations = {
     appTrash: "App trash",
     projectTrash: "Project trash",
     duplicateCategoryConfirm: "This category already exists. Add another copy anyway?",
+    noneCreateNew: "None / create new",
+    missingEntry: "Missing entry",
+    createLinkedEntry: "Create linked entry",
     copySuffix: "copy",
     moveToTrash: "Move to trash",
     moveEntriesToCategory: "Move entries to another category",
@@ -1526,6 +1792,9 @@ const translations = {
     appTrash: "Uygulama çöp kutusu",
     projectTrash: "Proje çöp kutusu",
     duplicateCategoryConfirm: "Bu kategori zaten var. Yine de bir kopyasını eklemek istiyor musun?",
+    noneCreateNew: "Yok / yeni oluÅŸtur",
+    missingEntry: "Eksik kayÄ±t",
+    createLinkedEntry: "BaÄŸlÄ± kayÄ±t oluÅŸtur",
     copySuffix: "kopya",
     moveToTrash: "Çöpe taşı",
     moveEntriesToCategory: "Kayıtları başka kategoriye taşı",
@@ -2267,7 +2536,7 @@ function renderEntityPreviewFields(entity, limit) {
   if (!fields.length) return "";
   return `
     <span class="entity-preview-fields">
-      ${fields.map((entry) => `<span><strong>${escapeHtml(entry.label)}:</strong> ${escapeHtml(String(entry.value))}</span>`).join("")}
+      ${fields.map((entry) => `<span><strong>${escapeHtml(entry.label)}:</strong> ${escapeHtml(referenceDisplayText(entry.field, entry.value))}</span>`).join("")}
     </span>
   `;
 }
@@ -2371,7 +2640,7 @@ function renderKeyFields(entity) {
       ${entries.map((entry) => `
         <div class="key-field">
           <span>${escapeHtml(entry.label)}</span>
-          <strong>${escapeHtml(String(entry.value))}</strong>
+          ${renderFieldValue(entry.field, entry.value)}
         </div>
       `).join("")}
     </div>
@@ -2837,6 +3106,75 @@ function openTargetCategoryChoice(currentCategoryId) {
       finish(form.get("targetCategoryId"));
     }, () => finish(null));
   });
+}
+
+function referenceTargetEntities(field, sourceEntity) {
+  const universeId = sourceEntity?.universeId || state.selectedUniverseId;
+  const targetTypes = field.targetCategoryTypes || [];
+  const targetCategoryIds = new Set(
+    state.categories
+      .filter((category) => category.universeId === universeId && !category.deletedAt)
+      .filter((category) => !targetTypes.length || targetTypes.includes(getCategoryTypeKey(category)))
+      .map((category) => category.id)
+  );
+  return state.entities
+    .filter((entity) => entity.universeId === universeId && !entity.deletedAt && entity.id !== sourceEntity?.id)
+    .filter((entity) => !targetCategoryIds.size || targetCategoryIds.has(entity.categoryId))
+    .sort((a, b) => a.title.localeCompare(b.title, state.settings.language === "tr" ? "tr" : "en"));
+}
+
+function normalizeReferenceListValue(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (!value) return [];
+  return String(value).split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function isExistingEntityId(value) {
+  return state.entities.some((entity) => entity.id === value);
+}
+
+function renderReferenceFieldInput(field, entity, value) {
+  const targets = referenceTargetEntities(field, entity);
+  const storageKey = fieldStorageKey(field);
+  const isList = field.type === "entityReferenceList";
+  const selectedIds = new Set(isList ? normalizeReferenceListValue(value).filter(isExistingEntityId) : []);
+  const legacyText = isList
+    ? normalizeReferenceListValue(value).filter((item) => !isExistingEntityId(item)).join(", ")
+    : (value && !isExistingEntityId(value) ? String(value) : "");
+  const targetIds = new Set(targets.map((target) => target.id));
+  const selectedValue = !isList && targetIds.has(value) ? value : "";
+  const missingReference = !isList && value && isExistingEntityId(value) && !selectedValue;
+  return `
+    <div class="field-entry" data-entity-field data-field-id="${escapeHtml(field.id || "")}" data-field-key="${escapeHtml(storageKey)}" data-field-name="${escapeHtml(field.name || "")}">
+      <button class="field-drag-handle" type="button" draggable="true" tabindex="-1" data-entity-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</button>
+      <div class="stack">
+        <label>${escapeHtml(fieldLabel(field))}
+          ${isList ? "" : `
+            <select name="field:${escapeHtml(storageKey)}" data-reference-select>
+              <option value="">${t("noneCreateNew")}</option>
+              ${targets.map((target) => `<option value="${target.id}" ${target.id === selectedValue ? "selected" : ""}>${escapeHtml(target.title)}</option>`).join("")}
+            </select>
+            ${missingReference ? `<input type="hidden" name="field:${escapeHtml(storageKey)}" value="${escapeHtml(value)}" data-missing-reference-value />` : ""}
+          `}
+        </label>
+        ${isList ? `
+          <input type="hidden" name="field:${escapeHtml(storageKey)}" value="${escapeHtml([...selectedIds].join(","))}" data-reference-list-value />
+          <div class="reference-checkbox-list">
+            <label class="checkbox-line"><input type="checkbox" data-reference-list-empty ${selectedIds.size ? "" : "checked"} /> ${t("noneCreateNew")}</label>
+            ${targets.map((target) => `
+              <label class="checkbox-line">
+                <input type="checkbox" value="${target.id}" data-reference-list-option ${selectedIds.has(target.id) ? "checked" : ""} />
+                ${escapeHtml(target.title)}
+              </label>
+            `).join("")}
+          </div>
+        ` : ""}
+        ${missingReference ? `<small class="muted">${t("missingEntry")}</small>` : ""}
+        ${legacyText ? `<small class="muted">${escapeHtml(legacyText)}</small>` : ""}
+      </div>
+      <button class="secondary danger-text" type="button" tabindex="-1" data-remove-entity-field>${t("removeField")}</button>
+    </div>
+  `;
 }
 
 function openAttachNoteDialog(noteId) {
@@ -3704,6 +4042,31 @@ function openEntityModal(entity) {
       : "";
   });
   entityFieldsContainer?.addEventListener("change", (event) => {
+    const referenceSelect = event.target.closest("[data-reference-select]");
+    if (referenceSelect) {
+      const fieldElement = referenceSelect.closest("[data-entity-field]");
+      if (referenceSelect.value) fieldElement?.querySelector("[data-missing-reference-value]")?.remove();
+      return;
+    }
+    const referenceCheckbox = event.target.closest("[data-reference-list-option], [data-reference-list-empty]");
+    if (referenceCheckbox) {
+      const fieldElement = referenceCheckbox.closest("[data-entity-field]");
+      const emptyOption = fieldElement?.querySelector("[data-reference-list-empty]");
+      const options = [...(fieldElement?.querySelectorAll("[data-reference-list-option]") || [])];
+      if (referenceCheckbox.matches("[data-reference-list-empty]") && referenceCheckbox.checked) {
+        options.forEach((option) => {
+          option.checked = false;
+        });
+      }
+      if (referenceCheckbox.matches("[data-reference-list-option]") && referenceCheckbox.checked && emptyOption) {
+        emptyOption.checked = false;
+      }
+      const selected = options.filter((option) => option.checked).map((option) => option.value);
+      if (emptyOption) emptyOption.checked = !selected.length;
+      const valueInput = fieldElement?.querySelector("[data-reference-list-value]");
+      if (valueInput) valueInput.value = selected.join(",");
+      return;
+    }
     const fileInput = event.target.closest("[data-image-file-input]");
     if (!fileInput) return;
     const file = fileInput.files?.[0];
@@ -4100,6 +4463,22 @@ function importUniverse() {
         if (!idMap.has(oldId)) idMap.set(oldId, id(prefix));
         return idMap.get(oldId);
       };
+      const importedEntityIds = new Set(validated.entities.map((item) => item.id));
+      const remapCustomFieldValues = (values = {}) => Object.fromEntries(Object.entries(values || {}).map(([key, value]) => {
+        if (Array.isArray(value)) {
+          return [key, value.map((item) => importedEntityIds.has(item) ? mapId(item, "entity") : item)];
+        }
+        if (typeof value === "string" && importedEntityIds.has(value)) {
+          return [key, mapId(value, "entity")];
+        }
+        if (typeof value === "string" && value.includes(",")) {
+          return [key, value.split(",").map((item) => {
+            const trimmed = item.trim();
+            return importedEntityIds.has(trimmed) ? mapId(trimmed, "entity") : trimmed;
+          }).join(",")];
+        }
+        return [key, value];
+      }));
       const universeId = mapId(payload.universe.id, "universe");
       state.universes.push({ ...payload.universe, id: universeId, name: `${payload.universe.name} (Import)`, createdAt: now(), updatedAt: now(), deletedAt: null });
       state.categories.push(...validated.categories.map((item) => ({ ...item, id: mapId(item.id, "category"), universeId, deletedAt: null })));
@@ -4110,6 +4489,7 @@ function importUniverse() {
         universeId,
         categoryId: mapId(item.categoryId, "category"),
         tagIds: (item.tagIds || []).map((tagId) => mapId(tagId, "tag")),
+        customFieldValues: remapCustomFieldValues(item.customFieldValues || {}),
         deletedAt: null,
       })));
       state.relationships.push(...validated.relationships.map((item) => ({

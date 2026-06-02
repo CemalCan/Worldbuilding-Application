@@ -854,10 +854,16 @@ function renderFieldValue(field, value) {
 function renderImageFieldPreview(value, label, position = "50,50", options = {}) {
   return `
     <div class="image-field-preview" ${options.interactive ? `data-image-position-frame data-image-position="${escapeHtml(position)}"` : ""}>
-      <img src="${escapeHtml(value)}" alt="${escapeHtml(label)}" loading="lazy" style="${imagePositionStyle(position)}" />
+      <img src="${escapeHtml(value)}" alt="${escapeHtml(label)}" loading="lazy" draggable="false" style="${imagePositionStyle(position)}" />
       ${String(value || "").startsWith("data:image/") ? `<span class="muted">${t("uploadedImage")}</span>` : `<a href="${escapeHtml(value)}" target="_blank" rel="noreferrer">${escapeHtml(value)}</a>`}
     </div>
   `;
+}
+
+function setDragImageToElement(event, element) {
+  if (!event.dataTransfer || !element) return;
+  const rect = element.getBoundingClientRect();
+  event.dataTransfer.setDragImage(element, Math.max(0, rect.width / 2), Math.max(0, Math.min(rect.height / 2, 32)));
 }
 
 const fieldTypeOrder = [
@@ -923,7 +929,7 @@ function renderEntityCustomFieldInput(field, entity) {
   const positionKey = imagePositionKey(field);
   return `
     <div class="field-entry ${isImage ? "field-entry--image" : ""}" data-entity-field data-field-id="${escapeHtml(field.id || "")}" data-field-key="${escapeHtml(fieldStorageKey(field))}" data-field-name="${escapeHtml(field.name || "")}">
-      <button class="field-drag-handle" type="button" draggable="true" data-entity-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</button>
+      <button class="field-drag-handle" type="button" draggable="true" tabindex="-1" data-entity-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</button>
       <label>${escapeHtml(fieldLabel(field))}
         ${isImage ? `<span class="muted">${t("uploadImage")}</span><small class="muted">${t("imageStorageHelp")}</small><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-image-file-input />` : ""}
         ${isImage ? `<span class="muted">${t("pasteImageUrl")}</span>` : ""}
@@ -936,8 +942,8 @@ function renderEntityCustomFieldInput(field, entity) {
         ${isImage ? `<input type="hidden" name="field:${escapeHtml(positionKey)}" value="${escapeHtml(position)}" data-image-position-input />` : ""}
       </label>
       ${isImage ? `<div class="image-field-preview-slot">${isPreviewableImageUrl(value) ? renderImageFieldPreview(value, fieldLabel(field), position, { interactive: true }) : ""}</div>` : ""}
-      ${isImage ? `<div class="button-row image-position-actions"><button class="secondary" type="button" data-reset-image-position>${t("resetImagePosition")}</button><button class="secondary danger-text" type="button" data-remove-image-field>${t("removeImage")}</button></div>` : ""}
-      <button class="secondary danger-text" type="button" data-remove-entity-field>${t("removeField")}</button>
+      ${isImage ? `<div class="button-row image-position-actions"><button class="secondary" type="button" tabindex="-1" data-reset-image-position>${t("resetImagePosition")}</button><button class="secondary danger-text" type="button" tabindex="-1" data-remove-image-field>${t("removeImage")}</button></div>` : ""}
+      <button class="secondary danger-text" type="button" tabindex="-1" data-remove-entity-field>${t("removeField")}</button>
     </div>
   `;
 }
@@ -1057,7 +1063,7 @@ function renderFieldManager(fields, category) {
       <div class="stack">
         ${rows.map((field, index) => `
           <div class="field-editor-row two-col" data-field-editor-row>
-            <button class="field-drag-handle" type="button" draggable="true" data-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</button>
+            <button class="field-drag-handle" type="button" draggable="true" tabindex="-1" data-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</button>
             <label>${t("fieldName")}
               <input name="fieldName" value="${escapeHtml(fieldLabel(field))}" />
             </label>
@@ -1068,9 +1074,7 @@ function renderFieldManager(fields, category) {
               <small class="muted">${escapeHtml(fieldTypeInfo(field.type || "text").help)}</small>
             </label>
             <div class="field-row-actions" aria-label="${escapeHtml(t("fieldActions"))}">
-              <button class="secondary" type="button" data-move-field-up title="${escapeHtml(t("moveFieldUp"))}">↑ ${t("moveFieldUp")}</button>
-              <button class="secondary" type="button" data-move-field-down title="${escapeHtml(t("moveFieldDown"))}">↓ ${t("moveFieldDown")}</button>
-              <button class="secondary danger-text" type="button" data-remove-category-field title="${escapeHtml(t("removeField"))}">× ${t("removeField")}</button>
+              <button class="secondary danger-text" type="button" tabindex="-1" data-remove-category-field title="${escapeHtml(t("removeField"))}">× ${t("removeField")}</button>
             </div>
             <input type="hidden" name="fieldId" value="${escapeHtml(field.id || "")}" />
             <input type="hidden" name="fieldPresetKey" value="${escapeHtml(field.presetKey || "")}" />
@@ -1163,20 +1167,6 @@ function attachCategoryFieldActions(category) {
       row.remove();
     });
   });
-  document.querySelectorAll("[data-move-field-up]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const row = button.closest("[data-field-editor-row]");
-      const previous = row?.previousElementSibling;
-      if (row && previous) row.parentElement.insertBefore(row, previous);
-    });
-  });
-  document.querySelectorAll("[data-move-field-down]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const row = button.closest("[data-field-editor-row]");
-      const next = row?.nextElementSibling;
-      if (row && next) row.parentElement.insertBefore(next, row);
-    });
-  });
   attachFieldDragReorder();
 }
 
@@ -1191,6 +1181,7 @@ function attachFieldDragReorder() {
       draggedRow.classList.add("is-dragging");
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", draggedRow.querySelector('[name="fieldId"]')?.value || "");
+      setDragImageToElement(event, draggedRow);
     });
     handle.addEventListener("dragend", () => {
       draggedRow?.classList.remove("is-dragging");
@@ -2021,7 +2012,6 @@ function renderLeftPanel(universe) {
       <div class="row">
         <h2>${t("categories")}</h2>
         <div class="button-row">
-          <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : t("edit")}</button>
           <button class="icon-button" data-action="new-category" title="${t("addCategory")}">+</button>
         </div>
       </div>
@@ -2042,10 +2032,10 @@ function renderLeftPanel(universe) {
               </button>
               ${isEditingOrganization ? `
                 <div class="category-controls" aria-label="${escapeHtml(t("organizationEditMode"))}">
-                  <span class="drag-handle" draggable="true" data-category-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</span>
-                  <button class="secondary" data-action="edit-category" data-id="${category.id}">${t("edit")}</button>
-                  <button class="secondary" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
-                  <button class="danger" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
+                  <span class="drag-handle" draggable="true" tabindex="-1" data-category-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</span>
+                  <button class="secondary" tabindex="-1" data-action="edit-category" data-id="${category.id}">${t("edit")}</button>
+                  <button class="secondary" tabindex="-1" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
+                  <button class="danger" tabindex="-1" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
                 </div>
               ` : ""}
             </div>
@@ -2082,6 +2072,7 @@ function renderMainPanel(universe) {
 function renderMainPanelContent(universe) {
   if (state.view === "projectHome") return renderProjectHome(universe);
   const category = currentCategory() || universeCategories(universe.id)[0];
+  const isEditingOrganization = isProjectEditMode(universe.id);
   if (category && category.id !== state.selectedCategoryId) {
     state.selectedCategoryId = category.id;
     saveState();
@@ -2098,12 +2089,14 @@ function renderMainPanelContent(universe) {
           </div>
           ${category ? `
             <div class="category-overview__actions">
+              <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : t("edit")}</button>
               <button data-action="new-entity">${createEntityLabel(category)}</button>
               ${renderEntityViewToggle()}
             </div>
           ` : ""}
         </div>
-        ${category && isProjectEditMode(universe.id) ? `
+        ${category && isEditingOrganization ? `
+          <p class="muted edit-mode-help">${t("organizationEditHelp")}</p>
           <div class="button-row category-overview__edit-actions">
             <button class="secondary" data-action="edit-category" data-id="${category.id}">${t("edit")}</button>
             <button class="secondary" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
@@ -2130,6 +2123,7 @@ function renderEntityViewToggle() {
 function renderProjectHome(universe) {
   const template = state.templates.find((item) => item.id === universe.templateId);
   const categories = universeCategories(universe.id);
+  const isEditingOrganization = isProjectEditMode(universe.id);
   const entities = universeEntities(universe.id)
     .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))
     .slice(0, 6);
@@ -2145,12 +2139,14 @@ function renderProjectHome(universe) {
           </div>
         </div>
         <div class="button-row">
+          <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : t("edit")}</button>
           <button data-action="new-entity">${t("createEntry")}</button>
           <button class="secondary" data-action="new-category">${t("addCategory")}</button>
           <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
           <button class="secondary" data-action="quick-note">${t("idea")}</button>
         </div>
       </div>
+      ${isEditingOrganization ? `<p class="muted edit-mode-help">${t("organizationEditHelp")}</p>` : ""}
       <section class="stack">
         <h3 class="section-title">${t("categoryOverview")}</h3>
         <div class="home-card-grid">
@@ -2316,6 +2312,9 @@ function renderEntityDetail(entity) {
   const imageInfo = entityImageInfo(entity);
   return `
     <section class="detail">
+      <div class="subview-bar">
+        <button class="secondary" data-action="back-to-list">← ${t("back")}</button>
+      </div>
       <div class="detail-hero">
         ${imageInfo ? `<img class="detail-hero__image" src="${escapeHtml(imageInfo.value)}" alt="${escapeHtml(entity.title)}" loading="lazy" style="${imagePositionStyle(imageInfo.position)}" />` : ""}
         <div class="detail-hero__body">
@@ -2326,7 +2325,6 @@ function renderEntityDetail(entity) {
               <p>${escapeHtml(entity.summary || "")}</p>
             </div>
             <div class="button-row">
-              <button class="secondary" data-action="back-to-list">← ${t("back")}</button>
               <button data-action="edit-entity" data-id="${entity.id}">${t("edit")}</button>
               <button class="danger" data-action="delete-entity" data-id="${entity.id}">${t("delete")}</button>
             </div>
@@ -2487,7 +2485,7 @@ function renderTemplates() {
   return `
     <main class="main stack">
       <section class="toolbar">
-        <div class="button-row">
+        <div class="subview-bar">
           <button class="secondary" data-action="back-from-subview">← ${t("back")}</button>
           <h2>${t("templates")}</h2>
         </div>
@@ -2527,7 +2525,7 @@ function renderTrash(universe) {
   return `
     <main class="main stack">
       <section class="toolbar">
-        <div class="button-row">
+        <div class="subview-bar">
           <button class="secondary" data-action="back-from-subview">← ${t("back")}</button>
           <h2>${isProjectTrash ? t("projectTrash") : t("appTrash")}</h2>
         </div>
@@ -2568,6 +2566,7 @@ function bindCategoryDragEvents(root) {
       row?.classList.add("is-dragging");
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", draggedId || "");
+      setDragImageToElement(event, row);
     });
     handle.addEventListener("dragend", () => {
       root.querySelectorAll("[data-category-row].is-dragging").forEach((row) => row.classList.remove("is-dragging"));
@@ -3002,30 +3001,30 @@ function reorderCategory(sourceId, targetId) {
 
 function bindModalBackdropClose(backdrop, close) {
   let startedOnBackdrop = false;
-  let pointerMoved = false;
   backdrop.addEventListener("pointerdown", (event) => {
     startedOnBackdrop = event.target === backdrop;
-    pointerMoved = false;
   });
-  backdrop.addEventListener("pointermove", () => {
-    if (startedOnBackdrop) pointerMoved = true;
+  backdrop.addEventListener("pointerup", (event) => {
+    if (event.target === backdrop && startedOnBackdrop) close();
+    startedOnBackdrop = false;
   });
   backdrop.addEventListener("click", (event) => {
-    const hasSelection = Boolean(window.getSelection?.()?.toString());
-    if (event.target === backdrop && startedOnBackdrop && !pointerMoved && !hasSelection) close();
     if (event.target.dataset.modalClose !== undefined) close();
     startedOnBackdrop = false;
-    pointerMoved = false;
   });
 }
 
-function openModal(title, bodyHtml, onSubmit) {
+function openModal(title, bodyHtml, onSubmit, onClose) {
   const template = document.getElementById("modal-template");
   const fragment = template.content.cloneNode(true);
   const backdrop = fragment.querySelector(".modal-backdrop");
   fragment.querySelector("[data-modal-title]").textContent = title;
   fragment.querySelector("[data-modal-body]").innerHTML = bodyHtml;
-  const close = () => backdrop.remove();
+  const close = () => {
+    if (!backdrop.isConnected) return;
+    backdrop.remove();
+    onClose?.();
+  };
   bindModalBackdropClose(backdrop, close);
   const form = fragment.querySelector("form");
   if (form) {
@@ -3054,16 +3053,13 @@ function openChoiceModal(title, message, choices) {
           ${choices.map((choice) => `<button type="button" class="${escapeHtml(choice.className || "secondary")}" data-choice-value="${escapeHtml(choice.value)}">${escapeHtml(choice.label)}</button>`).join("")}
         </div>
       </section>
-    `);
+    `, null, () => finish(null));
     backdrop.querySelectorAll("[data-choice-value]").forEach((button) => {
       button.addEventListener("click", () => {
         const value = button.dataset.choiceValue;
         backdrop.remove();
         finish(value);
       });
-    });
-    backdrop.addEventListener("click", (event) => {
-      if (event.target === backdrop || event.target.dataset.modalClose !== undefined) finish(null);
     });
   });
 }
@@ -3582,6 +3578,7 @@ function openEntityModal(entity) {
     draggedEntityField?.classList.add("is-dragging");
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", draggedEntityField?.dataset.fieldKey || "");
+    setDragImageToElement(event, draggedEntityField);
   });
   entityFieldsContainer?.addEventListener("dragover", (event) => {
     if (!draggedEntityField) return;
@@ -3686,7 +3683,9 @@ function openEntityModal(entity) {
   entityFieldsContainer?.addEventListener("pointerdown", (event) => {
     const preview = event.target.closest("[data-image-position-frame]");
     if (!preview) return;
+    event.preventDefault();
     draggedImageField = preview.closest("[data-entity-field]");
+    preview.classList.add("is-positioning");
     preview.setPointerCapture?.(event.pointerId);
     setImagePreviewPositionFromPointer(draggedImageField, event);
   });
@@ -3696,10 +3695,15 @@ function openEntityModal(entity) {
     setImagePreviewPositionFromPointer(draggedImageField, event);
   });
   entityFieldsContainer?.addEventListener("pointerup", () => {
+    entityFieldsContainer.querySelectorAll("[data-image-position-frame].is-positioning").forEach((preview) => preview.classList.remove("is-positioning"));
     draggedImageField = null;
   });
   entityFieldsContainer?.addEventListener("pointercancel", () => {
+    entityFieldsContainer.querySelectorAll("[data-image-position-frame].is-positioning").forEach((preview) => preview.classList.remove("is-positioning"));
     draggedImageField = null;
+  });
+  entityFieldsContainer?.addEventListener("dragstart", (event) => {
+    if (event.target.closest("[data-image-position-frame]")) event.preventDefault();
   });
 }
 

@@ -522,6 +522,12 @@ label {
   transition: opacity 0.16s ease, transform 0.16s ease, background-color 0.16s ease;
 }
 
+.category-nav-row[draggable="true"],
+.field-editor-row[draggable="true"],
+.field-entry[draggable="true"] {
+  cursor: grab;
+}
+
 .category-controls {
   display: flex;
   flex-wrap: wrap;
@@ -556,6 +562,7 @@ label {
 .category-nav-row.is-dragging {
   opacity: 0.48;
   transform: scale(0.98);
+  box-shadow: var(--shadow);
 }
 
 .category-nav-row.is-drop-target {
@@ -680,6 +687,13 @@ label {
   gap: 14px;
 }
 
+.subview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+}
+
 .detail-hero {
   display: grid;
   grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
@@ -794,6 +808,8 @@ label {
 
 .field-editor-row.is-dragging {
   opacity: 0.55;
+  transform: scale(0.98);
+  box-shadow: var(--shadow);
 }
 
 .field-editor-row.is-drop-target {
@@ -850,6 +866,22 @@ label {
   max-width: 260px;
 }
 
+.field-entry--image [data-image-position-frame] {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.field-entry--image [data-image-position-frame].is-positioning {
+  cursor: grabbing;
+}
+
+.field-entry--image [data-image-position-frame] img {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 .field-entry--image [data-remove-image-field] {
   grid-column: 2 / span 1;
   justify-self: start;
@@ -862,6 +894,7 @@ label {
 .field-entry.is-dragging {
   opacity: 0.5;
   transform: scale(0.98);
+  box-shadow: var(--shadow);
 }
 
 .field-entry.is-drop-target {

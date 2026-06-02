@@ -1280,7 +1280,6 @@ const defaultSettings = {
   accentColor: "#9a4f2e",
   compactMode: false,
   entityViewMode: "cards",
-  organizationEditMode: false,
   autoSave: true,
   trashRetentionDays: 30,
   language: "en",
@@ -1719,6 +1718,7 @@ function createDefaultState() {
     selectedUniverseId: null,
     selectedCategoryId: null,
     selectedEntityId: null,
+    projectEditModes: {},
     view: "home",
     search: "",
   };
@@ -1734,6 +1734,12 @@ function loadState() {
     const customTemplates = Array.isArray(parsed.templates)
       ? parsed.templates.filter((template) => template && !template.isBuiltIn)
       : [];
+    const migratedProjectEditModes = {
+      ...(parsed.projectEditModes && typeof parsed.projectEditModes === "object" ? parsed.projectEditModes : {}),
+    };
+    if (parsed.settings?.organizationEditMode && parsed.selectedUniverseId) {
+      migratedProjectEditModes[parsed.selectedUniverseId] = true;
+    }
     return applyStartupBehavior({
       ...createDefaultState(),
       ...parsed,
@@ -1745,6 +1751,7 @@ function loadState() {
       tags: Array.isArray(parsed.tags) ? parsed.tags : [],
       templates: [...builtInTemplates, ...customTemplates],
       settings: { ...defaultSettings, ...(parsed.settings || {}) },
+      projectEditModes: migratedProjectEditModes,
     });
   } catch (error) {
     console.warn("Loreforge could not read stored data.", error);
@@ -1811,6 +1818,18 @@ function activeItems(collection) {
 
 function currentUniverse() {
   return state.universes.find((universe) => universe.id === state.selectedUniverseId && !universe.deletedAt);
+}
+
+function isProjectEditMode(universeId = state.selectedUniverseId) {
+  return Boolean(universeId && state.projectEditModes?.[universeId]);
+}
+
+function setProjectEditMode(universeId, value) {
+  if (!universeId) return;
+  state.projectEditModes = {
+    ...(state.projectEditModes || {}),
+    [universeId]: Boolean(value),
+  };
 }
 
 function universeCategories(universeId = state.selectedUniverseId, includeHidden = false) {
@@ -1996,7 +2015,7 @@ function renderWorkspace(universe) {
 function renderLeftPanel(universe) {
   const categories = universeCategories(universe.id);
   const hiddenCategories = universeCategories(universe.id, true).filter((category) => category.isHidden);
-  const isEditingOrganization = Boolean(state.settings.organizationEditMode);
+  const isEditingOrganization = isProjectEditMode(universe.id);
   return `
     <aside class="panel stack">
       <div class="row">
@@ -2084,7 +2103,7 @@ function renderMainPanelContent(universe) {
             </div>
           ` : ""}
         </div>
-        ${category && state.settings.organizationEditMode ? `
+        ${category && isProjectEditMode(universe.id) ? `
           <div class="button-row category-overview__edit-actions">
             <button class="secondary" data-action="edit-category" data-id="${category.id}">${t("edit")}</button>
             <button class="secondary" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
@@ -2659,7 +2678,9 @@ const actions = {
   "new-category": openCategoryModal,
   "add-from-template": openTemplateExpansionModal,
   "toggle-organization-edit"() {
-    state.settings.organizationEditMode = !state.settings.organizationEditMode;
+    const universe = currentUniverse();
+    if (!universe) return;
+    setProjectEditMode(universe.id, !isProjectEditMode(universe.id));
     saveState();
     render();
   },
@@ -3350,6 +3371,16 @@ function uniqueCategoryCopyName(baseName, existingNames) {
   return candidate;
 }
 
+function uniqueCategoryName(baseName, existingNames) {
+  let candidate = baseName;
+  let index = 2;
+  while (existingNames.has(normalizeCategoryName(candidate))) {
+    candidate = `${baseName} ${index}`;
+    index += 1;
+  }
+  return candidate;
+}
+
 function openTemplateExpansionModal() {
   const universe = currentUniverse();
   if (!universe) return;
@@ -3390,8 +3421,9 @@ function openTemplateExpansionModal() {
         ]);
         if (shouldCopy !== "copy") continue;
       }
-      const finalName = duplicate ? (renamed || uniqueCategoryCopyName(preset.name, existingNames)) : preset.name;
-      if (!finalName || existingNames.has(normalizeCategoryName(finalName))) continue;
+      const finalName = duplicate
+        ? (renamed ? uniqueCategoryName(renamed, existingNames) : uniqueCategoryCopyName(preset.name, existingNames))
+        : uniqueCategoryName(preset.name, existingNames);
       existingNames.add(normalizeCategoryName(finalName));
       const presetFields = preset.customFields?.length ? cloneFieldDefinitions(preset.customFields) : createFieldDefinitions(finalName);
       added.push({

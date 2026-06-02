@@ -1862,26 +1862,26 @@ function renderUniverseCard(universe) {
   const categories = universeCategories(universe.id, true).length;
   const entities = universeEntities(universe.id).length;
   return `
-    <article class="card universe-card">
-      <div class="universe-card__cover"></div>
-      <div>
-        <h3>${escapeHtml(universe.name)}</h3>
-        <p class="muted">${escapeHtml(universe.description || "Açıklama yok.")}</p>
-      </div>
-      <div class="badge-list">
-        <span class="badge">${escapeHtml(template?.name || "Özel")}</span>
-        <span class="badge">${categories} kategori</span>
-        <span class="badge">${entities} sayfa</span>
-      </div>
-      <div class="button-row">
-        <button data-action="open-universe" data-id="${universe.id}">${t("open")}</button>
+    <article class="card universe-card" data-action="open-universe" data-id="${universe.id}" role="button" tabindex="0">
+      <button class="universe-card__open" data-action="open-universe" data-id="${universe.id}">
+        <span class="universe-card__cover"></span>
+        <span>
+          <h3>${escapeHtml(universe.name)}</h3>
+          <p class="muted">${escapeHtml(universe.description || t("noDescription"))}</p>
+        </span>
+        <span class="badge-list">
+          <span class="badge">${escapeHtml(template?.name || t("custom"))}</span>
+          <span class="badge">${categories} ${t("itemCategory")}</span>
+          <span class="badge">${entities} ${t("itemPage")}</span>
+        </span>
+      </button>
+      <div class="universe-card__actions">
         <button class="secondary" data-action="edit-universe" data-id="${universe.id}">${t("edit")}</button>
         <button class="danger" data-action="delete-universe" data-id="${universe.id}">${t("delete")}</button>
       </div>
     </article>
   `;
 }
-
 function renderWorkspace(universe) {
   return `
     <div class="workspace">
@@ -2088,11 +2088,59 @@ function entityTagNames(entity) {
     .filter(Boolean);
 }
 
-function renderEntityRow(entity) {
+const importantFieldNamesByType = {
+  characters: ["First name", "Last name", "Nickname", "Age", "Species/Race", "Occupation"],
+  locations: ["Location type", "Region", "Population", "Ruler/Owner"],
+  families: ["Family name", "Founder", "Current head"],
+  quests: ["Status", "Quest giver", "Location", "Reward"],
+  sessionNotes: ["Session number", "Date", "Players present"],
+};
+
+function importantEntityFields(entity, limit = 3) {
+  const category = state.categories.find((item) => item.id === entity.categoryId);
+  const entries = entityFieldEntries(entity).filter((entry) => entry.field?.type !== "image");
+  const preferredNames = importantFieldNamesByType[getCategoryTypeKey(category)] || [];
+  const selected = [];
+
+  preferredNames.forEach((name) => {
+    const key = fieldPresetKey(name);
+    const match = entries.find((entry) => entry.field?.name === name || fieldStorageKey(entry.field) === key);
+    if (match && !selected.some((entry) => entry.key === match.key)) {
+      selected.push(match);
+    }
+  });
+
+  entries.forEach((entry) => {
+    if (selected.length < limit && !selected.some((item) => item.key === entry.key)) {
+      selected.push(entry);
+    }
+  });
+
+  return selected.slice(0, limit);
+}
+
+function renderEntityPreviewFields(entity, limit) {
+  const fields = importantEntityFields(entity, limit);
+  if (!fields.length) return "";
   return `
-    <button class="entity-row" data-action="select-entity" data-id="${entity.id}">
-      <h3>${escapeHtml(entity.title)}</h3>
-      <small>${escapeHtml(entity.summary || t("noSummary"))}</small>
+    <span class="entity-preview-fields">
+      ${fields.map((entry) => `<span><strong>${escapeHtml(entry.label)}:</strong> ${escapeHtml(String(entry.value))}</span>`).join("")}
+    </span>
+  `;
+}
+
+function renderEntityRow(entity) {
+  const imageValue = entityImageValue(entity);
+  const tags = entityTagNames(entity).slice(0, 3);
+  return `
+    <button class="entity-row entity-row--rich" data-action="select-entity" data-id="${entity.id}">
+      ${imageValue ? `<img class="entity-row__image" src="${escapeHtml(imageValue)}" alt="${escapeHtml(entity.title)}" loading="lazy" />` : ""}
+      <span class="entity-row__body">
+        <strong>${escapeHtml(entity.title)}</strong>
+        ${entity.summary ? `<small>${escapeHtml(entity.summary)}</small>` : ""}
+        ${renderEntityPreviewFields(entity, 2)}
+        ${tags.length ? `<span class="tag-row">${tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</span>` : ""}
+      </span>
     </button>
   `;
 }
@@ -2105,7 +2153,8 @@ function renderEntityCard(entity) {
       ${imageValue ? `<img class="entity-card__image" src="${escapeHtml(imageValue)}" alt="${escapeHtml(entity.title)}" loading="lazy" />` : ""}
       <span class="entity-card__body">
         <strong>${escapeHtml(entity.title)}</strong>
-        <small>${escapeHtml(entity.summary || t("noSummary"))}</small>
+        ${entity.summary ? `<small>${escapeHtml(entity.summary)}</small>` : ""}
+        ${renderEntityPreviewFields(entity, 3)}
         ${tags.length ? `<span class="tag-row">${tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</span>` : ""}
       </span>
     </button>
@@ -2355,10 +2404,19 @@ function bindEvents() {
 function bindActionEvents(root) {
   root.querySelectorAll("[data-action]").forEach((element) => {
     element.addEventListener("click", (event) => {
+      event.stopPropagation();
       const action = event.currentTarget.dataset.action;
       const dataset = event.currentTarget.dataset;
       actions[action]?.(dataset);
     });
+    if (element.getAttribute("role") === "button") {
+      element.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          element.click();
+        }
+      });
+    }
   });
 }
 

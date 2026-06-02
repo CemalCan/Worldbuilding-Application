@@ -822,6 +822,13 @@ const translations = {
     edit: "Edit",
     delete: "Delete",
     categories: "Categories",
+    homeNav: "Home",
+    projectHome: "Project home",
+    categoryOverview: "Category overview",
+    recentEntries: "Recent entries",
+    template: "Template",
+    noRecentEntries: "No recent entries yet.",
+    createEntry: "Create entry",
     addCategory: "Add category",
     searchPages: "Search pages, notes, tags",
     templates: "Templates",
@@ -986,6 +993,13 @@ const translations = {
     edit: "Düzenle",
     delete: "Sil",
     categories: "Kategoriler",
+    homeNav: "Ana Sayfa",
+    projectHome: "Proje ana sayfası",
+    categoryOverview: "Kategori özeti",
+    recentEntries: "Son kayıtlar",
+    template: "Şablon",
+    noRecentEntries: "Henüz son kayıt yok.",
+    createEntry: "Kayıt oluştur",
     addCategory: "Kategori ekle",
     searchPages: "Sayfa, not, etiket ara",
     templates: "Şablonlar",
@@ -1210,7 +1224,7 @@ function applyStartupBehavior(loadedState) {
       ...loadedState,
       selectedCategoryId: activeCategory?.id || activeCategories[0]?.id || null,
       selectedEntityId: null,
-      view: "universe",
+      view: "projectHome",
       search: "",
     };
   }
@@ -1221,7 +1235,7 @@ function applyStartupBehavior(loadedState) {
   return {
     ...loadedState,
     selectedCategoryId: activeEntity?.categoryId || activeCategory?.id || activeCategories[0]?.id || null,
-    view: loadedState.view === "home" ? "universe" : loadedState.view,
+    view: loadedState.view === "home" ? "projectHome" : loadedState.view,
   };
 }
 
@@ -1434,6 +1448,10 @@ function renderLeftPanel(universe) {
       </div>
       <input data-search placeholder="${t("searchPages")}" value="${escapeHtml(state.search)}" />
       <div class="stack">
+        <button class="category-button ${state.view === "projectHome" ? "is-active" : ""}" data-action="project-home">
+          <strong>${t("homeNav")}</strong>
+          <small>${t("projectHome")}</small>
+        </button>
         ${categories.map((category) => {
           const count = universeEntities(universe.id).filter((entity) => entity.categoryId === category.id).length;
           return `
@@ -1471,6 +1489,7 @@ function renderMainPanel(universe) {
 }
 
 function renderMainPanelContent(universe) {
+  if (state.view === "projectHome") return renderProjectHome(universe);
   const category = currentCategory() || universeCategories(universe.id)[0];
   if (category && category.id !== state.selectedCategoryId) {
     state.selectedCategoryId = category.id;
@@ -1491,6 +1510,56 @@ function renderMainPanelContent(universe) {
         ` : ""}
       </section>
       ${entity ? renderEntityDetail(entity) : renderEntityList(entities, category)}
+  `;
+}
+
+function renderProjectHome(universe) {
+  const template = state.templates.find((item) => item.id === universe.templateId);
+  const categories = universeCategories(universe.id);
+  const entities = universeEntities(universe.id)
+    .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))
+    .slice(0, 6);
+  return `
+    <section class="project-home stack">
+      <div class="project-home__header">
+        <div>
+          <p class="muted">${t("projectHome")}</p>
+          <h2>${escapeHtml(universe.name)}</h2>
+          <p>${escapeHtml(universe.description || "")}</p>
+          <div class="button-row">
+            ${template ? `<span class="badge">${t("template")}: ${escapeHtml(template.name)}</span>` : ""}
+          </div>
+        </div>
+        <div class="button-row">
+          <button data-action="new-entity">${t("createEntry")}</button>
+          <button class="secondary" data-action="new-category">${t("addCategory")}</button>
+          <button class="secondary" data-action="quick-note">${t("idea")}</button>
+        </div>
+      </div>
+      <section class="stack">
+        <h3 class="section-title">${t("categoryOverview")}</h3>
+        <div class="home-card-grid">
+          ${categories.map((category) => {
+            const count = universeEntities(universe.id).filter((entity) => entity.categoryId === category.id).length;
+            return `
+              <button class="home-card" data-action="select-category" data-id="${category.id}">
+                <strong>${escapeHtml(category.name)}</strong>
+                <small>${count} ${t("itemPage")}</small>
+                <span class="muted">${escapeHtml(category.description || "")}</span>
+              </button>
+            `;
+          }).join("")}
+        </div>
+      </section>
+      <section class="stack">
+        <h3 class="section-title">${t("recentEntries")}</h3>
+        ${entities.length ? `
+          <div class="entity-list entity-list--cards">
+            ${entities.map(renderEntityCard).join("")}
+          </div>
+        ` : `<p class="muted">${t("noRecentEntries")}</p>`}
+      </section>
+    </section>
   `;
 }
 
@@ -1805,7 +1874,7 @@ const actions = {
       selectedUniverseId: universeId,
       selectedCategoryId: firstCategory?.id || null,
       selectedEntityId: null,
-      view: "universe",
+      view: "projectHome",
       search: "",
     });
   },
@@ -1827,6 +1896,9 @@ const actions = {
   },
   "select-category"({ id: categoryId }) {
     setState({ selectedCategoryId: categoryId, selectedEntityId: null, view: "universe" });
+  },
+  "project-home"() {
+    setState({ view: "projectHome", selectedEntityId: null, search: "" });
   },
   "new-category": openCategoryModal,
   "edit-category"({ id: categoryId }) {
@@ -1864,6 +1936,9 @@ const actions = {
     render();
   },
   "new-entity"() {
+    if (!currentCategory()) {
+      state.selectedCategoryId = universeCategories()[0]?.id || null;
+    }
     openEntityModal();
   },
   "set-entity-view"({ mode }) {
@@ -2168,7 +2243,7 @@ function createUniverseFromSelection({ name, description, templateId, themeId, c
   state.selectedUniverseId = universeId;
   state.selectedCategoryId = categories[0]?.id || null;
   state.selectedEntityId = null;
-  state.view = "universe";
+  state.view = "projectHome";
   state.search = "";
   saveState();
   render();

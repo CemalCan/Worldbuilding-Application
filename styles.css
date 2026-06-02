@@ -299,6 +299,39 @@ label {
   gap: 12px;
 }
 
+.project-home {
+  padding: 4px;
+}
+
+.project-home__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.project-home__header h2 {
+  font-size: 1.8rem;
+}
+
+.home-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.home-card {
+  display: grid;
+  gap: 5px;
+  min-height: 0;
+  padding: 12px;
+  text-align: left;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
 .universe-card__cover {
   min-height: 94px;
   border-radius: var(--radius);

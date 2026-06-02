@@ -899,8 +899,7 @@ function renderEntityCustomFieldInput(field, entity) {
   const visibleUrlValue = isImage && String(value).startsWith("data:image/") ? "" : value;
   return `
     <div class="field-entry ${isImage ? "field-entry--image" : ""}" data-entity-field data-field-id="${escapeHtml(field.id || "")}" data-field-key="${escapeHtml(fieldStorageKey(field))}" data-field-name="${escapeHtml(field.name || "")}">
-      <button class="field-drag-handle" type="button" data-form-field-move-up title="${escapeHtml(t("moveFieldUp"))}" aria-label="${escapeHtml(t("moveFieldUp"))}">↑</button>
-      <button class="field-drag-handle" type="button" data-form-field-move-down title="${escapeHtml(t("moveFieldDown"))}" aria-label="${escapeHtml(t("moveFieldDown"))}">↓</button>
+      <button class="field-drag-handle" type="button" draggable="true" data-entity-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</button>
       <label>${escapeHtml(fieldLabel(field))}
         ${isImage ? `<span class="muted">${t("uploadImage")}</span><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-image-file-input />` : ""}
         ${isImage ? `<span class="muted">${t("pasteImageUrl")}</span>` : ""}
@@ -975,6 +974,25 @@ function moveEntityFormField(container, category, fieldElement, direction, entit
   if (index < 0 || targetIndex < 0 || targetIndex >= fields.length) return;
   const values = syncEntityFieldValuesFromForm(container, { ...(entity?.customFieldValues || {}) });
   [fields[index], fields[targetIndex]] = [fields[targetIndex], fields[index]];
+  category.customFields = fields;
+  category.updatedAt = now();
+  state.categories = state.categories.map((item) => item.id === category.id ? category : item);
+  saveState();
+  refreshEntityFieldSections(container, category, entity, values);
+}
+
+function reorderEntityFormField(container, category, sourceElement, targetElement, entity) {
+  const sourceId = sourceElement?.dataset.fieldId || "";
+  const sourceKey = sourceElement?.dataset.fieldKey || "";
+  const targetId = targetElement?.dataset.fieldId || "";
+  const targetKey = targetElement?.dataset.fieldKey || "";
+  const fields = [...(category.customFields || [])];
+  const sourceIndex = fields.findIndex((field) => (sourceId && field.id === sourceId) || fieldStorageKey(field) === sourceKey);
+  const targetIndex = fields.findIndex((field) => (targetId && field.id === targetId) || fieldStorageKey(field) === targetKey);
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+  const values = syncEntityFieldValuesFromForm(container, { ...(entity?.customFieldValues || {}) });
+  const [source] = fields.splice(sourceIndex, 1);
+  fields.splice(targetIndex, 0, source);
   category.customFields = fields;
   category.updatedAt = now();
   state.categories = state.categories.map((item) => item.id === category.id ? category : item);
@@ -1060,9 +1078,18 @@ function fieldHasValues(category, field) {
   );
 }
 
-function confirmFieldRemoval(category, field) {
-  if (!confirm(t("confirmRemoveField"))) return false;
-  return !fieldHasValues(category, field) || confirm(t("fieldHasValuesWarning"));
+async function confirmFieldRemoval(category, field) {
+  const confirmed = await openChoiceModal(t("removeField"), t("confirmRemoveField"), [
+    { value: "remove", label: t("removeField"), className: "danger" },
+    { value: "cancel", label: t("cancel"), className: "secondary" },
+  ]);
+  if (confirmed !== "remove") return false;
+  if (!fieldHasValues(category, field)) return true;
+  const removeAnyway = await openChoiceModal(t("removeField"), t("fieldHasValuesWarning"), [
+    { value: "remove", label: t("removeAnyway"), className: "danger" },
+    { value: "cancel", label: t("cancel"), className: "secondary" },
+  ]);
+  return removeAnyway === "remove";
 }
 
 function fieldFromEditorRow(row) {
@@ -1082,12 +1109,12 @@ function attachCategoryFieldActions(category) {
     attachCategoryFieldActions(category);
   });
   document.querySelectorAll("[data-remove-category-field]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       const row = button.closest("[data-field-editor-row]");
       if (!row) return;
       const field = fieldFromEditorRow(row);
       const fieldName = row.querySelector('[name="fieldName"]')?.value?.trim();
-      if (fieldName && !confirmFieldRemoval(category, field)) return;
+      if (fieldName && !(await confirmFieldRemoval(category, field))) return;
       row.remove();
     });
   });
@@ -1261,6 +1288,11 @@ const translations = {
     projectTrash: "Project trash",
     duplicateCategoryConfirm: "This category already exists. Add another copy anyway?",
     copySuffix: "copy",
+    moveToTrash: "Move to trash",
+    moveEntriesToCategory: "Move entries to another category",
+    hideCategory: "Hide category",
+    chooseTargetCategory: "Choose target category",
+    removeAnyway: "Remove anyway",
     searchPages: "Search pages, notes, tags",
     templates: "Templates",
     trash: "Trash",
@@ -1458,6 +1490,11 @@ const translations = {
     projectTrash: "Proje çöp kutusu",
     duplicateCategoryConfirm: "Bu kategori zaten var. Yine de bir kopyasını eklemek istiyor musun?",
     copySuffix: "kopya",
+    moveToTrash: "Çöpe taşı",
+    moveEntriesToCategory: "Kayıtları başka kategoriye taşı",
+    hideCategory: "Kategoriyi gizle",
+    chooseTargetCategory: "Hedef kategori seç",
+    removeAnyway: "Yine de kaldır",
     searchPages: "Sayfa, not, etiket ara",
     templates: "Şablonlar",
     trash: "Çöp Kutusu",
@@ -2583,24 +2620,8 @@ const actions = {
   "move-category-down"({ id: categoryId }) {
     moveCategory(categoryId, 1);
   },
-  "delete-category"({ id: categoryId }) {
-    const choice = prompt(t("categoryDeletePrompt"), "1");
-    if (choice === "3") return updateItem("categories", categoryId, { isHidden: true });
-    if (choice === "2") {
-      const targetName = prompt(t("categoryMovePrompt"));
-      const target = universeCategories().find((category) => category.name.toLocaleLowerCase("tr") === targetName?.toLocaleLowerCase("tr"));
-      if (!target || target.id === categoryId) return alert(t("targetCategoryMissing"));
-      state.entities = state.entities.map((entity) => entity.categoryId === categoryId ? { ...entity, categoryId: target.id, updatedAt: now() } : entity);
-    } else if (choice === "1") {
-      state.entities = state.entities.map((entity) => entity.categoryId === categoryId ? { ...entity, deletedAt: now(), updatedAt: now() } : entity);
-    } else {
-      return;
-    }
-    softDelete("categories", categoryId);
-    state.selectedEntityId = null;
-    state.selectedCategoryId = universeCategories().find((category) => category.id !== categoryId)?.id || null;
-    saveState();
-    render();
+  "delete-category": async function ({ id: categoryId }) {
+    await openCategoryDeleteDialog(categoryId);
   },
   "new-entity"() {
     if (!currentCategory()) {
@@ -2677,6 +2698,69 @@ function collectionForKind(kind) {
     relationship: "relationships",
     tag: "tags",
   }[kind] || "entities";
+}
+
+async function openCategoryDeleteDialog(categoryId) {
+  const category = state.categories.find((item) => item.id === categoryId);
+  if (!category) return;
+  const choice = await openChoiceModal(t("delete"), t("categoryDeletePrompt"), [
+    { value: "trash", label: t("moveToTrash"), className: "danger" },
+    { value: "move", label: t("moveEntriesToCategory"), className: "secondary" },
+    { value: "hide", label: t("hideCategory"), className: "secondary" },
+    { value: "cancel", label: t("cancel"), className: "secondary" },
+  ]);
+  if (choice === "cancel" || !choice) return;
+  if (choice === "hide") {
+    updateItem("categories", categoryId, { isHidden: true });
+    return;
+  }
+  if (choice === "move") {
+    const targetId = await openTargetCategoryChoice(categoryId);
+    const target = universeCategories().find((item) => item.id === targetId);
+    if (!target) return;
+    state.entities = state.entities.map((entity) => entity.categoryId === categoryId ? { ...entity, categoryId: target.id, updatedAt: now() } : entity);
+  } else {
+    state.entities = state.entities.map((entity) => entity.categoryId === categoryId ? { ...entity, deletedAt: now(), updatedAt: now() } : entity);
+  }
+  softDelete("categories", categoryId);
+  state.selectedEntityId = null;
+  state.selectedCategoryId = universeCategories().find((item) => item.id !== categoryId)?.id || null;
+  saveState();
+  render();
+}
+
+function openTargetCategoryChoice(currentCategoryId) {
+  const targets = universeCategories().filter((category) => category.id !== currentCategoryId);
+  if (!targets.length) {
+    alert(t("targetCategoryMissing"));
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    let resolved = false;
+    const finish = (value) => {
+      if (resolved) return;
+      resolved = true;
+      resolve(value);
+    };
+    const backdrop = openModal(t("chooseTargetCategory"), `
+      <form class="form-grid">
+        <label>${t("category")}
+          <select name="targetCategoryId">
+            ${targets.map((category) => `<option value="${category.id}">${escapeHtml(category.name)}</option>`).join("")}
+          </select>
+        </label>
+        <div class="button-row">
+          <button type="submit">${t("save")}</button>
+          <button class="secondary" type="button" data-modal-close>${t("cancel")}</button>
+        </div>
+      </form>
+    `, (form) => {
+      finish(form.get("targetCategoryId"));
+    });
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop || event.target.dataset.modalClose !== undefined) finish(null);
+    });
+  });
 }
 
 function trashKindLabel(kind) {
@@ -2837,31 +2921,72 @@ function reorderCategory(sourceId, targetId) {
   render();
 }
 
+function bindModalBackdropClose(backdrop, close) {
+  let startedOnBackdrop = false;
+  let pointerMoved = false;
+  backdrop.addEventListener("pointerdown", (event) => {
+    startedOnBackdrop = event.target === backdrop;
+    pointerMoved = false;
+  });
+  backdrop.addEventListener("pointermove", () => {
+    if (startedOnBackdrop) pointerMoved = true;
+  });
+  backdrop.addEventListener("click", (event) => {
+    const hasSelection = Boolean(window.getSelection?.()?.toString());
+    if (event.target === backdrop && startedOnBackdrop && !pointerMoved && !hasSelection) close();
+    if (event.target.dataset.modalClose !== undefined) close();
+    startedOnBackdrop = false;
+    pointerMoved = false;
+  });
+}
+
 function openModal(title, bodyHtml, onSubmit) {
   const template = document.getElementById("modal-template");
   const fragment = template.content.cloneNode(true);
   const backdrop = fragment.querySelector(".modal-backdrop");
   fragment.querySelector("[data-modal-title]").textContent = title;
   fragment.querySelector("[data-modal-body]").innerHTML = bodyHtml;
-  let backdropPointerStarted = false;
-  backdrop.addEventListener("pointerdown", (event) => {
-    backdropPointerStarted = event.target === backdrop;
-  });
-  backdrop.addEventListener("click", (event) => {
-    if (event.target === backdrop && backdropPointerStarted) backdrop.remove();
-    if (event.target.dataset.modalClose !== undefined) backdrop.remove();
-    backdropPointerStarted = false;
-  });
+  const close = () => backdrop.remove();
+  bindModalBackdropClose(backdrop, close);
   const form = fragment.querySelector("form");
   if (form) {
-    form.addEventListener("submit", (event) => {
+    form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const result = onSubmit?.(new FormData(form));
-      if (result !== false) backdrop.remove();
+      const result = await onSubmit?.(new FormData(form));
+      if (result !== false) close();
     });
   }
   document.body.appendChild(fragment);
   return backdrop;
+}
+
+function openChoiceModal(title, message, choices) {
+  return new Promise((resolve) => {
+    let resolved = false;
+    const finish = (value) => {
+      if (resolved) return;
+      resolved = true;
+      resolve(value);
+    };
+    const backdrop = openModal(title, `
+      <section class="stack">
+        <p>${escapeHtml(message)}</p>
+        <div class="button-row">
+          ${choices.map((choice) => `<button type="button" class="${escapeHtml(choice.className || "secondary")}" data-choice-value="${escapeHtml(choice.value)}">${escapeHtml(choice.label)}</button>`).join("")}
+        </div>
+      </section>
+    `);
+    backdrop.querySelectorAll("[data-choice-value]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const value = button.dataset.choiceValue;
+        backdrop.remove();
+        finish(value);
+      });
+    });
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop || event.target.dataset.modalClose !== undefined) finish(null);
+    });
+  });
 }
 
 function openUniverseModal(universe) {
@@ -2882,7 +3007,7 @@ function openUniverseModal(universe) {
       </label>
       <div class="button-row"><button type="submit">${t("save")}</button></div>
     </form>
-  `, (form) => {
+  `, async (form) => {
     const name = String(form.get("name") || "").trim();
     if (!name) {
       alert(t("universeNameRequired"));
@@ -2956,9 +3081,7 @@ function openUniverseWizard() {
 
   const getTemplate = () => templates.find((item) => item.id === wizard.templateId) || templates[0] || builtInTemplates[0];
   const close = () => backdrop.remove();
-  backdrop.addEventListener("click", (event) => {
-    if (event.target.dataset.modalClose !== undefined) close();
-  });
+  bindModalBackdropClose(backdrop, close);
 
   function syncInputs() {
     const nameInput = body.querySelector("[data-wizard-name]");
@@ -3096,9 +3219,15 @@ function openCategoryModal(category) {
       ${renderFieldManager(fields, category)}
       <div class="button-row"><button type="submit">${t("save")}</button></div>
     </form>
-  `, (form) => {
+  `, async (form) => {
     const fields = collectCategoryFields(form);
-    if (removedFieldsHaveValues(category, fields) && !confirm(t("removedFieldWarning"))) return false;
+    if (removedFieldsHaveValues(category, fields)) {
+      const keepRemoving = await openChoiceModal(t("removeField"), t("removedFieldWarning"), [
+        { value: "remove", label: t("removeAnyway"), className: "danger" },
+        { value: "cancel", label: t("cancel"), className: "secondary" },
+      ]);
+      if (keepRemoving !== "remove") return false;
+    }
     if (category) {
       updateItem("categories", category.id, {
         name: form.get("name"),
@@ -3186,7 +3315,7 @@ function openTemplateExpansionModal() {
         <button type="submit">${t("addSelectedCategories")}</button>
       </div>
     </form>
-  `, (form) => {
+  `, async (form) => {
     const template = templates.find((item) => item.id === form.get("templateId")) || initialTemplate;
     const selectedIds = new Set(form.getAll("templateCategory"));
     const existingNames = new Set(universeCategories(universe.id, true).map((category) => normalizeCategoryName(category.name)));
@@ -3196,7 +3325,13 @@ function openTemplateExpansionModal() {
       if (!selectedIds.has(preset.id)) continue;
       const renamed = String(form.get(`rename:${preset.id}`) || "").trim();
       const duplicate = existingNames.has(normalizeCategoryName(preset.name));
-      if (duplicate && !confirm(t("duplicateCategoryConfirm"))) continue;
+      if (duplicate) {
+        const shouldCopy = await openChoiceModal(t("addFromTemplate"), t("duplicateCategoryConfirm"), [
+          { value: "copy", label: t("addSelectedCategories"), className: "secondary" },
+          { value: "cancel", label: t("cancel"), className: "secondary" },
+        ]);
+        if (shouldCopy !== "copy") continue;
+      }
       const finalName = duplicate ? (renamed || uniqueCategoryCopyName(preset.name, existingNames)) : preset.name;
       if (!finalName || existingNames.has(normalizeCategoryName(finalName))) continue;
       existingNames.add(normalizeCategoryName(finalName));
@@ -3347,15 +3482,40 @@ function openEntityModal(entity) {
       if (fieldContainer) appendFieldToEntityForm(fieldContainer, selectedCategory, field, entity);
     });
   });
-  backdrop?.querySelector("[data-entity-fields]")?.addEventListener("click", (event) => {
-    const fieldsContainer = backdrop.querySelector("[data-entity-fields]");
-    const moveUpButton = event.target.closest("[data-form-field-move-up]");
-    const moveDownButton = event.target.closest("[data-form-field-move-down]");
-    if (moveUpButton || moveDownButton) {
-      const fieldElement = event.target.closest("[data-entity-field]");
-      if (fieldsContainer) moveEntityFormField(fieldsContainer, selectedCategory, fieldElement, moveUpButton ? -1 : 1, entity);
-      return;
-    }
+  const entityFieldsContainer = backdrop?.querySelector("[data-entity-fields]");
+  let draggedEntityField = null;
+  entityFieldsContainer?.addEventListener("dragstart", (event) => {
+    const handle = event.target.closest("[data-entity-field-drag-handle]");
+    if (!handle) return;
+    draggedEntityField = handle.closest("[data-entity-field]");
+    draggedEntityField?.classList.add("is-dragging");
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", draggedEntityField?.dataset.fieldKey || "");
+  });
+  entityFieldsContainer?.addEventListener("dragover", (event) => {
+    if (!draggedEntityField) return;
+    const target = event.target.closest("[data-entity-field]");
+    if (!target || target === draggedEntityField) return;
+    event.preventDefault();
+    target.classList.add("is-drop-target");
+  });
+  entityFieldsContainer?.addEventListener("dragleave", (event) => {
+    event.target.closest("[data-entity-field]")?.classList.remove("is-drop-target");
+  });
+  entityFieldsContainer?.addEventListener("drop", (event) => {
+    if (!draggedEntityField) return;
+    const target = event.target.closest("[data-entity-field]");
+    if (!target || target === draggedEntityField) return;
+    event.preventDefault();
+    target.classList.remove("is-drop-target");
+    reorderEntityFormField(entityFieldsContainer, selectedCategory, draggedEntityField, target, entity);
+  });
+  entityFieldsContainer?.addEventListener("dragend", () => {
+    entityFieldsContainer.querySelectorAll("[data-entity-field].is-dragging").forEach((field) => field.classList.remove("is-dragging"));
+    entityFieldsContainer.querySelectorAll("[data-entity-field].is-drop-target").forEach((field) => field.classList.remove("is-drop-target"));
+    draggedEntityField = null;
+  });
+  entityFieldsContainer?.addEventListener("click", async (event) => {
     const removeImageButton = event.target.closest("[data-remove-image-field]");
     if (removeImageButton) {
       const fieldElement = removeImageButton.closest("[data-entity-field]");
@@ -3378,7 +3538,7 @@ function openEntityModal(entity) {
     const field = (selectedCategory.customFields || []).find((item) =>
       (fieldId && item.id === fieldId) || fieldStorageKey(item) === fieldKey || item.name === fieldName
     );
-    if (!confirmFieldRemoval(selectedCategory, field || { name: fieldName, id: fieldId })) return;
+    if (!(await confirmFieldRemoval(selectedCategory, field || { name: fieldName, id: fieldId }))) return;
     selectedCategory.customFields = (selectedCategory.customFields || []).filter((item) =>
       !((fieldId && item.id === fieldId) || fieldStorageKey(item) === fieldKey || item.name === fieldName)
     );

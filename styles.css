@@ -823,8 +823,9 @@ label {
 
 .field-entry {
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
+  transition: opacity 0.16s ease, transform 0.16s ease, background-color 0.16s ease;
 }
 
 .field-entry--image {
@@ -836,7 +837,7 @@ label {
 }
 
 .field-entry--image .image-field-preview-slot {
-  grid-column: 3 / -1;
+  grid-column: 2 / -1;
 }
 
 .field-entry--image .image-field-preview {
@@ -844,8 +845,18 @@ label {
 }
 
 .field-entry--image [data-remove-image-field] {
-  grid-column: 3 / span 1;
+  grid-column: 2 / span 1;
   justify-self: start;
+}
+
+.field-entry.is-dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+}
+
+.field-entry.is-drop-target {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-radius: 8px;
 }
 
 .modal-backdrop {

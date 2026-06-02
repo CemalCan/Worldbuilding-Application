@@ -672,7 +672,7 @@ label {
 
 .field-entry {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   gap: 10px;
 }
 
@@ -685,11 +685,16 @@ label {
 }
 
 .field-entry--image .image-field-preview-slot {
-  grid-column: 1 / -1;
+  grid-column: 3 / -1;
 }
 
 .field-entry--image .image-field-preview {
   max-width: 260px;
+}
+
+.field-entry--image [data-remove-image-field] {
+  grid-column: 3 / span 1;
+  justify-self: start;
 }
 
 .modal-backdrop {

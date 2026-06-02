@@ -833,7 +833,7 @@ function renderImageFieldPreview(value, label) {
   return `
     <div class="image-field-preview">
       <img src="${escapeHtml(value)}" alt="${escapeHtml(label)}" loading="lazy" />
-      <a href="${escapeHtml(value)}" target="_blank" rel="noreferrer">${escapeHtml(value)}</a>
+      ${String(value || "").startsWith("data:image/") ? `<span class="muted">${t("uploadedImage")}</span>` : `<a href="${escapeHtml(value)}" target="_blank" rel="noreferrer">${escapeHtml(value)}</a>`}
     </div>
   `;
 }
@@ -896,18 +896,23 @@ function renderFieldTypeOptions(selectedType = "text") {
 function renderEntityCustomFieldInput(field, entity) {
   const value = fieldInputValue(field, entity);
   const isImage = field.type === "image";
+  const visibleUrlValue = isImage && String(value).startsWith("data:image/") ? "" : value;
   return `
     <div class="field-entry ${isImage ? "field-entry--image" : ""}" data-entity-field data-field-id="${escapeHtml(field.id || "")}" data-field-key="${escapeHtml(fieldStorageKey(field))}" data-field-name="${escapeHtml(field.name || "")}">
+      <button class="field-drag-handle" type="button" data-form-field-move-up title="${escapeHtml(t("moveFieldUp"))}" aria-label="${escapeHtml(t("moveFieldUp"))}">↑</button>
+      <button class="field-drag-handle" type="button" data-form-field-move-down title="${escapeHtml(t("moveFieldDown"))}" aria-label="${escapeHtml(t("moveFieldDown"))}">↓</button>
       <label>${escapeHtml(fieldLabel(field))}
         ${isImage ? `<span class="muted">${t("uploadImage")}</span><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-image-file-input />` : ""}
-        ${isImage ? `<span class="muted">${t("imageUrlOption")}</span>` : ""}
+        ${isImage ? `<span class="muted">${t("pasteImageUrl")}</span>` : ""}
         <input
-          name="field:${escapeHtml(fieldStorageKey(field))}"
-          ${isImage ? `inputmode="url" placeholder="${escapeHtml(t("imageFieldPlaceholder"))}" data-image-field-input` : ""}
-          value="${escapeHtml(value)}"
+          ${isImage ? "" : `name="field:${escapeHtml(fieldStorageKey(field))}"`}
+          ${isImage ? `inputmode="url" placeholder="${escapeHtml(t("imageFieldPlaceholder"))}" data-image-url-input` : ""}
+          value="${escapeHtml(visibleUrlValue)}"
         />
+        ${isImage ? `<input type="hidden" name="field:${escapeHtml(fieldStorageKey(field))}" value="${escapeHtml(value)}" data-image-field-input />` : ""}
       </label>
       ${isImage ? `<div class="image-field-preview-slot">${isPreviewableImageUrl(value) ? renderImageFieldPreview(value, fieldLabel(field)) : ""}</div>` : ""}
+      ${isImage ? `<button class="secondary danger-text" type="button" data-remove-image-field>${t("removeImage")}</button>` : ""}
       <button class="secondary danger-text" type="button" data-remove-entity-field>${t("removeField")}</button>
     </div>
   `;
@@ -944,6 +949,37 @@ function appendFieldToEntityForm(container, category, field, entity) {
     sectionElement = [...container.querySelectorAll("[data-form-section]")].find((item) => item.dataset.formSection === section);
   }
   sectionElement?.insertAdjacentHTML("beforeend", renderEntityCustomFieldInput(field, entity));
+}
+
+function syncEntityFieldValuesFromForm(container, values = {}) {
+  container.querySelectorAll("[name^='field:']").forEach((input) => {
+    values[input.name.slice(6)] = input.value;
+  });
+  return values;
+}
+
+function refreshEntityFieldSections(container, category, entity, values) {
+  const draftEntity = {
+    ...(entity || {}),
+    customFieldValues: values,
+  };
+  container.innerHTML = renderEntityFormSections(category, category.customFields || [], draftEntity);
+}
+
+function moveEntityFormField(container, category, fieldElement, direction, entity) {
+  const fieldId = fieldElement?.dataset.fieldId || "";
+  const fieldKey = fieldElement?.dataset.fieldKey || "";
+  const fields = [...(category.customFields || [])];
+  const index = fields.findIndex((field) => (fieldId && field.id === fieldId) || fieldStorageKey(field) === fieldKey);
+  const targetIndex = index + direction;
+  if (index < 0 || targetIndex < 0 || targetIndex >= fields.length) return;
+  const values = syncEntityFieldValuesFromForm(container, { ...(entity?.customFieldValues || {}) });
+  [fields[index], fields[targetIndex]] = [fields[targetIndex], fields[index]];
+  category.customFields = fields;
+  category.updatedAt = now();
+  state.categories = state.categories.map((item) => item.id === category.id ? category : item);
+  saveState();
+  refreshEntityFieldSections(container, category, entity, values);
 }
 
 function renderFieldManager(fields, category) {
@@ -1200,6 +1236,7 @@ const translations = {
     noUniverses: "No universes yet",
     noUniversesHelp: "Start with a template or a blank universe to create your local archive.",
     open: "Open",
+    back: "Back",
     edit: "Edit",
     delete: "Delete",
     categories: "Categories",
@@ -1309,6 +1346,9 @@ const translations = {
     imageFieldPlaceholder: "Paste an image URL",
     uploadImage: "Upload image",
     imageUrlOption: "Or paste image URL",
+    pasteImageUrl: "Paste image URL",
+    removeImage: "Remove image",
+    uploadedImage: "Uploaded image",
     imageTooLarge: "Image file is too large. Please choose an image under 2 MB.",
     fieldActions: "Field actions",
     dragToReorder: "Drag to reorder",
@@ -1386,6 +1426,7 @@ const translations = {
     noUniverses: "Henüz evren yok",
     noUniversesHelp: "Bir şablon seçerek ya da boş evrenle başlayarak yerel arşivini oluştur.",
     open: "Aç",
+    back: "Geri",
     edit: "Düzenle",
     delete: "Sil",
     categories: "Kategoriler",
@@ -1495,6 +1536,9 @@ const translations = {
     imageFieldPlaceholder: "Görsel URL’si yapıştır",
     uploadImage: "Görsel yükle",
     imageUrlOption: "Ya da görsel URL’si yapıştır",
+    pasteImageUrl: "Görsel URL’si yapıştır",
+    removeImage: "Görseli kaldır",
+    uploadedImage: "Yüklenen görsel",
     imageTooLarge: "Görsel dosyası çok büyük. Lütfen 2 MB altında bir görsel seç.",
     fieldActions: "Alan işlemleri",
     dragToReorder: "Sıralamak için sürükle",
@@ -2086,7 +2130,7 @@ function renderEntityDetail(entity) {
               <p>${escapeHtml(entity.summary || "")}</p>
             </div>
             <div class="button-row">
-              <button class="secondary" data-action="back-to-list">${t("list")}</button>
+              <button class="secondary" data-action="back-to-list">← ${t("back")}</button>
               <button data-action="edit-entity" data-id="${entity.id}">${t("edit")}</button>
               <button class="danger" data-action="delete-entity" data-id="${entity.id}">${t("delete")}</button>
             </div>
@@ -2636,8 +2680,14 @@ function openModal(title, bodyHtml, onSubmit) {
   const backdrop = fragment.querySelector(".modal-backdrop");
   fragment.querySelector("[data-modal-title]").textContent = title;
   fragment.querySelector("[data-modal-body]").innerHTML = bodyHtml;
+  let backdropPointerStarted = false;
+  backdrop.addEventListener("pointerdown", (event) => {
+    backdropPointerStarted = event.target === backdrop;
+  });
   backdrop.addEventListener("click", (event) => {
+    if (event.target === backdrop && backdropPointerStarted) backdrop.remove();
     if (event.target.dataset.modalClose !== undefined) backdrop.remove();
+    backdropPointerStarted = false;
   });
   const form = fragment.querySelector("form");
   if (form) {
@@ -3119,6 +3169,27 @@ function openEntityModal(entity) {
     });
   });
   backdrop?.querySelector("[data-entity-fields]")?.addEventListener("click", (event) => {
+    const fieldsContainer = backdrop.querySelector("[data-entity-fields]");
+    const moveUpButton = event.target.closest("[data-form-field-move-up]");
+    const moveDownButton = event.target.closest("[data-form-field-move-down]");
+    if (moveUpButton || moveDownButton) {
+      const fieldElement = event.target.closest("[data-entity-field]");
+      if (fieldsContainer) moveEntityFormField(fieldsContainer, selectedCategory, fieldElement, moveUpButton ? -1 : 1, entity);
+      return;
+    }
+    const removeImageButton = event.target.closest("[data-remove-image-field]");
+    if (removeImageButton) {
+      const fieldElement = removeImageButton.closest("[data-entity-field]");
+      const valueInput = fieldElement?.querySelector("[data-image-field-input]");
+      const urlInput = fieldElement?.querySelector("[data-image-url-input]");
+      const fileInput = fieldElement?.querySelector("[data-image-file-input]");
+      const previewSlot = fieldElement?.querySelector(".image-field-preview-slot");
+      if (valueInput) valueInput.value = "";
+      if (urlInput) urlInput.value = "";
+      if (fileInput) fileInput.value = "";
+      if (previewSlot) previewSlot.innerHTML = "";
+      return;
+    }
     const button = event.target.closest("[data-remove-entity-field]");
     if (!button) return;
     const fieldElement = button.closest("[data-entity-field]");
@@ -3138,10 +3209,12 @@ function openEntityModal(entity) {
     fieldElement?.remove();
   });
   backdrop?.querySelector("[data-entity-fields]")?.addEventListener("input", (event) => {
-    const input = event.target.closest("[data-image-field-input]");
+    const input = event.target.closest("[data-image-url-input]");
     if (!input) return;
     const fieldElement = input.closest("[data-entity-field]");
+    const valueInput = fieldElement?.querySelector("[data-image-field-input]");
     const previewSlot = fieldElement?.querySelector(".image-field-preview-slot");
+    if (valueInput) valueInput.value = input.value;
     if (!previewSlot) return;
     previewSlot.innerHTML = isPreviewableImageUrl(input.value)
       ? renderImageFieldPreview(input.value, fieldElement.dataset.fieldName || "Image")
@@ -3164,6 +3237,8 @@ function openEntityModal(entity) {
     reader.addEventListener("load", () => {
       const value = String(reader.result || "");
       if (valueInput) valueInput.value = value;
+      const urlInput = fieldElement?.querySelector("[data-image-url-input]");
+      if (urlInput) urlInput.value = "";
       if (previewSlot) previewSlot.innerHTML = renderImageFieldPreview(value, fieldElement.dataset.fieldName || "Image");
     });
     reader.readAsDataURL(file);

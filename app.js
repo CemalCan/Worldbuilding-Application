@@ -4,6 +4,7 @@ const id = (prefix) => `${prefix}_${crypto.randomUUID()}`;
 const IMAGE_UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
 
 const categoryFieldPresetGroups = {
+  campaign: ["Campaign name", "Setting", "System", "Tone", "Current arc", "Party level", "Main conflict", "Important factions", "Open questions", "Next session prep"],
   characters: [
     "Portrait image",
     "First name",
@@ -97,6 +98,8 @@ const categoryFieldPresetGroups = {
   ],
   rpgNpcs: [
     "Portrait image",
+    "First name",
+    "Last name",
     "Role",
     "Voice/Mannerism",
     "Location",
@@ -114,6 +117,7 @@ const categoryFieldPresetGroups = {
     "Related NPCs",
     "Hidden outcome",
   ],
+  partyMembers: ["Portrait image", "Player", "Character name", "Class/Role", "Level", "Species/Race", "Party role", "Goals", "Secrets", "Important relationships"],
   sessionNotes: [
     "Session number",
     "Date",
@@ -121,7 +125,8 @@ const categoryFieldPresetGroups = {
     "Summary",
     "Decisions made",
     "Important events",
-    "Loot/Rewards",
+    "Open questions",
+    "Loot/rewards",
     "Next session prep",
   ],
   species: ["Species/Race", "Origin", "Homeland", "Physical traits", "Culture", "Language", "Abilities", "Weaknesses", "History"],
@@ -138,7 +143,10 @@ const categoryFieldPresetGroups = {
   crimeCases: ["Case type", "Date", "Location", "Victim", "Suspects", "Evidence", "Clues", "Status", "True version"],
   evidence: ["Evidence type", "Location found", "Related people", "Public version", "True version", "Status"],
   clues: ["Clue type", "Location", "Related case", "Meaning", "False lead", "Status"],
-  encounters: ["Encounter type", "Location", "Participants", "Objective", "Threat level", "Reward", "Result"],
+  dungeons: ["Dungeon map", "Location", "Purpose", "Rooms", "Traps", "Enemies", "Treasure", "Secrets", "Description"],
+  encounters: ["Encounter type", "Enemies", "Difficulty", "Map/Location", "Traps", "Alternative solutions", "Rewards", "Result"],
+  lootRewards: ["Item image", "Reward type", "Owner", "Origin", "Powers/Properties", "Value", "Who received it", "History"],
+  ruleNotes: ["Rule topic", "Source", "Ruling", "Applies to", "Example", "Session used", "Notes"],
 };
 
 const fieldPresetLabelTranslations = {
@@ -283,9 +291,44 @@ const fieldPresetLabelTranslations = {
   Meaning: "Anlam",
   "False lead": "Yanlış ipucu",
   "Encounter type": "Karşılaşma türü",
+  "Campaign name": "Campaign adı",
+  Setting: "Ortam",
+  System: "Sistem",
+  Tone: "Ton",
+  "Current arc": "Mevcut hikâye kolu",
+  "Party level": "Parti seviyesi",
+  "Main conflict": "Ana çatışma",
+  "Important factions": "Önemli fraksiyonlar",
+  "Open questions": "Açık sorular",
+  Player: "Oyuncu",
+  "Character name": "Karakter adı",
+  "Class/Role": "Sınıf/Rol",
+  Level: "Seviye",
+  "Party role": "Parti rolü",
+  Goals: "Hedefler",
+  Secrets: "Sırlar",
+  "Important relationships": "Önemli ilişkiler",
+  "Loot/rewards": "Loot/ödüller",
+  "Dungeon map": "Zindan haritası",
+  Rooms: "Odalar",
+  Traps: "Tuzaklar",
+  Treasure: "Hazine",
+  Enemies: "Düşmanlar",
+  Difficulty: "Zorluk",
+  "Map/Location": "Harita/Mekân",
+  "Alternative solutions": "Alternatif çözümler",
+  Rewards: "Ödüller",
+  "Reward type": "Ödül türü",
+  "Who received it": "Kim aldı",
+  "Rule topic": "Kural konusu",
+  Ruling: "Hüküm",
+  "Applies to": "Uygulandığı durum",
+  Example: "Örnek",
+  "Session used": "Kullanıldığı oturum",
 };
 
 const categoryPresetAliases = {
+  campaign: "campaign",
   characters: "characters",
   karakterler: "characters",
   detectives: "characters",
@@ -463,6 +506,21 @@ const categoryPresetAliases = {
   motifler: "clues",
   encounters: "encounters",
   "encounter'lar": "encounters",
+  "player characters": "partyMembers",
+  "oyuncu karakterleri": "partyMembers",
+  "party members": "partyMembers",
+  "parti üyeleri": "partyMembers",
+  dungeons: "dungeons",
+  zindanlar: "dungeons",
+  "loot / ödüller": "lootRewards",
+  "loot/rewards": "lootRewards",
+  rewards: "lootRewards",
+  loot: "lootRewards",
+  gods: "religions",
+  tanrılar: "religions",
+  "rule notes": "ruleNotes",
+  "kural notları": "ruleNotes",
+  encounters: "encounters",
 };
 
 function normalizeCategoryName(name) {
@@ -505,6 +563,11 @@ const entityTypeLabels = {
     evidence: { singular: "evidence item", plural: "evidence" },
     clues: { singular: "clue", plural: "clues" },
     encounters: { singular: "encounter", plural: "encounters" },
+    campaign: { singular: "campaign note", plural: "campaign notes" },
+    partyMembers: { singular: "party member", plural: "party members" },
+    dungeons: { singular: "dungeon", plural: "dungeons" },
+    lootRewards: { singular: "reward", plural: "rewards" },
+    ruleNotes: { singular: "rule note", plural: "rule notes" },
     entry: { singular: "entry", plural: "entries" },
   },
   tr: {
@@ -534,6 +597,11 @@ const entityTypeLabels = {
     evidence: { singular: "Kanıt", plural: "kanıt" },
     clues: { singular: "İpucu", plural: "ipucu" },
     encounters: { singular: "Karşılaşma", plural: "karşılaşma" },
+    campaign: { singular: "Campaign notu", plural: "campaign notu" },
+    partyMembers: { singular: "Parti üyesi", plural: "parti üyesi" },
+    dungeons: { singular: "Zindan", plural: "zindan" },
+    lootRewards: { singular: "Ödül", plural: "ödül" },
+    ruleNotes: { singular: "Kural notu", plural: "kural notu" },
     entry: { singular: "Kayıt", plural: "kayıt" },
   },
 };
@@ -571,6 +639,11 @@ function emptyEntityHelp(category) {
   if (key === "characters") return t("noCharactersHelp");
   if (key === "locations") return t("noLocationsHelp");
   if (key === "quests") return t("noQuestsHelp");
+  if (key === "sessionNotes") return t("noSessionNotesHelp");
+  if (key === "encounters") return t("noEncountersHelp");
+  if (key === "lootRewards") return t("noLootHelp");
+  if (key === "partyMembers") return t("noPartyMembersHelp");
+  if (key === "ruleNotes") return t("noRuleNotesHelp");
   return t("noPagesHelp");
 }
 
@@ -642,6 +715,11 @@ function fieldInputValue(field, entity) {
 }
 
 const fieldSectionPresets = {
+  campaign: {
+    Identity: ["Campaign name", "Setting", "System", "Tone"],
+    Story: ["Current arc", "Main conflict", "Important factions", "Open questions"],
+    Notes: ["Next session prep"],
+  },
   characters: {
     Identity: ["First name", "Last name", "Nickname", "Age", "Gender", "Species/Race", "Birthplace"],
     Appearance: ["Portrait image"],
@@ -669,6 +747,39 @@ const fieldSectionPresets = {
     "Table use": ["Voice/Mannerism", "First session seen", "Alive/Dead"],
     "Party relationship": ["Relationship to party"],
     Secrets: ["Secret goal"],
+  },
+  partyMembers: {
+    Identity: ["Portrait image", "Player", "Character name", "Class/Role", "Level", "Species/Race"],
+    Role: ["Party role", "Goals"],
+    Secrets: ["Secrets"],
+    Connections: ["Important relationships"],
+  },
+  quests: {
+    Basics: ["Quest giver", "Location", "Objective", "Status"],
+    "Story relevance": ["Related NPCs", "Hidden outcome"],
+    Details: ["Reward"],
+  },
+  sessionNotes: {
+    Basics: ["Session number", "Date", "Players present"],
+    Story: ["Summary", "Decisions made", "Important events", "Open questions"],
+    Notes: ["Loot/rewards", "Next session prep"],
+  },
+  encounters: {
+    Basics: ["Encounter type", "Difficulty", "Map/Location"],
+    Details: ["Enemies", "Traps", "Alternative solutions", "Rewards", "Result"],
+  },
+  dungeons: {
+    Basics: ["Dungeon map", "Location", "Purpose"],
+    Details: ["Rooms", "Traps", "Enemies", "Treasure", "Secrets"],
+  },
+  lootRewards: {
+    Basics: ["Item image", "Reward type", "Value"],
+    Connections: ["Owner", "Who received it"],
+    Story: ["Origin", "Powers/Properties", "History"],
+  },
+  ruleNotes: {
+    Basics: ["Rule topic", "Source", "Ruling"],
+    Details: ["Applies to", "Example", "Session used", "Notes"],
   },
 };
 
@@ -1038,7 +1149,7 @@ const builtInTemplates = [
   ["horror", "Korku", "Ritüeller, canavarlar, gizemler ve travmalar.", ["Karakterler", "Kurbanlar", "Canavarlar", "Lanetler", "Ritüeller", "Yasak bilgiler", "Mekanlar", "Günlükler", "Gizemler", "Travmalar", "Doğaüstü kurallar", "Notlar"]],
   ["romance", "Romantik Drama", "İlişkiler, sırlar ve duygusal çatışmalar.", ["Karakterler", "İlişkiler", "Aileler", "Sosyal çevreler", "Geçmiş ilişkiler", "Duygusal çatışmalar", "Sırlar", "Dönüm noktaları", "Sahneler", "Notlar"]],
   ["mythological", "Mitolojik", "Panteonlar, kutsal mekanlar ve ilahi yasalar.", ["Tanrılar", "Yarı tanrılar", "Panteonlar", "Kutsal mekanlar", "Ritüeller", "Kehanetler", "Efsaneler", "Kutsal eşyalar", "Ölüm sonrası alemler", "İlahi yasalar", "Notlar"]],
-  ["rpg", "RPG / D&D Campaign", "Campaign, NPC, görev, oturum ve encounter takibi.", ["Campaign", "Oyuncu karakterleri", "NPC'ler", "Parti üyeleri", "Görevler", "Oturum notları", "Haritalar", "Şehirler", "Zindanlar", "Encounter'lar", "Canavarlar", "Loot / Ödüller", "Eşyalar", "Büyüler", "Fraksiyonlar", "Tanrılar", "Kural notları", "Zaman çizelgesi"]],
+  ["rpg", "RPG / D&D Campaign", "Campaign, NPC, görev, oturum ve encounter takibi.", ["Campaign", "Oyuncu karakterleri", "NPC'ler", "Parti üyeleri", "Görevler", "Oturum notları", "Mekanlar", "Zindanlar", "Encounter'lar", "Canavarlar", "Loot / Ödüller", "Fraksiyonlar", "Tanrılar", "Kural notları"]],
 ].map(([templateId, name, description, categories]) => ({
   id: templateId,
   name,
@@ -1122,6 +1233,11 @@ const translations = {
     noCharactersHelp: "No characters yet. Create your first character to start building this cast.",
     noLocationsHelp: "No locations yet. Add a place where your story can happen.",
     noQuestsHelp: "No quests yet. Add your first quest hook.",
+    noSessionNotesHelp: "No session notes yet. Add a recap for your first session.",
+    noEncountersHelp: "No encounters yet. Build the next challenge for your table.",
+    noLootHelp: "No loot or rewards yet. Track treasure, magic items, and payouts here.",
+    noPartyMembersHelp: "No party members yet. Add the player characters at the table.",
+    noRuleNotesHelp: "No rule notes yet. Record table rulings and references here.",
     view: "View",
     cards: "Cards",
     listView: "List",
@@ -1303,6 +1419,11 @@ const translations = {
     noCharactersHelp: "Henüz karakter yok. Kadronu oluşturmaya başlamak için ilk karakterini oluştur.",
     noLocationsHelp: "Henüz mekân yok. Hikâyenin geçeceği bir yer ekle.",
     noQuestsHelp: "Henüz görev yok. İlk görev fikrini ekle.",
+    noSessionNotesHelp: "Henüz oturum notu yok. İlk oturumun özetini ekle.",
+    noEncountersHelp: "Henüz karşılaşma yok. Masan için sıradaki meydan okumayı hazırla.",
+    noLootHelp: "Henüz loot veya ödül yok. Hazineyi, büyülü eşyaları ve ödülleri burada takip et.",
+    noPartyMembersHelp: "Henüz parti üyesi yok. Masadaki oyuncu karakterlerini ekle.",
+    noRuleNotesHelp: "Henüz kural notu yok. Masa kararlarını ve referansları burada kaydet.",
     view: "Görünüm",
     cards: "Kartlar",
     listView: "Liste",

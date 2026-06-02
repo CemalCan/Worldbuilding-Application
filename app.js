@@ -1713,7 +1713,39 @@ const translations = {
     noConnections: "No connections yet.",
     notes: "Notes",
     addNote: "Add note",
+    editNote: "Edit note",
     noNotes: "No notes on this page.",
+    noteMatch: "Note match",
+    pinnedNotes: "Pinned notes",
+    recentNotes: "Recent notes",
+    quickIdeas: "Quick ideas",
+    pin: "Pin",
+    unpin: "Unpin",
+    markSpoiler: "Mark as spoiler",
+    markHidden: "Mark as hidden",
+    markDone: "Mark done",
+    markActive: "Mark active",
+    noteHidden: "Hidden note",
+    noteSpoiler: "Spoiler",
+    showNote: "Show",
+    hideNote: "Hide",
+    noteFilterAll: "All",
+    noteFilterUnattached: "Unattached",
+    noteFilterAttached: "Attached",
+    noteFilterIdeas: "Ideas",
+    noteFilterTodos: "Todos",
+    attachTo: "Attach to",
+    attachToProject: "Project",
+    attachToCategory: "Category",
+    attachToEntry: "Entry",
+    noteTypeGeneral: "General",
+    noteTypeIdea: "Idea",
+    noteTypeTodo: "Todo",
+    noteTypeSpoiler: "Spoiler",
+    noteTypeSecret: "Secret",
+    noteTypeAuthor: "Author note",
+    noteTypeRpg: "RPG/GM note",
+    noteTypeInconsistency: "Inconsistency",
     deleteRelationship: "Delete Relationship",
     attach: "Attach",
     customTemplate: "Custom Template",
@@ -1952,7 +1984,39 @@ const translations = {
     noConnections: "Henüz bağlantı yok.",
     notes: "Notlar",
     addNote: "Not ekle",
+    editNote: "Notu düzenle",
     noNotes: "Bu sayfada not yok.",
+    noteMatch: "Not eşleşmesi",
+    pinnedNotes: "Sabitlenmiş notlar",
+    recentNotes: "Son notlar",
+    quickIdeas: "Hızlı fikirler",
+    pin: "Sabitle",
+    unpin: "Sabitlemeyi kaldır",
+    markSpoiler: "Spoiler yap",
+    markHidden: "Gizli yap",
+    markDone: "Tamamlandı",
+    markActive: "Aktif yap",
+    noteHidden: "Gizli not",
+    noteSpoiler: "Spoiler",
+    showNote: "Göster",
+    hideNote: "Gizle",
+    noteFilterAll: "Tümü",
+    noteFilterUnattached: "Bağlanmamış",
+    noteFilterAttached: "Bağlanmış",
+    noteFilterIdeas: "Fikirler",
+    noteFilterTodos: "Yapılacaklar",
+    attachTo: "Şuna bağla",
+    attachToProject: "Proje",
+    attachToCategory: "Kategori",
+    attachToEntry: "Kayıt",
+    noteTypeGeneral: "Genel",
+    noteTypeIdea: "Fikir",
+    noteTypeTodo: "Yapılacak",
+    noteTypeSpoiler: "Spoiler",
+    noteTypeSecret: "Gizli",
+    noteTypeAuthor: "Yazar notu",
+    noteTypeRpg: "RPG/GM notu",
+    noteTypeInconsistency: "Tutarsızlık",
     deleteRelationship: "İlişkiyi Sil",
     attach: "Bağla",
     customTemplate: "Özel Şablon",
@@ -2557,6 +2621,7 @@ function renderProjectHome(universe) {
           </div>
         ` : `<p class="muted">${t("noRecentEntries")}</p>`}
       </section>
+      ${renderProjectNotesSummary(universe)}
     </section>
   `;
 }
@@ -2571,7 +2636,7 @@ function filteredEntities(universeId) {
       .join(" ");
     const notes = activeItems(state.notes)
       .filter((note) => note.entityId === entity.id)
-      .map((note) => `${note.title || ""} ${note.content}`)
+      .map((note) => `${note.title || ""} ${note.content} ${noteTypeLabel(note.type)}`)
       .join(" ");
     return `${entity.title} ${entity.summary || ""} ${entity.content || ""} ${tagNames} ${notes}`
       .toLocaleLowerCase("tr")
@@ -2659,9 +2724,18 @@ function renderEntityPreviewFields(entity, limit) {
   `;
 }
 
+function entityHasNoteSearchMatch(entity) {
+  const query = state.search.trim().toLocaleLowerCase("tr");
+  if (!query) return false;
+  return activeItems(state.notes)
+    .filter((note) => note.entityId === entity.id)
+    .some((note) => `${note.title || ""} ${note.content || ""} ${noteTypeLabel(note.type)}`.toLocaleLowerCase("tr").includes(query));
+}
+
 function renderEntityRow(entity) {
   const imageInfo = entityImageInfo(entity);
   const tags = entityTagNames(entity).slice(0, 3);
+  const noteMatch = entityHasNoteSearchMatch(entity);
   return `
     <button class="entity-row entity-row--rich" data-action="select-entity" data-id="${entity.id}">
       ${imageInfo ? `<img class="entity-row__image" src="${escapeHtml(imageInfo.value)}" alt="${escapeHtml(entity.title)}" loading="lazy" style="${imagePositionStyle(imageInfo.position)}" />` : ""}
@@ -2669,7 +2743,7 @@ function renderEntityRow(entity) {
         <strong>${escapeHtml(entity.title)}</strong>
         ${entity.summary ? `<small>${escapeHtml(entity.summary)}</small>` : ""}
         ${renderEntityPreviewFields(entity, 2)}
-        ${tags.length ? `<span class="tag-row">${tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</span>` : ""}
+        ${tags.length || noteMatch ? `<span class="tag-row">${noteMatch ? `<span class="tag">${t("noteMatch")}</span>` : ""}${tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</span>` : ""}
       </span>
     </button>
   `;
@@ -2678,6 +2752,7 @@ function renderEntityRow(entity) {
 function renderEntityCard(entity) {
   const imageInfo = entityImageInfo(entity);
   const tags = entityTagNames(entity).slice(0, 3);
+  const noteMatch = entityHasNoteSearchMatch(entity);
   return `
     <button class="entity-card" data-action="select-entity" data-id="${entity.id}">
       ${imageInfo ? `<img class="entity-card__image" src="${escapeHtml(imageInfo.value)}" alt="${escapeHtml(entity.title)}" loading="lazy" style="${imagePositionStyle(imageInfo.position)}" />` : ""}
@@ -2685,7 +2760,7 @@ function renderEntityCard(entity) {
         <strong>${escapeHtml(entity.title)}</strong>
         ${entity.summary ? `<small>${escapeHtml(entity.summary)}</small>` : ""}
         ${renderEntityPreviewFields(entity, 3)}
-        ${tags.length ? `<span class="tag-row">${tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</span>` : ""}
+        ${tags.length || noteMatch ? `<span class="tag-row">${noteMatch ? `<span class="tag">${t("noteMatch")}</span>` : ""}${tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</span>` : ""}
       </span>
     </button>
   `;
@@ -3022,17 +3097,25 @@ function renderRelationshipOverview(entity) {
 function renderRightPanel() {
   const entity = currentEntity();
   if (!entity) {
-    const inboxNotes = activeItems(state.notes).filter((note) => note.universeId === state.selectedUniverseId && !note.entityId);
+    const category = currentCategory();
+    const inboxNotes = filterInboxNotes(activeItems(state.notes).filter((note) => note.universeId === state.selectedUniverseId && !note.entityId));
+    const scopedNotes = category ? sortedNotes(categoryNotes(category.id)) : sortedNotes(projectNotes());
     return `
       <aside class="side stack">
+        <div class="row">
+          <h2>${category ? t("notes") : t("ideaInbox")}</h2>
+          <button class="icon-button" data-action="quick-note" title="${t("addNote")}">+</button>
+        </div>
+        ${category && scopedNotes.length ? `<div class="note-grid">${scopedNotes.map(renderNoteCard).join("")}</div>` : ""}
         <h2>${t("ideaInbox")}</h2>
-        ${inboxNotes.length ? inboxNotes.map(renderNoteCard).join("") : `<p class="muted">${t("noInboxNotes")}</p>`}
+        ${renderNoteFilterBar()}
+        ${inboxNotes.length ? `<div class="note-grid">${sortedNotes(inboxNotes).map(renderNoteCard).join("")}</div>` : `<p class="muted">${t("noInboxNotes")}</p>`}
       </aside>
     `;
   }
   const outgoing = activeItems(state.relationships).filter((rel) => rel.sourceEntityId === entity.id);
   const incoming = activeItems(state.relationships).filter((rel) => rel.targetEntityId === entity.id);
-  const notes = activeItems(state.notes).filter((note) => note.entityId === entity.id);
+  const notes = sortedNotes(activeItems(state.notes).filter((note) => note.entityId === entity.id));
   const relationshipTargets = getRelationshipTargets(entity);
   const fieldBackReferences = entityFieldBackReferences(entity);
   return `
@@ -3051,7 +3134,7 @@ function renderRightPanel() {
         <h2>${t("notes")}</h2>
         <button class="icon-button" data-action="new-note" title="${t("addNote")}">+</button>
       </div>
-      ${notes.length ? notes.map(renderNoteCard).join("") : `<p class="muted">${t("noNotes")}</p>`}
+      ${notes.length ? `<div class="note-grid">${notes.map(renderNoteCard).join("")}</div>` : `<p class="muted">${t("noNotes")}</p>`}
     </aside>
   `;
 }
@@ -3098,18 +3181,124 @@ function getRelationshipTargets(source) {
 }
 
 function renderNoteCard(note) {
+  const hiddenCollapsed = note.isHidden && !note.isRevealed;
+  const preview = hiddenCollapsed ? t("noteHidden") : notePreview(note.content);
+  const typeLabel = noteTypeLabel(note.type);
+  const classes = [
+    "note-card",
+    note.isPinned ? "is-pinned" : "",
+    note.isSpoiler ? "is-spoiler" : "",
+    note.isHidden ? "is-hidden" : "",
+    note.completed ? "is-complete" : "",
+  ].filter(Boolean).join(" ");
   return `
-    <article class="card stack">
+    <article class="${classes}">
       <div class="row">
-        <strong>${escapeHtml(note.title || "Not")}</strong>
-        <span class="badge">${escapeHtml(note.type)}</span>
+        <strong>${escapeHtml(note.title || typeLabel)}</strong>
+        <span class="badge-list">
+          <span class="badge">${escapeHtml(typeLabel)}</span>
+          ${note.isPinned ? `<span class="badge">${t("pin")}</span>` : ""}
+          ${note.isSpoiler ? `<span class="badge">${t("noteSpoiler")}</span>` : ""}
+          ${note.isHidden ? `<span class="badge">${t("noteHidden")}</span>` : ""}
+          ${note.updatedAt ? `<span class="badge">${new Date(note.updatedAt).toLocaleDateString(state.settings.language === "tr" ? "tr-TR" : "en-US")}</span>` : ""}
+        </span>
       </div>
-      <div class="markdown">${markdownToHtml(note.content)}</div>
+      <p class="note-preview">${escapeHtml(preview)}</p>
       <div class="button-row">
+        <button class="secondary" data-action="edit-note" data-id="${note.id}">${t("edit")}</button>
+        <button class="secondary" data-action="toggle-note-pin" data-id="${note.id}">${note.isPinned ? t("unpin") : t("pin")}</button>
+        ${note.type === "todo" ? `<button class="secondary" data-action="toggle-note-complete" data-id="${note.id}">${note.completed ? t("markActive") : t("markDone")}</button>` : ""}
+        <button class="secondary" data-action="toggle-note-spoiler" data-id="${note.id}">${t("markSpoiler")}</button>
+        <button class="secondary" data-action="toggle-note-hidden" data-id="${note.id}">${note.isHidden && note.isRevealed ? t("hideNote") : note.isHidden ? t("showNote") : t("markHidden")}</button>
         ${!note.entityId && currentUniverse() ? `<button class="secondary" data-action="attach-note" data-id="${note.id}">${t("attach")}</button>` : ""}
         <button class="danger" data-action="delete-note" data-id="${note.id}">${t("delete")}</button>
       </div>
     </article>
+  `;
+}
+
+function notePreview(content = "") {
+  const text = String(content || "").replace(/\s+/g, " ").trim();
+  return text.length > 160 ? `${text.slice(0, 157)}...` : text;
+}
+
+function noteTypeLabel(type = "general") {
+  return {
+    general: t("noteTypeGeneral"),
+    idea: t("noteTypeIdea"),
+    todo: t("noteTypeTodo"),
+    spoiler: t("noteTypeSpoiler"),
+    secret: t("noteTypeSecret"),
+    hidden: t("noteTypeSecret"),
+    author: t("noteTypeAuthor"),
+    rpg: t("noteTypeRpg"),
+    inconsistency: t("noteTypeInconsistency"),
+  }[type] || type;
+}
+
+function sortedNotes(notes) {
+  return [...notes].sort((a, b) => {
+    if (Boolean(a.isPinned) !== Boolean(b.isPinned)) return a.isPinned ? -1 : 1;
+    if (Boolean(a.completed) !== Boolean(b.completed)) return a.completed ? 1 : -1;
+    return String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""));
+  });
+}
+
+function projectNotes(universeId = state.selectedUniverseId) {
+  return activeItems(state.notes).filter((note) => note.universeId === universeId && !note.entityId && !note.categoryId);
+}
+
+function categoryNotes(categoryId) {
+  return activeItems(state.notes).filter((note) => note.categoryId === categoryId && !note.entityId);
+}
+
+function inboxFilterValue() {
+  return state.noteInboxFilter || "all";
+}
+
+function filterInboxNotes(notes) {
+  const filter = inboxFilterValue();
+  return notes.filter((note) => {
+    const attached = Boolean(note.entityId || note.categoryId);
+    if (filter === "unattached") return !attached;
+    if (filter === "attached") return attached;
+    if (filter === "ideas") return note.type === "idea";
+    if (filter === "todos") return note.type === "todo";
+    return true;
+  });
+}
+
+function renderNoteFilterBar() {
+  const active = inboxFilterValue();
+  const filters = [
+    ["all", t("noteFilterAll")],
+    ["unattached", t("noteFilterUnattached")],
+    ["attached", t("noteFilterAttached")],
+    ["ideas", t("noteFilterIdeas")],
+    ["todos", t("noteFilterTodos")],
+  ];
+  return `
+    <div class="segmented-control note-filter">
+      ${filters.map(([value, label]) => `<button class="${active === value ? "is-active" : ""}" data-action="set-note-filter" data-filter="${value}">${label}</button>`).join("")}
+    </div>
+  `;
+}
+
+function renderProjectNotesSummary(universe) {
+  const notes = sortedNotes(projectNotes(universe.id));
+  const pinned = notes.filter((note) => note.isPinned).slice(0, 3);
+  const recent = notes.filter((note) => !note.isPinned).slice(0, 3);
+  const quickIdeas = activeItems(state.notes).filter((note) => note.universeId === universe.id && note.type === "idea" && !note.entityId && !note.categoryId).length;
+  if (!notes.length && !quickIdeas) return "";
+  return `
+    <section class="stack">
+      <div class="row">
+        <h3 class="section-title">${t("notes")}</h3>
+        <span class="badge">${quickIdeas} ${t("quickIdeas")}</span>
+      </div>
+      ${pinned.length ? `<h4 class="mini-heading">${t("pinnedNotes")}</h4><div class="note-grid">${pinned.map(renderNoteCard).join("")}</div>` : ""}
+      ${recent.length ? `<h4 class="mini-heading">${t("recentNotes")}</h4><div class="note-grid">${recent.map(renderNoteCard).join("")}</div>` : ""}
+    </section>
   `;
 }
 
@@ -3580,12 +3769,43 @@ const actions = {
   },
   "new-note": () => openNoteModal(currentEntity()?.id || null),
   "quick-note": () => openNoteModal(null),
+  "edit-note"({ id: noteId }) {
+    openNoteModal(null, state.notes.find((note) => note.id === noteId));
+  },
   "delete-note"({ id: noteId }) {
     if (!confirm(t("confirmNoteDelete"))) return;
     softDelete("notes", noteId);
   },
+  "toggle-note-pin"({ id: noteId }) {
+    const note = state.notes.find((item) => item.id === noteId);
+    updateItem("notes", noteId, { isPinned: !note?.isPinned });
+  },
+  "toggle-note-complete"({ id: noteId }) {
+    const note = state.notes.find((item) => item.id === noteId);
+    updateItem("notes", noteId, { completed: !note?.completed });
+  },
+  "toggle-note-spoiler"({ id: noteId }) {
+    const note = state.notes.find((item) => item.id === noteId);
+    if (!note) return;
+    const isSpoiler = !note.isSpoiler;
+    updateItem("notes", noteId, { isSpoiler, type: isSpoiler ? "spoiler" : note.type === "spoiler" ? "general" : note.type });
+  },
+  "toggle-note-hidden"({ id: noteId }) {
+    const note = state.notes.find((item) => item.id === noteId);
+    if (!note) return;
+    if (note.isHidden) {
+      updateItem("notes", noteId, { isRevealed: !note.isRevealed });
+      return;
+    }
+    updateItem("notes", noteId, { isHidden: true, isRevealed: false });
+  },
   "attach-note"({ id: noteId }) {
     openAttachNoteDialog(noteId);
+  },
+  "set-note-filter"({ filter }) {
+    state.noteInboxFilter = filter || "all";
+    saveState();
+    render();
   },
   "timeline-filter"({ filter, value }) {
     state.timelineFilters = { ...(state.timelineFilters || {}), [filter]: value || "" };
@@ -3964,12 +4184,21 @@ function openLinkedEntityCreateModal(fieldElement, field, sourceEntity) {
 
 function openAttachNoteDialog(noteId) {
   const entities = universeEntities();
-  if (!entities.length) {
-    alert(t("pageNotFound"));
-    return;
-  }
+  const categories = universeCategories(state.selectedUniverseId, true);
   openModal(t("attach"), `
     <form class="form-grid">
+      <label>${t("attachTo")}
+        <select name="targetType">
+          <option value="project">${t("attachToProject")}</option>
+          <option value="category">${t("attachToCategory")}</option>
+          <option value="entity">${t("attachToEntry")}</option>
+        </select>
+      </label>
+      <label>${t("category")}
+        <select name="categoryId">
+          ${categories.map((category) => `<option value="${category.id}">${escapeHtml(category.name)}</option>`).join("")}
+        </select>
+      </label>
       <label>${t("page")}
         <select name="entityId">
           ${entities.map((entity) => `<option value="${entity.id}">${escapeHtml(entity.title)}</option>`).join("")}
@@ -3981,12 +4210,21 @@ function openAttachNoteDialog(noteId) {
       </div>
     </form>
   `, (form) => {
-    const entity = entities.find((item) => item.id === form.get("entityId"));
-    if (!entity) {
-      alert(t("pageNotFound"));
-      return false;
+    const targetType = form.get("targetType");
+    if (targetType === "entity") {
+      const entity = entities.find((item) => item.id === form.get("entityId"));
+      if (!entity) {
+        alert(t("pageNotFound"));
+        return false;
+      }
+      updateItem("notes", noteId, { entityId: entity.id, categoryId: null });
+      return;
     }
-    updateItem("notes", noteId, { entityId: entity.id });
+    if (targetType === "category") {
+      updateItem("notes", noteId, { entityId: null, categoryId: form.get("categoryId") || null });
+      return;
+    }
+    updateItem("notes", noteId, { entityId: null, categoryId: null });
   });
 }
 
@@ -4066,7 +4304,12 @@ async function restoreTrashItem(kind, itemId) {
   }
 
   if (collection === "notes" && item.entityId && !activeEntityExists(item.entityId)) {
-    alert(t("noteRestoreBlocked"));
+    updateItem(collection, itemId, { entityId: null, categoryId: null, deletedAt: null });
+    return;
+  }
+
+  if (collection === "notes" && item.categoryId && !activeCategoryExists(item.categoryId)) {
+    updateItem(collection, itemId, { categoryId: null, deletedAt: null });
     return;
   }
 
@@ -5006,30 +5249,61 @@ function openRelationshipModal() {
   });
 }
 
-function openNoteModal(entityId) {
-  openModal(entityId ? t("addNote") : t("idea"), `
+function noteTypeOptions(selected = "general") {
+  const selectedType = selected === "hidden" ? "secret" : selected;
+  const options = [
+    ["general", t("noteTypeGeneral")],
+    ["idea", t("noteTypeIdea")],
+    ["todo", t("noteTypeTodo")],
+    ["spoiler", t("noteTypeSpoiler")],
+    ["secret", t("noteTypeSecret")],
+    ["author", t("noteTypeAuthor")],
+    ["rpg", t("noteTypeRpg")],
+    ["inconsistency", t("noteTypeInconsistency")],
+  ];
+  return options.map(([value, label]) => `<option value="${value}" ${selectedType === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+}
+
+function openNoteModal(entityId, note = null) {
+  const isEditing = Boolean(note?.id);
+  const targetEntityId = isEditing ? note.entityId || null : entityId;
+  openModal(isEditing ? t("editNote") : targetEntityId ? t("addNote") : t("idea"), `
     <form class="form-grid">
-      <label>${t("title")} <input name="title" /></label>
+      <label>${t("title")} <input name="title" value="${escapeHtml(note?.title || "")}" /></label>
       <label>${t("noteType")}
         <select name="type">
-          ${["general", "hidden", "spoiler", "author", "rpg", "idea", "todo", "inconsistency"].map((type) => `<option value="${type}">${type}</option>`).join("")}
+          ${noteTypeOptions(note?.type || (targetEntityId ? "general" : "idea"))}
         </select>
       </label>
-      <label>${t("note")} <textarea name="content" required placeholder="${t("markdownSupported")}"></textarea></label>
+      <label>${t("note")} <textarea name="content" required placeholder="${t("markdownSupported")}">${escapeHtml(note?.content || "")}</textarea></label>
+      <label class="checkbox-line"><input name="isPinned" type="checkbox" ${note?.isPinned ? "checked" : ""} /> ${t("pin")}</label>
+      <label class="checkbox-line"><input name="isSpoiler" type="checkbox" ${note?.isSpoiler ? "checked" : ""} /> ${t("noteSpoiler")}</label>
+      <label class="checkbox-line"><input name="isHidden" type="checkbox" ${note?.isHidden ? "checked" : ""} /> ${t("noteHidden")}</label>
+      <label class="checkbox-line"><input name="completed" type="checkbox" ${note?.completed ? "checked" : ""} /> ${t("markDone")}</label>
       <div class="button-row"><button type="submit">${t("save")}</button></div>
     </form>
   `, (form) => {
     const type = form.get("type");
-    state.notes.push({
-      id: id("note"),
-      universeId: state.selectedUniverseId,
-      entityId,
+    const patch = {
       title: form.get("title"),
       content: form.get("content"),
       type,
-      isPinned: false,
-      isHidden: type === "hidden",
-      isSpoiler: type === "spoiler",
+      isPinned: form.get("isPinned") === "on",
+      isHidden: form.get("isHidden") === "on" || type === "secret",
+      isSpoiler: form.get("isSpoiler") === "on" || type === "spoiler",
+      completed: form.get("completed") === "on",
+      isRevealed: false,
+    };
+    if (isEditing) {
+      updateItem("notes", note.id, patch);
+      return;
+    }
+    state.notes.push({
+      id: id("note"),
+      universeId: state.selectedUniverseId,
+      entityId: targetEntityId,
+      categoryId: null,
+      ...patch,
       createdAt: now(),
       updatedAt: now(),
       deletedAt: null,
@@ -5254,6 +5528,9 @@ function validateImportPayload(payload) {
     if (note.entityId !== null && note.entityId !== undefined && !entityIds.has(note.entityId)) {
       throw new Error("Import geçersiz: not var olmayan bir sayfaya bağlı.");
     }
+    if (note.categoryId !== null && note.categoryId !== undefined && !categoryIds.has(note.categoryId)) {
+      throw new Error("Import geçersiz: not var olmayan bir kategoriye bağlı.");
+    }
   }
 
   return { categories, entities, relationships, notes, tags };
@@ -5317,6 +5594,7 @@ function importUniverse() {
         id: mapId(item.id, "note"),
         universeId,
         entityId: item.entityId ? mapId(item.entityId, "entity") : null,
+        categoryId: item.categoryId ? mapId(item.categoryId, "category") : null,
       })));
       state.selectedUniverseId = universeId;
       state.selectedCategoryId = universeCategories(universeId, true)[0]?.id || null;

@@ -439,6 +439,65 @@ label {
   white-space: nowrap;
 }
 
+.mini-heading {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.note-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.note-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.note-card.is-pinned {
+  border-color: color-mix(in srgb, var(--accent), var(--line) 35%);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.note-card.is-spoiler {
+  background: color-mix(in srgb, var(--warning, #b7791f), var(--surface) 88%);
+}
+
+.note-card.is-hidden {
+  background:
+    repeating-linear-gradient(135deg, transparent 0 8px, rgba(0, 0, 0, 0.04) 8px 16px),
+    var(--surface);
+}
+
+.note-card.is-complete {
+  opacity: 0.72;
+}
+
+.note-card.is-complete .note-preview,
+.note-card.is-complete strong {
+  text-decoration: line-through;
+}
+
+.note-preview {
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.note-card .button-row {
+  gap: 6px;
+}
+
+.note-card .button-row button {
+  padding: 6px 8px;
+  font-size: 0.82rem;
+}
+
 .image-field-preview {
   display: grid;
   gap: 6px;

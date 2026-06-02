@@ -794,6 +794,7 @@ const defaultSettings = {
   autoSave: true,
   trashRetentionDays: 30,
   language: "en",
+  startupBehavior: "continue",
 };
 
 let storageRecoveryMessage = "";
@@ -937,6 +938,10 @@ const translations = {
     compactMode: "Compact mode",
     autoSave: "Auto-save",
     language: "Language",
+    startupBehavior: "Startup behavior",
+    startupContinue: "Continue where I left off",
+    startupProjectHome: "Open project home page",
+    startupAppHome: "Open app home page",
     english: "English",
     turkish: "Turkish",
     resetAppearance: "Reset appearance",
@@ -1097,6 +1102,10 @@ const translations = {
     compactMode: "Kompakt mod",
     autoSave: "Otomatik kaydet",
     language: "Dil",
+    startupBehavior: "Başlangıç davranışı",
+    startupContinue: "Kaldığım yerden devam et",
+    startupProjectHome: "Proje ana sayfasını aç",
+    startupAppHome: "Uygulama ana sayfasını aç",
     english: "İngilizce",
     turkish: "Türkçe",
     resetAppearance: "Görünümü sıfırla",
@@ -1155,7 +1164,7 @@ function loadState() {
     const customTemplates = Array.isArray(parsed.templates)
       ? parsed.templates.filter((template) => template && !template.isBuiltIn)
       : [];
-    return {
+    return applyStartupBehavior({
       ...createDefaultState(),
       ...parsed,
       universes: Array.isArray(parsed.universes) ? parsed.universes : [],
@@ -1166,12 +1175,54 @@ function loadState() {
       tags: Array.isArray(parsed.tags) ? parsed.tags : [],
       templates: [...builtInTemplates, ...customTemplates],
       settings: { ...defaultSettings, ...(parsed.settings || {}) },
-    };
+    });
   } catch (error) {
     console.warn("Loreforge could not read stored data.", error);
     storageRecoveryMessage = "Saved local data could not be read. Loreforge started with a safe empty state. Check any exported backup before clearing browser data.";
     return createDefaultState();
   }
+}
+
+function applyStartupBehavior(loadedState) {
+  const appHome = () => ({
+    ...loadedState,
+    selectedUniverseId: null,
+    selectedCategoryId: null,
+    selectedEntityId: null,
+    view: "home",
+    search: "",
+  });
+  const activeUniverse = loadedState.universes.find((universe) => universe.id === loadedState.selectedUniverseId && !universe.deletedAt);
+  const activeCategories = loadedState.categories
+    .filter((category) => category.universeId === activeUniverse?.id && !category.deletedAt && !category.isHidden)
+    .sort((a, b) => a.order - b.order);
+  const activeCategory = activeCategories.find((category) => category.id === loadedState.selectedCategoryId);
+  const activeEntity = loadedState.entities.find((entity) =>
+    entity.id === loadedState.selectedEntityId &&
+    entity.universeId === activeUniverse?.id &&
+    !entity.deletedAt
+  );
+
+  if (loadedState.settings.startupBehavior === "appHome") return appHome();
+  if (loadedState.settings.startupBehavior === "projectHome") {
+    if (!activeUniverse) return appHome();
+    return {
+      ...loadedState,
+      selectedCategoryId: activeCategory?.id || activeCategories[0]?.id || null,
+      selectedEntityId: null,
+      view: "universe",
+      search: "",
+    };
+  }
+  if (!loadedState.selectedUniverseId) return appHome();
+  if (!activeUniverse) return appHome();
+  if (loadedState.selectedEntityId && (!activeEntity || activeEntity.categoryId !== loadedState.selectedCategoryId)) return appHome();
+  if (loadedState.selectedCategoryId && !activeCategory) return appHome();
+  return {
+    ...loadedState,
+    selectedCategoryId: activeEntity?.categoryId || activeCategory?.id || activeCategories[0]?.id || null,
+    view: loadedState.view === "home" ? "universe" : loadedState.view,
+  };
 }
 
 function saveState() {
@@ -2637,6 +2688,13 @@ function openSettingsModal() {
           <option value="tr" ${state.settings.language === "tr" ? "selected" : ""}>${t("turkish")}</option>
         </select>
       </label>
+      <label>${t("startupBehavior")}
+        <select name="startupBehavior">
+          <option value="continue" ${state.settings.startupBehavior === "continue" ? "selected" : ""}>${t("startupContinue")}</option>
+          <option value="projectHome" ${state.settings.startupBehavior === "projectHome" ? "selected" : ""}>${t("startupProjectHome")}</option>
+          <option value="appHome" ${state.settings.startupBehavior === "appHome" ? "selected" : ""}>${t("startupAppHome")}</option>
+        </select>
+      </label>
       <label><span><input name="compactMode" type="checkbox" ${state.settings.compactMode ? "checked" : ""} /> ${t("compactMode")}</span></label>
       <label><span><input name="autoSave" type="checkbox" ${state.settings.autoSave ? "checked" : ""} /> ${t("autoSave")}</span></label>
       <div class="button-row">
@@ -2653,6 +2711,7 @@ function openSettingsModal() {
       fontSize: form.get("fontSize"),
       accentColor: form.get("accentColor"),
       language: form.get("language"),
+      startupBehavior: form.get("startupBehavior"),
       compactMode: form.get("compactMode") === "on",
       autoSave: form.get("autoSave") === "on",
       trashRetentionDays: Number(form.get("trashRetentionDays") || 30),

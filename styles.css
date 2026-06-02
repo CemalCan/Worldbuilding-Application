@@ -523,6 +523,27 @@ label {
   gap: 14px;
 }
 
+.detail-hero {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.detail-hero__image {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+}
+
+.detail-hero__body {
+  display: grid;
+  gap: 12px;
+}
+
 .detail-header {
   display: flex;
   justify-content: space-between;
@@ -532,6 +553,44 @@ label {
 
 .detail-title {
   font-size: 1.8rem;
+}
+
+.key-field-grid,
+.detail-section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.key-field {
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.key-field span,
+.field-display strong {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.key-field strong {
+  font-size: 0.95rem;
+}
+
+.field-display {
+  display: grid;
+  gap: 4px;
+}
+
+.form-section {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 
 .markdown {
@@ -764,6 +823,11 @@ label {
   }
 
   .two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-hero,
+  .field-entry {
     grid-template-columns: 1fr;
   }
 

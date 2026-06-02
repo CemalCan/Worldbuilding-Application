@@ -641,6 +641,72 @@ function fieldInputValue(field, entity) {
   return entity?.customFieldValues?.[fieldStorageKey(field)] ?? entity?.customFieldValues?.[field.name] ?? "";
 }
 
+const fieldSectionPresets = {
+  characters: {
+    Identity: ["First name", "Last name", "Nickname", "Age", "Gender", "Species/Race", "Birthplace"],
+    Appearance: ["Portrait image"],
+    Role: ["Occupation", "Current location", "Goal"],
+    Personality: ["Personality", "Fear", "Secret"],
+    Story: ["Backstory"],
+    Connections: ["Family"],
+  },
+  families: {
+    Identity: ["Crest image", "Family name", "Founder", "Current head", "Symbol/Crest"],
+    Members: ["Members"],
+    Politics: ["Allies", "Enemies"],
+    Secrets: ["Family secret"],
+    History: ["History"],
+  },
+  locations: {
+    Basics: ["Location image", "Location type", "Description"],
+    Geography: ["Region", "Climate"],
+    Population: ["Population", "Important people"],
+    Politics: ["Ruler/Owner"],
+    "Story relevance": ["Important events"],
+  },
+  rpgNpcs: {
+    Identity: ["Portrait image", "Role", "Location"],
+    "Table use": ["Voice/Mannerism", "First session seen", "Alive/Dead"],
+    "Party relationship": ["Relationship to party"],
+    Secrets: ["Secret goal"],
+  },
+};
+
+const sectionLabelTranslations = {
+  Identity: "Kimlik",
+  Appearance: "Görünüm",
+  Role: "Rol",
+  Personality: "Kişilik",
+  Story: "Hikâye",
+  Connections: "Bağlantılar",
+  Notes: "Notlar",
+  Members: "Üyeler",
+  Politics: "Politika",
+  Secrets: "Sırlar",
+  History: "Tarihçe",
+  Basics: "Temel bilgiler",
+  Geography: "Coğrafya",
+  Population: "Nüfus",
+  "Story relevance": "Hikâyedeki rolü",
+  "Table use": "Masa kullanımı",
+  "Party relationship": "Parti ilişkisi",
+  Details: "Detaylar",
+};
+
+function sectionLabel(name) {
+  return state.settings.language === "tr" ? sectionLabelTranslations[name] || name : name;
+}
+
+function fieldSectionName(category, field) {
+  const preset = fieldSectionPresets[getCategoryTypeKey(category)] || {};
+  const fieldName = field?.name || "";
+  const storageKey = fieldStorageKey(field);
+  for (const [section, names] of Object.entries(preset)) {
+    if (names.some((name) => name === fieldName || fieldPresetKey(name) === storageKey)) return section;
+  }
+  return "Details";
+}
+
 function isPreviewableImageUrl(value) {
   return /^(https?:\/\/|data:image\/)/i.test(String(value || "").trim());
 }
@@ -734,6 +800,39 @@ function renderEntityCustomFieldInput(field, entity) {
       <button class="secondary danger-text" type="button" data-remove-entity-field>${t("removeField")}</button>
     </div>
   `;
+}
+
+function groupFieldsBySection(category, fields) {
+  return fields.reduce((groups, field) => {
+    const section = fieldSectionName(category, field);
+    if (!groups.has(section)) groups.set(section, []);
+    groups.get(section).push(field);
+    return groups;
+  }, new Map());
+}
+
+function renderEntityFormSections(category, fields, entity) {
+  const groups = groupFieldsBySection(category, fields);
+  return [...groups.entries()].map(([section, sectionFields]) => `
+    <section class="form-section stack" data-form-section="${escapeHtml(section)}">
+      <h3 class="section-title">${escapeHtml(sectionLabel(section))}</h3>
+      ${sectionFields.map((field) => renderEntityCustomFieldInput(field, entity)).join("")}
+    </section>
+  `).join("");
+}
+
+function appendFieldToEntityForm(container, category, field, entity) {
+  const section = fieldSectionName(category, field);
+  let sectionElement = [...container.querySelectorAll("[data-form-section]")].find((item) => item.dataset.formSection === section);
+  if (!sectionElement) {
+    container.insertAdjacentHTML("beforeend", `
+      <section class="form-section stack" data-form-section="${escapeHtml(section)}">
+        <h3 class="section-title">${escapeHtml(sectionLabel(section))}</h3>
+      </section>
+    `);
+    sectionElement = [...container.querySelectorAll("[data-form-section]")].find((item) => item.dataset.formSection === section);
+  }
+  sectionElement?.insertAdjacentHTML("beforeend", renderEntityCustomFieldInput(field, entity));
 }
 
 function renderFieldManager(fields, category) {
@@ -1040,6 +1139,7 @@ const translations = {
     relationshipNeedsTarget: "Create another page in this universe before adding a relationship.",
     noOutgoing: "No outgoing relationships.",
     noIncoming: "No incoming relationships.",
+    backlinks: "Backlinks",
     notes: "Notes",
     addNote: "Add note",
     noNotes: "No notes on this page.",
@@ -1074,6 +1174,7 @@ const translations = {
     description: "Description",
     theme: "Theme",
     save: "Save",
+    cancel: "Cancel",
     create: "Create",
     universeNameRequired: "Universe name is required.",
     pageTitleRequired: "Page title is required.",
@@ -1219,6 +1320,7 @@ const translations = {
     relationshipNeedsTarget: "İlişki oluşturmak için bu evrende en az bir başka sayfa olmalı.",
     noOutgoing: "Çıkış ilişkisi yok.",
     noIncoming: "Gelen ilişki yok.",
+    backlinks: "Geri bağlantılar",
     notes: "Notlar",
     addNote: "Not ekle",
     noNotes: "Bu sayfada not yok.",
@@ -1253,6 +1355,7 @@ const translations = {
     description: "Açıklama",
     theme: "Tema",
     save: "Kaydet",
+    cancel: "İptal",
     create: "Oluştur",
     universeNameRequired: "Evren adı zorunludur.",
     pageTitleRequired: "Sayfa başlığı zorunludur.",
@@ -1849,55 +1952,103 @@ function renderEntityDetail(entity) {
   const tags = entity.tagIds
     .map((tagId) => state.tags.find((tag) => tag.id === tagId))
     .filter(Boolean);
+  const imageValue = entityImageValue(entity);
   return `
     <section class="detail">
-      <div class="detail-header">
-        <div>
-          <p class="muted">${escapeHtml(category?.name || "Kategori")}</p>
-          <h2 class="detail-title">${escapeHtml(entity.title)}</h2>
-          <p>${escapeHtml(entity.summary || "")}</p>
-        </div>
-        <div class="button-row">
-          <button class="secondary" data-action="back-to-list">${t("list")}</button>
-          <button data-action="edit-entity" data-id="${entity.id}">${t("edit")}</button>
-          <button class="danger" data-action="delete-entity" data-id="${entity.id}">${t("delete")}</button>
+      <div class="detail-hero">
+        ${imageValue ? `<img class="detail-hero__image" src="${escapeHtml(imageValue)}" alt="${escapeHtml(entity.title)}" loading="lazy" />` : ""}
+        <div class="detail-hero__body">
+          <div class="detail-header">
+            <div>
+              <p class="muted">${escapeHtml(category?.name || t("category"))}</p>
+              <h2 class="detail-title">${escapeHtml(entity.title)}</h2>
+              <p>${escapeHtml(entity.summary || "")}</p>
+            </div>
+            <div class="button-row">
+              <button class="secondary" data-action="back-to-list">${t("list")}</button>
+              <button data-action="edit-entity" data-id="${entity.id}">${t("edit")}</button>
+              <button class="danger" data-action="delete-entity" data-id="${entity.id}">${t("delete")}</button>
+            </div>
+          </div>
+          <div class="badge-list">
+            ${tags.map((tag) => `<span class="badge">${escapeHtml(tag.name)}</span>`).join("") || `<span class="badge">${t("noTags")}</span>`}
+          </div>
+          ${renderKeyFields(entity)}
         </div>
       </div>
-      <div class="badge-list">
-        ${tags.map((tag) => `<span class="badge">${escapeHtml(tag.name)}</span>`).join("") || `<span class="badge">${t("noTags")}</span>`}
-      </div>
-      <article class="card markdown">${markdownToHtml(entity.content || t("noContent"))}</article>
       ${renderCustomFields(entity)}
+      <section class="card stack">
+        <h3 class="section-title">${sectionLabel("Notes")}</h3>
+        <article class="markdown">${markdownToHtml(entity.content || t("noContent"))}</article>
+      </section>
     </section>
   `;
 }
 
-function renderCustomFields(entity) {
+function entityFieldEntries(entity) {
   const category = state.categories.find((item) => item.id === entity.categoryId);
   const values = entity.customFieldValues || {};
   const builtInEntries = (category?.customFields || [])
     .map((field) => {
       const key = fieldStorageKey(field);
       const value = values[key] ?? values[field.name];
-      return value ? [fieldLabel(field), value, key, field] : null;
+      return value ? { label: fieldLabel(field), value, key, field, section: fieldSectionName(category, field) } : null;
     })
     .filter(Boolean);
   const knownKeys = new Set((category?.customFields || []).flatMap((field) => [fieldStorageKey(field), field.name]));
   const extraEntries = Object.entries(values)
     .filter(([key]) => !knownKeys.has(key))
-    .map(([key, value]) => [key, value, key, null]);
-  const entries = [...builtInEntries, ...extraEntries];
+    .filter(([, value]) => value)
+    .map(([key, value]) => ({ label: key, value, key, field: null, section: "Details" }));
+  return [...builtInEntries, ...extraEntries];
+}
+
+function renderKeyFields(entity) {
+  const entries = keyFieldEntries(entity);
   if (!entries.length) return "";
   return `
-    <section class="card stack">
-      <h3 class="section-title">${t("customFields")}</h3>
-      ${entries.map(([label, value, , field]) => `
-        <div>
-          <strong>${escapeHtml(label)}</strong>
-          ${renderFieldValue(field, value)}
+    <div class="key-field-grid">
+      ${entries.map((entry) => `
+        <div class="key-field">
+          <span>${escapeHtml(entry.label)}</span>
+          <strong>${escapeHtml(String(entry.value))}</strong>
         </div>
       `).join("")}
-    </section>
+    </div>
+  `;
+}
+
+function keyFieldEntries(entity) {
+  return entityFieldEntries(entity)
+    .filter((entry) => entry.field?.type !== "image")
+    .slice(0, 4);
+}
+
+function renderCustomFields(entity) {
+  const keyFields = new Set(keyFieldEntries(entity).map((entry) => entry.key));
+  const entries = entityFieldEntries(entity)
+    .filter((entry) => entry.field?.type !== "image")
+    .filter((entry) => !keyFields.has(entry.key));
+  if (!entries.length) return "";
+  const sections = entries.reduce((groups, entry) => {
+    if (!groups.has(entry.section)) groups.set(entry.section, []);
+    groups.get(entry.section).push(entry);
+    return groups;
+  }, new Map());
+  return `
+    <div class="detail-section-grid">
+      ${[...sections.entries()].map(([section, sectionEntries]) => `
+        <section class="card stack">
+          <h3 class="section-title">${escapeHtml(sectionLabel(section))}</h3>
+          ${sectionEntries.map((entry) => `
+            <div class="field-display">
+              <strong>${escapeHtml(entry.label)}</strong>
+              ${renderFieldValue(entry.field, entry.value)}
+            </div>
+          `).join("")}
+        </section>
+      `).join("")}
+    </div>
   `;
 }
 
@@ -1924,7 +2075,7 @@ function renderRightPanel() {
       </div>
       ${relationshipTargets.length ? "" : `<p class="muted">${t("relationshipNeedsTarget")}</p>`}
       ${outgoing.length ? outgoing.map((rel) => renderRelationship(rel, false)).join("") : `<p class="muted">${t("noOutgoing")}</p>`}
-      <h2>Backlinks</h2>
+      <h2>${t("backlinks")}</h2>
       ${incoming.length ? incoming.map((rel) => renderRelationship(rel, true)).join("") : `<p class="muted">${t("noIncoming")}</p>`}
       <div class="row">
         <h2>${t("notes")}</h2>
@@ -2749,13 +2900,21 @@ function openEntityModal(entity) {
         <p class="muted">${escapeHtml(lockedCategoryMessage(selectedCategory))}</p>
       </div>
       <label>${t("summary")} <textarea name="summary">${escapeHtml(entity?.summary || "")}</textarea></label>
-      <label>${t("content")} <textarea name="content" placeholder="${t("markdownSupported")}">${escapeHtml(entity?.content || "")}</textarea></label>
       <label>${t("tags")} <input name="tags" placeholder="Main character, Secret" value="${escapeHtml((entity?.tagIds || []).map((tagId) => state.tags.find((tag) => tag.id === tagId)?.name).filter(Boolean).join(", "))}" /></label>
       <div class="stack" data-entity-fields>
-        ${customFields.map((field) => renderEntityCustomFieldInput(field, entity)).join("")}
+        ${renderEntityFormSections(selectedCategory, customFields, entity)}
       </div>
-      <button class="secondary" type="button" data-add-entity-field>${t("addFieldToCategory")}</button>
-      <div class="button-row"><button type="submit">${t("save")}</button></div>
+      <section class="form-section stack">
+        <h3 class="section-title">${sectionLabel("Notes")}</h3>
+        <label>${t("content")} <textarea name="content" placeholder="${t("markdownSupported")}">${escapeHtml(entity?.content || "")}</textarea></label>
+      </section>
+      <div class="button-row">
+        <button class="secondary" type="button" data-add-entity-field>${t("addFieldToCategory")}</button>
+      </div>
+      <div class="button-row">
+        <button type="submit">${t("save")}</button>
+        <button class="secondary" type="button" data-modal-close>${t("cancel")}</button>
+      </div>
     </form>
   `, (form) => {
     const title = String(form.get("title") || "").trim();
@@ -2834,7 +2993,8 @@ function openEntityModal(entity) {
       selectedCategory.updatedAt = now();
       state.categories = state.categories.map((item) => item.id === selectedCategory.id ? selectedCategory : item);
       saveState();
-      backdrop.querySelector("[data-entity-fields]")?.insertAdjacentHTML("beforeend", renderEntityCustomFieldInput(field, entity));
+      const fieldContainer = backdrop.querySelector("[data-entity-fields]");
+      if (fieldContainer) appendFieldToEntityForm(fieldContainer, selectedCategory, field, entity);
     });
   });
   backdrop?.querySelector("[data-entity-fields]")?.addEventListener("click", (event) => {

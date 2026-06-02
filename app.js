@@ -1686,6 +1686,16 @@ const translations = {
     details: "Details",
     connections: "Connections",
     relationshipOverview: "Relationship Overview",
+    relationshipGraph: "Relationship Graph",
+    viewGraph: "View graph",
+    graphDepth: "Depth",
+    graphDepthOne: "1 step",
+    graphDepthTwo: "2 steps",
+    graphDepthAll: "All",
+    manualRelationships: "Manual relationships",
+    linkedFields: "Linked fields",
+    backlinks: "Backlinks",
+    graphLimited: "Showing a limited project graph. Use filters or search to narrow the map.",
     timeline: "Timeline",
     timelineOrder: "Timeline order",
     chronologyOrder: "Chronology order",
@@ -1957,6 +1967,16 @@ const translations = {
     details: "Detaylar",
     connections: "Bağlantılar",
     relationshipOverview: "Bağlantı görünümü",
+    relationshipGraph: "Bağlantı Haritası",
+    viewGraph: "Grafikte göster",
+    graphDepth: "Derinlik",
+    graphDepthOne: "1 adım",
+    graphDepthTwo: "2 adım",
+    graphDepthAll: "Tümü",
+    manualRelationships: "Manuel ilişkiler",
+    linkedFields: "Bağlı alanlar",
+    backlinks: "Geri bağlantılar",
+    graphLimited: "Sınırlı bir proje haritası gösteriliyor. Haritayı daraltmak için filtreleri veya aramayı kullan.",
     timeline: "Zaman Çizelgesi",
     timelineOrder: "Zaman çizelgesi sırası",
     chronologyOrder: "Kronoloji sırası",
@@ -2469,6 +2489,10 @@ function renderLeftPanel(universe) {
           <strong>${t("timeline")}</strong>
           <small>${t("chronology")}</small>
         </button>
+        <button class="category-button ${state.view === "relationshipGraph" ? "is-active" : ""}" data-action="relationship-graph">
+          <strong>${t("relationshipGraph")}</strong>
+          <small>${t("connections")}</small>
+        </button>
         ${categories.map((category) => {
           const count = universeEntities(universe.id).filter((entity) => entity.categoryId === category.id).length;
           return `
@@ -2493,6 +2517,7 @@ function renderLeftPanel(universe) {
         <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
         <button class="secondary" data-action="templates">${t("templates")}</button>
         <button class="secondary" data-action="timeline">${t("timeline")}</button>
+        <button class="secondary" data-action="relationship-graph">${t("relationshipGraph")}</button>
         <button class="secondary" data-action="trash">${t("trash")}</button>
       </div>
       ${hiddenCategories.length && isEditingOrganization ? `
@@ -2511,6 +2536,7 @@ function renderMainPanel(universe) {
   if (state.view === "trash") return renderTrash(universe);
   if (state.view === "templates") return renderTemplates();
   if (state.view === "timeline") return renderTimelineView(universe);
+  if (state.view === "relationshipGraph") return renderRelationshipGraphView(universe);
   return `
     <main class="main stack" data-main-panel>
       ${renderMainPanelContent(universe)}
@@ -2594,6 +2620,7 @@ function renderProjectHome(universe) {
           <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
           <button class="secondary" data-action="open-first-family-tree">${t("familyTree")}</button>
           <button class="secondary" data-action="timeline">${t("timeline")}</button>
+          <button class="secondary" data-action="relationship-graph">${t("relationshipGraph")}</button>
           <button class="secondary" data-action="quick-note">${t("idea")}</button>
         </div>
       </div>
@@ -2789,6 +2816,7 @@ function renderEntityDetail(entity) {
             </div>
             <div class="button-row">
               ${showFamilyTree ? `<button class="secondary" data-action="scroll-family-tree">${t("familyTree")}</button>` : ""}
+              <button class="secondary" data-action="view-entity-graph" data-id="${entity.id}">${t("viewGraph")}</button>
               <button data-action="edit-entity" data-id="${entity.id}">${t("edit")}</button>
               <button class="danger" data-action="delete-entity" data-id="${entity.id}">${t("delete")}</button>
             </div>
@@ -3091,6 +3119,240 @@ function renderRelationshipOverview(entity) {
       <h3 class="section-title">${t("relationshipOverview")}</h3>
       ${content || `<p class="muted">${t("noConnections")}</p>`}
     </section>
+  `;
+}
+
+function graphFilters() {
+  return {
+    search: "",
+    categoryId: "",
+    relationshipType: "",
+    depth: "1",
+    manual: true,
+    linked: true,
+    backlinks: true,
+    ...(state.graphFilters || {}),
+  };
+}
+
+function graphAddEdge(edges, seen, edge) {
+  if (!edge.sourceId || !edge.targetId || edge.sourceId === edge.targetId) return;
+  const pair = [edge.sourceId, edge.targetId].sort().join(":");
+  const key = `${pair}:${String(edge.label || "").toLocaleLowerCase("tr")}`;
+  if (seen.has(key)) return;
+  seen.add(key);
+  edges.push(edge);
+}
+
+function graphEdges(universeId, filters = graphFilters()) {
+  const edges = [];
+  const seen = new Set();
+  const activeEntityIds = new Set(universeEntities(universeId).map((entity) => entity.id));
+  if (filters.manual) {
+    activeItems(state.relationships)
+      .filter((relationship) => relationship.universeId === universeId)
+      .forEach((relationship) => {
+        if (!activeEntityIds.has(relationship.sourceEntityId) || !activeEntityIds.has(relationship.targetEntityId)) return;
+        graphAddEdge(edges, seen, {
+          sourceId: relationship.sourceEntityId,
+          targetId: relationship.targetEntityId,
+          label: relationship.type || t("manualRelationships"),
+          kind: "manual",
+        });
+      });
+  }
+  if (filters.linked || filters.backlinks) {
+    universeEntities(universeId).forEach((entity) => {
+      linkedFieldConnections(entity).forEach((connection) => {
+        if (!connection.entity) return;
+        if (filters.linked) {
+          graphAddEdge(edges, seen, {
+            sourceId: entity.id,
+            targetId: connection.entity.id,
+            label: connection.label || t("linkedFields"),
+            kind: "linked",
+          });
+        }
+        if (filters.backlinks) {
+          graphAddEdge(edges, seen, {
+            sourceId: connection.entity.id,
+            targetId: entity.id,
+            label: connection.label || t("backlinks"),
+            kind: "backlink",
+          });
+        }
+      });
+    });
+  }
+  if (!filters.relationshipType) return edges;
+  return edges.filter((edge) => edge.label === filters.relationshipType || edge.kind === filters.relationshipType);
+}
+
+function graphRelationshipTypes(edges) {
+  return [...new Set(edges.map((edge) => edge.label).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, state.settings.language === "tr" ? "tr" : "en"));
+}
+
+function graphNodeIdsForDepth(focusEntityId, edges, depth) {
+  if (!focusEntityId || depth === "all") return null;
+  const maxDepth = depth === "2" ? 2 : 1;
+  const adjacency = new Map();
+  edges.forEach((edge) => {
+    if (!adjacency.has(edge.sourceId)) adjacency.set(edge.sourceId, new Set());
+    if (!adjacency.has(edge.targetId)) adjacency.set(edge.targetId, new Set());
+    adjacency.get(edge.sourceId).add(edge.targetId);
+    adjacency.get(edge.targetId).add(edge.sourceId);
+  });
+  const visited = new Set([focusEntityId]);
+  const queue = [{ id: focusEntityId, depth: 0 }];
+  while (queue.length) {
+    const current = queue.shift();
+    if (current.depth >= maxDepth) continue;
+    [...(adjacency.get(current.id) || [])].forEach((nextId) => {
+      if (visited.has(nextId)) return;
+      visited.add(nextId);
+      queue.push({ id: nextId, depth: current.depth + 1 });
+    });
+  }
+  return visited;
+}
+
+function graphNodeMatches(entity, filters) {
+  if (filters.categoryId && entity.categoryId !== filters.categoryId) return false;
+  const query = String(filters.search || "").trim().toLocaleLowerCase("tr");
+  if (!query) return true;
+  const category = entityCategory(entity);
+  return `${entity.title} ${entity.summary || ""} ${category?.name || ""}`.toLocaleLowerCase("tr").includes(query);
+}
+
+function relationshipGraphData(universe) {
+  const filters = graphFilters();
+  const focusEntityId = state.graphFocusEntityId && entityForId(state.graphFocusEntityId)?.universeId === universe.id
+    ? state.graphFocusEntityId
+    : null;
+  const typeEdges = graphEdges(universe.id, { ...filters, relationshipType: "" });
+  const allEdges = graphEdges(universe.id, filters);
+  const depthIds = graphNodeIdsForDepth(focusEntityId, allEdges, filters.depth);
+  const activeEntities = universeEntities(universe.id);
+  const searchOrCategoryActive = Boolean(filters.search || filters.categoryId);
+  const visibleEntities = activeEntities
+    .filter((entity) => !depthIds || depthIds.has(entity.id))
+    .filter((entity) => graphNodeMatches(entity, filters));
+  const limited = !focusEntityId && !searchOrCategoryActive && visibleEntities.length > 80;
+  const nodes = (limited ? visibleEntities.slice(0, 80) : visibleEntities);
+  const nodeIds = new Set(nodes.map((entity) => entity.id));
+  const edges = allEdges.filter((edge) => nodeIds.has(edge.sourceId) && nodeIds.has(edge.targetId));
+  return { nodes, edges, allEdges, typeEdges, focusEntityId, filters, limited };
+}
+
+function graphLayout(nodes, focusEntityId) {
+  const width = 780;
+  const height = 520;
+  const center = { x: width / 2, y: height / 2 };
+  if (!nodes.length) return { width, height, positions: new Map() };
+  const focusIndex = focusEntityId ? nodes.findIndex((node) => node.id === focusEntityId) : -1;
+  const ordered = focusIndex > -1 ? [nodes[focusIndex], ...nodes.filter((node) => node.id !== focusEntityId)] : nodes;
+  const positions = new Map();
+  if (focusIndex > -1) positions.set(focusEntityId, center);
+  const ringNodes = focusIndex > -1 ? ordered.slice(1) : ordered;
+  const radius = Math.min(210, Math.max(120, 58 + ringNodes.length * 5));
+  ringNodes.forEach((node, index) => {
+    const angle = (-Math.PI / 2) + (index / Math.max(ringNodes.length, 1)) * Math.PI * 2;
+    positions.set(node.id, {
+      x: center.x + Math.cos(angle) * radius,
+      y: center.y + Math.sin(angle) * radius,
+    });
+  });
+  return { width, height, positions };
+}
+
+function renderRelationshipGraphFilters(universe, data) {
+  const categories = universeCategories(universe.id, true);
+  const relationshipTypes = graphRelationshipTypes(data.typeEdges);
+  const filters = data.filters;
+  return `
+    <section class="timeline-filters graph-filters">
+      <label>${t("searchPages")} <input data-graph-filter="search" value="${escapeHtml(filters.search || "")}" /></label>
+      <label>${t("category")}
+        <select data-graph-filter="categoryId">
+          <option value="">${t("allCategories")}</option>
+          ${categories.map((category) => `<option value="${category.id}" ${filters.categoryId === category.id ? "selected" : ""}>${escapeHtml(category.name)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${t("type")}
+        <select data-graph-filter="relationshipType">
+          <option value="">${t("graphDepthAll")}</option>
+          ${relationshipTypes.map((type) => `<option value="${escapeHtml(type)}" ${filters.relationshipType === type ? "selected" : ""}>${escapeHtml(type)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${t("graphDepth")}
+        <select data-graph-filter="depth">
+          <option value="1" ${filters.depth === "1" ? "selected" : ""}>${t("graphDepthOne")}</option>
+          <option value="2" ${filters.depth === "2" ? "selected" : ""}>${t("graphDepthTwo")}</option>
+          <option value="all" ${filters.depth === "all" ? "selected" : ""}>${t("graphDepthAll")}</option>
+        </select>
+      </label>
+      <label class="checkbox-line"><input type="checkbox" data-graph-filter="manual" ${filters.manual ? "checked" : ""} /> ${t("manualRelationships")}</label>
+      <label class="checkbox-line"><input type="checkbox" data-graph-filter="linked" ${filters.linked ? "checked" : ""} /> ${t("linkedFields")}</label>
+      <label class="checkbox-line"><input type="checkbox" data-graph-filter="backlinks" ${filters.backlinks ? "checked" : ""} /> ${t("backlinks")}</label>
+    </section>
+  `;
+}
+
+function renderGraphNode(entity, point, focusEntityId) {
+  const category = entityCategory(entity);
+  const imageInfo = entityImageInfo(entity);
+  const color = category?.color || state.settings.accentColor || "#9a4f2e";
+  return `
+    <button class="graph-node ${entity.id === focusEntityId ? "is-focus" : ""}" data-action="select-entity" data-id="${entity.id}" style="left:${point.x}px; top:${point.y}px; --node-color:${escapeHtml(color)}">
+      ${imageInfo ? `<img src="${escapeHtml(imageInfo.value)}" alt="${escapeHtml(entity.title)}" loading="lazy" style="${imagePositionStyle(imageInfo.position)}" />` : ""}
+      <span>
+        <strong>${escapeHtml(entity.title)}</strong>
+        <small>${escapeHtml(category?.name || t("category"))}</small>
+      </span>
+    </button>
+  `;
+}
+
+function renderRelationshipGraphView(universe) {
+  const data = relationshipGraphData(universe);
+  const layout = graphLayout(data.nodes, data.focusEntityId);
+  const edgeLines = data.edges.map((edge) => {
+    const source = layout.positions.get(edge.sourceId);
+    const target = layout.positions.get(edge.targetId);
+    if (!source || !target) return "";
+    const midX = (source.x + target.x) / 2;
+    const midY = (source.y + target.y) / 2;
+    return `
+      <line x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" />
+      <text x="${midX}" y="${midY}">${escapeHtml(edge.label || "")}</text>
+    `;
+  }).join("");
+  return `
+    <main class="main stack" data-main-panel>
+      <section class="stack">
+        <div class="subview-bar">
+          <button class="secondary" data-action="${data.focusEntityId ? "back-from-graph" : "project-home"}">â† ${t("back")}</button>
+        </div>
+        <div class="row">
+          <div>
+            <p class="muted">${escapeHtml(universe.name)}</p>
+            <h2>${t("relationshipGraph")}</h2>
+          </div>
+          <button class="secondary" data-action="clear-graph-focus">${t("projectHome")}</button>
+        </div>
+        ${renderRelationshipGraphFilters(universe, data)}
+        ${data.limited ? `<p class="muted">${t("graphLimited")}</p>` : ""}
+        ${data.nodes.length && data.edges.length ? `
+          <section class="graph-map" style="--graph-width:${layout.width}px; --graph-height:${layout.height}px">
+            <svg viewBox="0 0 ${layout.width} ${layout.height}" aria-hidden="true">
+              ${edgeLines}
+            </svg>
+            ${data.nodes.map((entity) => renderGraphNode(entity, layout.positions.get(entity.id), data.focusEntityId)).join("")}
+          </section>
+        ` : `<section class="empty"><h3>${t("noConnections")}</h3><p>${t("relationshipGraph")}</p></section>`}
+      </section>
+    </main>
   `;
 }
 
@@ -3564,6 +3826,7 @@ function bindEvents() {
   bindActionEvents(document);
   bindCategoryDragEvents(document);
   bindTimelineFilterEvents(document);
+  bindGraphFilterEvents(document);
   document.querySelectorAll("[data-search]").forEach((input) => {
     input.addEventListener("input", (event) => {
       state.search = event.target.value;
@@ -3685,6 +3948,32 @@ const actions = {
   },
   timeline() {
     setState({ view: "timeline", selectedEntityId: null, search: "" });
+  },
+  "relationship-graph"() {
+    setState({ view: "relationshipGraph", selectedEntityId: null, graphFocusEntityId: null, search: "" });
+  },
+  "view-entity-graph"({ id: entityId }) {
+    const entity = entityForId(entityId);
+    if (!entity) return;
+    setState({
+      view: "relationshipGraph",
+      selectedUniverseId: entity.universeId,
+      selectedCategoryId: entity.categoryId,
+      selectedEntityId: null,
+      graphFocusEntityId: entity.id,
+      graphFilters: { ...graphFilters(), depth: graphFilters().depth || "1" },
+    });
+  },
+  "clear-graph-focus"() {
+    setState({ view: "relationshipGraph", selectedEntityId: null, graphFocusEntityId: null });
+  },
+  "back-from-graph"() {
+    const entity = entityForId(state.graphFocusEntityId);
+    if (entity) {
+      setState({ view: "universe", selectedCategoryId: entity.categoryId, selectedEntityId: entity.id });
+      return;
+    }
+    setState({ view: "projectHome", selectedEntityId: null, graphFocusEntityId: null });
   },
   "open-first-family-tree"() {
     const family = universeEntities().find((entity) => entityCategoryType(entity) === "families");
@@ -3919,6 +4208,19 @@ function bindTimelineFilterEvents(root) {
     input.addEventListener(eventName, (event) => {
       const filter = event.currentTarget.dataset.timelineFilter;
       state.timelineFilters = { ...(state.timelineFilters || {}), [filter]: event.currentTarget.value };
+      saveState();
+      render();
+    });
+  });
+}
+
+function bindGraphFilterEvents(root) {
+  root.querySelectorAll("[data-graph-filter]").forEach((input) => {
+    const eventName = input.tagName === "INPUT" && input.type !== "checkbox" ? "input" : "change";
+    input.addEventListener(eventName, (event) => {
+      const filter = event.currentTarget.dataset.graphFilter;
+      const value = event.currentTarget.type === "checkbox" ? event.currentTarget.checked : event.currentTarget.value;
+      state.graphFilters = { ...graphFilters(), [filter]: value };
       saveState();
       render();
     });

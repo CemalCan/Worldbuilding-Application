@@ -906,6 +906,94 @@ label {
   color: var(--text);
 }
 
+.graph-filters {
+  align-items: end;
+}
+
+.graph-map {
+  position: relative;
+  width: min(100%, var(--graph-width));
+  min-height: var(--graph-height);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--accent) 9%, transparent), transparent 36%),
+    var(--surface);
+}
+
+.graph-map svg {
+  position: absolute;
+  inset: 0;
+  width: var(--graph-width);
+  height: var(--graph-height);
+  pointer-events: none;
+}
+
+.graph-map line {
+  stroke: color-mix(in srgb, var(--muted) 42%, transparent);
+  stroke-width: 1.5;
+}
+
+.graph-map text {
+  fill: var(--muted);
+  font-size: 10px;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  text-anchor: middle;
+}
+
+.graph-node {
+  position: absolute;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: 150px;
+  min-height: 58px;
+  padding: 8px;
+  transform: translate(-50%, -50%);
+  text-align: left;
+  border: 1px solid color-mix(in srgb, var(--node-color), var(--line) 38%);
+  border-left: 4px solid var(--node-color);
+  background: color-mix(in srgb, var(--surface) 92%, var(--node-color));
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.graph-node.is-focus {
+  width: 178px;
+  min-height: 70px;
+  border-width: 2px;
+}
+
+.graph-node img {
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--surface-soft);
+}
+
+.graph-node span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.graph-node strong,
+.graph-node small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-node small {
+  color: var(--muted);
+}
+
 .timeline-filters {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

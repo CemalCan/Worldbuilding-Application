@@ -356,6 +356,7 @@ label {
   justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .category-overview__edit-actions {
@@ -698,6 +699,11 @@ label {
   background: var(--surface-soft);
 }
 
+.reference-create-button {
+  width: fit-content;
+  min-height: 32px;
+}
+
 .checkbox-line {
   display: flex;
   align-items: center;
@@ -822,7 +828,7 @@ label {
 
 .field-editor-row,
 .field-entry {
-  align-items: end;
+  align-items: center;
 }
 
 .field-editor-row {
@@ -841,13 +847,19 @@ label {
 }
 
 .field-drag-handle {
-  align-self: stretch;
-  min-width: 38px;
-  padding: 0 8px;
+  align-self: center;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 7px;
   background: var(--surface-soft);
   color: var(--muted);
   border: 1px solid var(--line);
   cursor: grab;
+  line-height: 1;
 }
 
 .field-drag-handle:active {

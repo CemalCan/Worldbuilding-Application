@@ -1046,15 +1046,15 @@ function isPreviewableImageUrl(value) {
   return /^(https?:\/\/|data:image\/)/i.test(String(value || "").trim());
 }
 
-function renderFieldValue(field, value) {
+function renderFieldValue(field, value, values = {}) {
   if (field?.type === "image" && isPreviewableImageUrl(value)) {
     return renderImageFieldPreview(value, fieldLabel(field), "50,50");
   }
   if (field?.type === "entityReference") {
-    return renderReferenceValue(value);
+    return renderReferenceValue(value, referenceLabelSnapshot(values, fieldStorageKey(field)));
   }
   if (field?.type === "entityReferenceList") {
-    return renderReferenceListValue(value);
+    return renderReferenceListValue(value, referenceLabelsSnapshot(values, fieldStorageKey(field)));
   }
   return `<p class="muted">${escapeHtml(value)}</p>`;
 }
@@ -1063,39 +1063,58 @@ function entityByReferenceId(entityId) {
   return state.entities.find((entity) => entity.id === entityId && !entity.deletedAt) || null;
 }
 
-function renderReferenceChip(entityId) {
+function renderReferenceChip(entityId, fallbackLabel = "") {
   const entity = entityByReferenceId(entityId);
-  if (!entity) return `<span class="badge">${t("missingEntry")}</span>`;
+  if (!entity) return `<span class="badge">${escapeHtml(missingReferenceLabel(fallbackLabel))}</span>`;
   return `<button class="badge link-chip" data-action="select-entity" data-id="${entity.id}">${escapeHtml(entity.title)}</button>`;
 }
 
-function renderReferenceValue(value) {
-  if (!value) return `<p class="muted">${t("noneCreateNew")}</p>`;
-  if (!isExistingEntityId(value)) return `<p class="muted">${escapeHtml(String(value))}</p>`;
-  return `<div class="tag-row">${renderReferenceChip(value)}</div>`;
+function missingReferenceLabel(label = "") {
+  return label ? `${t("missingEntry")} (${label})` : t("missingEntry");
 }
 
-function renderReferenceListValue(value) {
+function referenceLabelSnapshot(values, key) {
+  return values?.[`${key}:label`] || "";
+}
+
+function referenceLabelsSnapshot(values, key) {
+  try {
+    const parsed = JSON.parse(values?.[`${key}:labels`] || "{}");
+    return isPlainObject(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function renderReferenceValue(value, label = "") {
+  if (!value) return `<p class="muted">${t("noneCreateNew")}</p>`;
+  if (!isExistingEntityId(value)) return `<p class="muted">${escapeHtml(String(value))}</p>`;
+  return `<div class="tag-row">${renderReferenceChip(value, label)}</div>`;
+}
+
+function renderReferenceListValue(value, labels = {}) {
   const values = normalizeReferenceListValue(value);
   if (!values.length) return `<p class="muted">${t("noneCreateNew")}</p>`;
   const known = values.filter(isExistingEntityId);
   const legacy = values.filter((item) => !isExistingEntityId(item));
   return `
     <div class="tag-row">
-      ${known.map(renderReferenceChip).join("")}
+      ${known.map((item) => renderReferenceChip(item, labels[item])).join("")}
       ${legacy.map((item) => `<span class="badge">${escapeHtml(item)}</span>`).join("")}
     </div>
   `;
 }
 
-function referenceDisplayText(field, value) {
+function referenceDisplayText(field, value, values = {}) {
+  const key = fieldStorageKey(field);
   if (field?.type === "entityReference") {
     if (!value) return "";
-    return entityByReferenceId(value)?.title || (isExistingEntityId(value) ? t("missingEntry") : String(value));
+    return entityByReferenceId(value)?.title || (isExistingEntityId(value) ? missingReferenceLabel(referenceLabelSnapshot(values, key)) : String(value));
   }
   if (field?.type === "entityReferenceList") {
+    const labels = referenceLabelsSnapshot(values, key);
     return normalizeReferenceListValue(value)
-      .map((item) => entityByReferenceId(item)?.title || (isExistingEntityId(item) ? t("missingEntry") : item))
+      .map((item) => entityByReferenceId(item)?.title || (isExistingEntityId(item) ? missingReferenceLabel(labels[item]) : item))
       .join(", ");
   }
   return String(value);
@@ -1309,7 +1328,10 @@ function renderFieldManager(fields, category) {
     <section class="card stack" data-field-manager>
       <div class="row">
         <h3 class="section-title">${t("customFieldsLabel")}</h3>
-        <button class="secondary" type="button" data-reset-category-fields>${t("resetFields")}</button>
+        <div class="button-row">
+          <button class="secondary" type="button" tabindex="-1" data-reset-field-order>${t("resetFieldOrder")}</button>
+          <button class="secondary" type="button" tabindex="-1" data-reset-category-fields>${t("resetFields")}</button>
+        </div>
       </div>
       <p class="muted">${t("addFieldHint")}</p>
       <div class="stack">
@@ -1413,6 +1435,22 @@ function fieldFromEditorRow(row) {
 }
 
 function attachCategoryFieldActions(category) {
+  document.querySelector("[data-reset-field-order]")?.addEventListener("click", () => {
+    const form = document.querySelector(".modal-backdrop form");
+    const fieldSection = form?.querySelector("[data-field-manager]");
+    if (!fieldSection) return;
+    const fields = collectCategoryFields(form);
+    const defaultNames = getFieldPresetNames(category.name);
+    const orderIndex = new Map(defaultNames.map((name, index) => [fieldPresetKey(name), index]));
+    const reordered = [...fields].sort((a, b) => {
+      const aIndex = orderIndex.has(fieldStorageKey(a)) ? orderIndex.get(fieldStorageKey(a)) : Number.MAX_SAFE_INTEGER;
+      const bIndex = orderIndex.has(fieldStorageKey(b)) ? orderIndex.get(fieldStorageKey(b)) : Number.MAX_SAFE_INTEGER;
+      if (aIndex !== bIndex) return aIndex - bIndex;
+      return fields.indexOf(a) - fields.indexOf(b);
+    });
+    fieldSection.outerHTML = renderFieldManager(reordered, category);
+    attachCategoryFieldActions(category);
+  });
   document.querySelector("[data-reset-category-fields]")?.addEventListener("click", () => {
     const form = document.querySelector(".modal-backdrop form");
     const fieldSection = form?.querySelector("[data-field-manager]");
@@ -1585,7 +1623,9 @@ const translations = {
     appTrash: "App trash",
     projectTrash: "Project trash",
     duplicateCategoryConfirm: "This category already exists. Add another copy anyway?",
-    noneCreateNew: "None / create new",
+    selectPlaceholder: "Select...",
+    noneCreateNew: "None",
+    createNew: "Create new",
     missingEntry: "Missing entry",
     createLinkedEntry: "Create linked entry",
     copySuffix: "copy",
@@ -1634,6 +1674,7 @@ const translations = {
     noOutgoing: "No outgoing relationships.",
     noIncoming: "No incoming relationships.",
     backlinks: "Backlinks",
+    referencedBy: "Referenced by",
     notes: "Notes",
     addNote: "Add note",
     noNotes: "No notes on this page.",
@@ -1682,6 +1723,7 @@ const translations = {
     fieldType: "Field type",
     addFieldHint: "Use empty rows to add custom fields. Drag rows to reorder or use remove to hide a field.",
     resetFields: "Reset fields to default",
+    resetFieldOrder: "Reset field order to default",
     removedFieldWarning: "Some removed fields have existing page values. The values will be preserved as raw data, but hidden from the category form. Continue?",
     addFieldToCategory: "Add field to this category",
     imageFieldPlaceholder: "Paste an image URL",
@@ -1792,9 +1834,11 @@ const translations = {
     appTrash: "Uygulama çöp kutusu",
     projectTrash: "Proje çöp kutusu",
     duplicateCategoryConfirm: "Bu kategori zaten var. Yine de bir kopyasını eklemek istiyor musun?",
-    noneCreateNew: "Yok / yeni oluÅŸtur",
-    missingEntry: "Eksik kayÄ±t",
-    createLinkedEntry: "BaÄŸlÄ± kayÄ±t oluÅŸtur",
+    selectPlaceholder: "Seçiniz...",
+    noneCreateNew: "Yok",
+    createNew: "Yeni oluştur",
+    missingEntry: "Eksik kayıt",
+    createLinkedEntry: "Bağlı kayıt oluştur",
     copySuffix: "kopya",
     moveToTrash: "Çöpe taşı",
     moveEntriesToCategory: "Kayıtları başka kategoriye taşı",
@@ -1841,6 +1885,7 @@ const translations = {
     noOutgoing: "Çıkış ilişkisi yok.",
     noIncoming: "Gelen ilişki yok.",
     backlinks: "Geri bağlantılar",
+    referencedBy: "Başvuran kayıtlar",
     notes: "Notlar",
     addNote: "Not ekle",
     noNotes: "Bu sayfada not yok.",
@@ -1887,8 +1932,9 @@ const translations = {
     customFieldsLabel: "Özel alanlar",
     fieldName: "Alan adı",
     fieldType: "Alan türü",
-    addFieldHint: "Özel alan eklemek için boş satırları kullanın. Alanları taşımak veya kaldırmak için satır düğmelerini kullanın.",
+    addFieldHint: "Özel alan eklemek için boş satırları kullanın. Sıralamak için satırları sürükleyin veya alanı kaldırın.",
     resetFields: "Alanları varsayılana döndür",
+    resetFieldOrder: "Alan sırasını varsayılana döndür",
     removedFieldWarning: "Kaldırılan bazı alanlarda mevcut sayfa verileri var. Veriler ham veri olarak korunacak, ancak kategori formunda gizlenecek. Devam edilsin mi?",
     addFieldToCategory: "Bu kategoriye alan ekle",
     imageFieldPlaceholder: "Görsel URL’si yapıştır",
@@ -2536,7 +2582,7 @@ function renderEntityPreviewFields(entity, limit) {
   if (!fields.length) return "";
   return `
     <span class="entity-preview-fields">
-      ${fields.map((entry) => `<span><strong>${escapeHtml(entry.label)}:</strong> ${escapeHtml(referenceDisplayText(entry.field, entry.value))}</span>`).join("")}
+      ${fields.map((entry) => `<span><strong>${escapeHtml(entry.label)}:</strong> ${escapeHtml(referenceDisplayText(entry.field, entry.value, entity.customFieldValues || {}))}</span>`).join("")}
     </span>
   `;
 }
@@ -2640,7 +2686,7 @@ function renderKeyFields(entity) {
       ${entries.map((entry) => `
         <div class="key-field">
           <span>${escapeHtml(entry.label)}</span>
-          ${renderFieldValue(entry.field, entry.value)}
+          ${renderFieldValue(entry.field, entry.value, entity.customFieldValues || {})}
         </div>
       `).join("")}
     </div>
@@ -2672,7 +2718,7 @@ function renderCustomFields(entity) {
           ${sectionEntries.map((entry) => `
             <div class="field-display">
               <strong>${escapeHtml(entry.label)}</strong>
-              ${renderFieldValue(entry.field, entry.value)}
+              ${renderFieldValue(entry.field, entry.value, entity.customFieldValues || {})}
             </div>
           `).join("")}
         </section>
@@ -2696,6 +2742,7 @@ function renderRightPanel() {
   const incoming = activeItems(state.relationships).filter((rel) => rel.targetEntityId === entity.id);
   const notes = activeItems(state.notes).filter((note) => note.entityId === entity.id);
   const relationshipTargets = getRelationshipTargets(entity);
+  const fieldBackReferences = entityFieldBackReferences(entity);
   return `
     <aside class="side stack">
       <div class="row">
@@ -2706,12 +2753,37 @@ function renderRightPanel() {
       ${outgoing.length ? outgoing.map((rel) => renderRelationship(rel, false)).join("") : `<p class="muted">${t("noOutgoing")}</p>`}
       <h2>${t("backlinks")}</h2>
       ${incoming.length ? incoming.map((rel) => renderRelationship(rel, true)).join("") : `<p class="muted">${t("noIncoming")}</p>`}
+      <h2>${t("referencedBy")}</h2>
+      ${fieldBackReferences.length ? fieldBackReferences.map(renderFieldBackReference).join("") : `<p class="muted">${t("noIncoming")}</p>`}
       <div class="row">
         <h2>${t("notes")}</h2>
         <button class="icon-button" data-action="new-note" title="${t("addNote")}">+</button>
       </div>
       ${notes.length ? notes.map(renderNoteCard).join("") : `<p class="muted">${t("noNotes")}</p>`}
     </aside>
+  `;
+}
+
+function entityFieldBackReferences(targetEntity) {
+  return universeEntities(targetEntity.universeId)
+    .filter((entity) => entity.id !== targetEntity.id)
+    .flatMap((entity) => {
+      const category = state.categories.find((item) => item.id === entity.categoryId);
+      return (category?.customFields || []).flatMap((field) => {
+        if (field.type !== "entityReference" && field.type !== "entityReferenceList") return [];
+        const value = entity.customFieldValues?.[fieldStorageKey(field)] || entity.customFieldValues?.[field.name];
+        const values = field.type === "entityReferenceList" ? normalizeReferenceListValue(value) : [value].filter(Boolean);
+        return values.includes(targetEntity.id) ? [{ entity, field }] : [];
+      });
+    });
+}
+
+function renderFieldBackReference(reference) {
+  return `
+    <button class="entity-row" data-action="select-entity" data-id="${reference.entity.id}">
+      <strong>${escapeHtml(reference.entity.title)}</strong>
+      <small>${escapeHtml(fieldLabel(reference.field))}</small>
+    </button>
   `;
 }
 
@@ -3144,6 +3216,9 @@ function renderReferenceFieldInput(field, entity, value) {
   const targetIds = new Set(targets.map((target) => target.id));
   const selectedValue = !isList && targetIds.has(value) ? value : "";
   const missingReference = !isList && value && isExistingEntityId(value) && !selectedValue;
+  const missingReferenceText = missingReference
+    ? missingReferenceLabel(referenceLabelSnapshot(entity?.customFieldValues || {}, storageKey))
+    : "";
   return `
     <div class="field-entry" data-entity-field data-field-id="${escapeHtml(field.id || "")}" data-field-key="${escapeHtml(storageKey)}" data-field-name="${escapeHtml(field.name || "")}">
       <button class="field-drag-handle" type="button" draggable="true" tabindex="-1" data-entity-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</button>
@@ -3151,16 +3226,17 @@ function renderReferenceFieldInput(field, entity, value) {
         <label>${escapeHtml(fieldLabel(field))}
           ${isList ? "" : `
             <select name="field:${escapeHtml(storageKey)}" data-reference-select>
-              <option value="">${t("noneCreateNew")}</option>
+              <option value="">${t("selectPlaceholder")}</option>
               ${targets.map((target) => `<option value="${target.id}" ${target.id === selectedValue ? "selected" : ""}>${escapeHtml(target.title)}</option>`).join("")}
             </select>
+            <button class="secondary reference-create-button" type="button" data-create-linked-entry>${t("createNew")}</button>
             ${missingReference ? `<input type="hidden" name="field:${escapeHtml(storageKey)}" value="${escapeHtml(value)}" data-missing-reference-value />` : ""}
           `}
         </label>
         ${isList ? `
           <input type="hidden" name="field:${escapeHtml(storageKey)}" value="${escapeHtml([...selectedIds].join(","))}" data-reference-list-value />
+          <button class="secondary reference-create-button" type="button" data-create-linked-entry>${t("createNew")}</button>
           <div class="reference-checkbox-list">
-            <label class="checkbox-line"><input type="checkbox" data-reference-list-empty ${selectedIds.size ? "" : "checked"} /> ${t("noneCreateNew")}</label>
             ${targets.map((target) => `
               <label class="checkbox-line">
                 <input type="checkbox" value="${target.id}" data-reference-list-option ${selectedIds.has(target.id) ? "checked" : ""} />
@@ -3169,12 +3245,196 @@ function renderReferenceFieldInput(field, entity, value) {
             `).join("")}
           </div>
         ` : ""}
-        ${missingReference ? `<small class="muted">${t("missingEntry")}</small>` : ""}
+        ${missingReference ? `<small class="muted">${escapeHtml(missingReferenceText)}</small>` : ""}
         ${legacyText ? `<small class="muted">${escapeHtml(legacyText)}</small>` : ""}
       </div>
       <button class="secondary danger-text" type="button" tabindex="-1" data-remove-entity-field>${t("removeField")}</button>
     </div>
   `;
+}
+
+function firstReferenceTargetCategory(field, universeId = state.selectedUniverseId) {
+  const targetTypes = field.targetCategoryTypes || [];
+  return state.categories
+    .filter((category) => category.universeId === universeId && !category.deletedAt)
+    .find((category) => targetTypes.includes(getCategoryTypeKey(category)));
+}
+
+function createLinkedEntity(field, sourceEntity, title) {
+  const targetCategory = firstReferenceTargetCategory(field, sourceEntity?.universeId || state.selectedUniverseId);
+  if (!targetCategory) {
+    alert(t("targetCategoryMissing"));
+    return null;
+  }
+  const entity = {
+    id: id("entity"),
+    universeId: targetCategory.universeId,
+    categoryId: targetCategory.id,
+    title,
+    summary: "",
+    content: "",
+    customFieldValues: {},
+    coverImage: "",
+    icon: "",
+    tagIds: [],
+    createdAt: now(),
+    updatedAt: now(),
+    deletedAt: null,
+  };
+  state.entities.push(entity);
+  saveState();
+  return entity;
+}
+
+function appendReferenceOption(fieldElement, field, entity) {
+  const select = fieldElement.querySelector("[data-reference-select]");
+  if (select) {
+    select.insertAdjacentHTML("beforeend", `<option value="${entity.id}">${escapeHtml(entity.title)}</option>`);
+    select.value = entity.id;
+    fieldElement.querySelector("[data-missing-reference-value]")?.remove();
+    return;
+  }
+  const list = fieldElement.querySelector(".reference-checkbox-list");
+  const valueInput = fieldElement.querySelector("[data-reference-list-value]");
+  if (!list || !valueInput) return;
+  list.insertAdjacentHTML("beforeend", `
+    <label class="checkbox-line">
+      <input type="checkbox" value="${entity.id}" data-reference-list-option checked />
+      ${escapeHtml(entity.title)}
+    </label>
+  `);
+  const values = new Set(normalizeReferenceListValue(valueInput.value));
+  values.add(entity.id);
+  valueInput.value = [...values].join(",");
+}
+
+function addReferenceLabelSnapshots(values, fields = []) {
+  fields.forEach((field) => {
+    if (field.type !== "entityReference" && field.type !== "entityReferenceList") return;
+    const key = fieldStorageKey(field);
+    if (field.type === "entityReference") {
+      const value = values[key];
+      const entity = entityByReferenceId(value);
+      if (entity) values[`${key}:label`] = entity.title;
+      if (!value) delete values[`${key}:label`];
+      return;
+    }
+    const labels = {};
+    normalizeReferenceListValue(values[key]).forEach((entityId) => {
+      const entity = entityByReferenceId(entityId);
+      if (entity) labels[entityId] = entity.title;
+    });
+    if (Object.keys(labels).length) values[`${key}:labels`] = JSON.stringify(labels);
+    if (!normalizeReferenceListValue(values[key]).length) delete values[`${key}:labels`];
+  });
+  return values;
+}
+
+function fieldByPresetName(category, presetName) {
+  const key = fieldPresetKey(presetName);
+  return (category?.customFields || []).find((field) => field.name === presetName || fieldStorageKey(field) === key);
+}
+
+function fieldValueForName(entity, category, presetName) {
+  const field = fieldByPresetName(category, presetName);
+  if (!field) return "";
+  return entity.customFieldValues?.[fieldStorageKey(field)] || entity.customFieldValues?.[field.name] || "";
+}
+
+function setFieldValueForName(entity, category, presetName, value) {
+  const field = fieldByPresetName(category, presetName);
+  if (!field) return entity;
+  const key = fieldStorageKey(field);
+  const values = { ...(entity.customFieldValues || {}) };
+  if (value) {
+    values[key] = value;
+    const linked = entityByReferenceId(value);
+    if (linked) values[`${key}:label`] = linked.title;
+  } else {
+    delete values[key];
+    delete values[`${key}:label`];
+  }
+  return { ...entity, customFieldValues: values, updatedAt: now() };
+}
+
+function updateReferenceListForName(entity, category, presetName, updater) {
+  const field = fieldByPresetName(category, presetName);
+  if (!field) return entity;
+  const key = fieldStorageKey(field);
+  const values = { ...(entity.customFieldValues || {}) };
+  const next = updater(normalizeReferenceListValue(values[key]));
+  if (next.length) {
+    values[key] = [...new Set(next)].join(",");
+  } else {
+    delete values[key];
+  }
+  addReferenceLabelSnapshots(values, [field]);
+  return { ...entity, customFieldValues: values, updatedAt: now() };
+}
+
+function syncCharacterFamilyLinks(beforeEntity, afterEntity) {
+  const entity = afterEntity || beforeEntity;
+  if (!entity) return;
+  const category = state.categories.find((item) => item.id === entity.categoryId);
+  const type = getCategoryTypeKey(category);
+  if (type === "characters") {
+    const beforeFamilyId = beforeEntity ? fieldValueForName(beforeEntity, category, "Family") : "";
+    const afterFamilyId = afterEntity ? fieldValueForName(afterEntity, category, "Family") : "";
+    if (beforeFamilyId === afterFamilyId) return;
+    state.entities = state.entities.map((item) => {
+      const familyCategory = state.categories.find((cat) => cat.id === item.categoryId);
+      if (getCategoryTypeKey(familyCategory) !== "families") return item;
+      if (item.id === beforeFamilyId) {
+        return updateReferenceListForName(item, familyCategory, "Members", (members) => members.filter((idValue) => idValue !== entity.id));
+      }
+      if (item.id === afterFamilyId) {
+        return updateReferenceListForName(item, familyCategory, "Members", (members) => [...members, entity.id]);
+      }
+      return item;
+    });
+    return;
+  }
+  if (type === "families") {
+    const beforeMembers = new Set(normalizeReferenceListValue(beforeEntity ? fieldValueForName(beforeEntity, category, "Members") : ""));
+    const afterMembers = new Set(normalizeReferenceListValue(afterEntity ? fieldValueForName(afterEntity, category, "Members") : ""));
+    if ([...beforeMembers].join(",") === [...afterMembers].join(",")) return;
+    state.entities = state.entities.map((item) => {
+      const characterCategory = state.categories.find((cat) => cat.id === item.categoryId);
+      if (getCategoryTypeKey(characterCategory) !== "characters") return item;
+      if (afterMembers.has(item.id)) return setFieldValueForName(item, characterCategory, "Family", entity.id);
+      if (beforeMembers.has(item.id) && fieldValueForName(item, characterCategory, "Family") === entity.id) {
+        return setFieldValueForName(item, characterCategory, "Family", "");
+      }
+      return item;
+    });
+  }
+}
+
+function openLinkedEntityCreateModal(fieldElement, field, sourceEntity) {
+  const targetCategory = firstReferenceTargetCategory(field, sourceEntity?.universeId || state.selectedUniverseId);
+  if (!targetCategory) {
+    alert(t("targetCategoryMissing"));
+    return;
+  }
+  openModal(t("createLinkedEntry"), `
+    <form class="form-grid">
+      <p class="muted">${escapeHtml(targetCategory.name)}</p>
+      <label>${t("title")} <input name="title" required /></label>
+      <div class="button-row">
+        <button type="submit">${t("createLinkedEntry")}</button>
+        <button class="secondary" type="button" data-modal-close>${t("cancel")}</button>
+      </div>
+    </form>
+  `, (form) => {
+    const title = String(form.get("title") || "").trim();
+    if (!title) {
+      alert(entityTitleRequiredMessage(targetCategory));
+      return false;
+    }
+    const created = createLinkedEntity(field, sourceEntity, title);
+    if (!created) return false;
+    appendReferenceOption(fieldElement, field, created);
+  });
 }
 
 function openAttachNoteDialog(noteId) {
@@ -3889,19 +4149,27 @@ function openEntityModal(entity) {
       if (key.startsWith("field:") && value) customFieldValues[key.slice(6)] = value;
       if (key.startsWith("field:") && !value) delete customFieldValues[key.slice(6)];
     }
+    addReferenceLabelSnapshots(customFieldValues, selectedCategory.customFields || []);
     if (isEditing) {
-      updateItem("entities", entity.id, {
+      const beforeEntity = { ...entity, customFieldValues: { ...(entity.customFieldValues || {}) } };
+      const nextEntity = {
+        ...entity,
         title,
         categoryId,
         summary: form.get("summary"),
         content: form.get("content"),
         tagIds,
         customFieldValues,
-      });
+        updatedAt: now(),
+      };
+      state.entities = state.entities.map((item) => item.id === entity.id ? nextEntity : item);
+      syncCharacterFamilyLinks(beforeEntity, nextEntity);
+      saveState();
+      render();
       return;
     }
     const entityId = id("entity");
-    state.entities.push({
+    const nextEntity = {
       id: entityId,
       universeId: state.selectedUniverseId,
       categoryId,
@@ -3915,7 +4183,9 @@ function openEntityModal(entity) {
       createdAt: now(),
       updatedAt: now(),
       deletedAt: null,
-    });
+    };
+    state.entities.push(nextEntity);
+    syncCharacterFamilyLinks(null, nextEntity);
     state.selectedEntityId = entityId;
     state.selectedCategoryId = categoryId;
     saveState();
@@ -3989,6 +4259,18 @@ function openEntityModal(entity) {
     draggedEntityField = null;
   });
   entityFieldsContainer?.addEventListener("click", async (event) => {
+    const createLinkedButton = event.target.closest("[data-create-linked-entry]");
+    if (createLinkedButton) {
+      const fieldElement = createLinkedButton.closest("[data-entity-field]");
+      const fieldId = fieldElement?.dataset.fieldId || "";
+      const fieldKey = fieldElement?.dataset.fieldKey || "";
+      const fieldName = fieldElement?.dataset.fieldName || "";
+      const field = (selectedCategory.customFields || []).find((item) =>
+        (fieldId && item.id === fieldId) || fieldStorageKey(item) === fieldKey || item.name === fieldName
+      );
+      if (field && fieldElement) openLinkedEntityCreateModal(fieldElement, field, entity);
+      return;
+    }
     const resetPositionButton = event.target.closest("[data-reset-image-position]");
     if (resetPositionButton) {
       const fieldElement = resetPositionButton.closest("[data-entity-field]");
@@ -4045,24 +4327,14 @@ function openEntityModal(entity) {
     const referenceSelect = event.target.closest("[data-reference-select]");
     if (referenceSelect) {
       const fieldElement = referenceSelect.closest("[data-entity-field]");
-      if (referenceSelect.value) fieldElement?.querySelector("[data-missing-reference-value]")?.remove();
+      fieldElement?.querySelector("[data-missing-reference-value]")?.remove();
       return;
     }
-    const referenceCheckbox = event.target.closest("[data-reference-list-option], [data-reference-list-empty]");
+    const referenceCheckbox = event.target.closest("[data-reference-list-option]");
     if (referenceCheckbox) {
       const fieldElement = referenceCheckbox.closest("[data-entity-field]");
-      const emptyOption = fieldElement?.querySelector("[data-reference-list-empty]");
       const options = [...(fieldElement?.querySelectorAll("[data-reference-list-option]") || [])];
-      if (referenceCheckbox.matches("[data-reference-list-empty]") && referenceCheckbox.checked) {
-        options.forEach((option) => {
-          option.checked = false;
-        });
-      }
-      if (referenceCheckbox.matches("[data-reference-list-option]") && referenceCheckbox.checked && emptyOption) {
-        emptyOption.checked = false;
-      }
       const selected = options.filter((option) => option.checked).map((option) => option.value);
-      if (emptyOption) emptyOption.checked = !selected.length;
       const valueInput = fieldElement?.querySelector("[data-reference-list-value]");
       if (valueInput) valueInput.value = selected.join(",");
       return;

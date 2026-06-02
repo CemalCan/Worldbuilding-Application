@@ -1009,6 +1009,45 @@ label {
   gap: 10px;
 }
 
+.scene-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.scene-board__column {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.scene-board__column h4 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.scene-card {
+  display: grid;
+  gap: 4px;
+  min-height: 0;
+  padding: 9px;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.scene-card small,
+.scene-card span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .timeline-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

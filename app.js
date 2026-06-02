@@ -149,6 +149,13 @@ const categoryFieldPresetGroups = {
   encounters: ["Encounter type", "Enemies", "Difficulty", "Map/Location", "Traps", "Alternative solutions", "Rewards", "Result"],
   lootRewards: ["Item image", "Reward type", "Owner", "Origin", "Powers/Properties", "Value", "Who received it", "History"],
   ruleNotes: ["Rule topic", "Source", "Ruling", "Applies to", "Example", "Session used", "Notes"],
+  stories: ["Story title", "Genre", "Status", "Main characters", "Main conflict", "Theme", "Synopsis", "Start event", "End event", "Related timeline entries"],
+  books: ["Book number", "Title", "Status", "Summary", "Main plot", "POV characters", "Start chapter", "End chapter"],
+  chapters: ["Chapter number", "Title", "Status", "Summary", "POV character", "Location", "Related scenes", "Related events", "Word count goal", "Draft notes"],
+  scenes: ["Scene number", "Title", "Status", "POV character", "Location", "Characters present", "Time/date", "Purpose", "Conflict", "Outcome", "Related event", "Draft text", "Revision notes"],
+  plotThreads: ["Thread type", "Status", "Related characters", "Related scenes", "Setup", "Payoff", "Notes"],
+  themes: ["Theme type", "Related characters", "Related scenes", "Symbolism", "Notes"],
+  draftNotes: ["Status", "Related scenes", "Related characters", "Draft text", "Revision notes", "Notes"],
 };
 
 const fieldPresetLabelTranslations = {
@@ -327,10 +334,60 @@ const fieldPresetLabelTranslations = {
   "Applies to": "Uygulandığı durum",
   Example: "Örnek",
   "Session used": "Kullanıldığı oturum",
+  "Story title": "Hikaye başlığı",
+  Genre: "Tür",
+  Theme: "Tema",
+  Synopsis: "Sinopsis",
+  "Start event": "Başlangıç olayı",
+  "End event": "Bitiş olayı",
+  "Related timeline entries": "Bağlı zaman çizelgesi kayıtları",
+  "Book number": "Kitap numarası",
+  "Main plot": "Ana olay örgüsü",
+  "POV characters": "Bakış açısı karakterleri",
+  "Start chapter": "Başlangıç bölümü",
+  "End chapter": "Bitiş bölümü",
+  "Chapter number": "Bölüm numarası",
+  "POV character": "Bakış açısı karakteri",
+  "Related scenes": "Bağlı sahneler",
+  "Related events": "Bağlı olaylar",
+  "Word count goal": "Kelime hedefi",
+  "Draft notes": "Taslak notları",
+  "Scene number": "Sahne numarası",
+  "Characters present": "Sahnede olan karakterler",
+  "Time/date": "Zaman/tarih",
+  Purpose: "Amaç",
+  Conflict: "Çatışma",
+  Outcome: "Sonuç",
+  "Related event": "Bağlı olay",
+  "Draft text": "Taslak metin",
+  "Revision notes": "Revizyon notları",
+  "Thread type": "Örgü türü",
+  "Related characters": "Bağlı karakterler",
+  Setup: "Kurulum",
+  Payoff: "Karşılık",
+  "Theme type": "Tema türü",
+  Symbolism: "Sembolizm",
 };
 
 const categoryPresetAliases = {
   campaign: "campaign",
+  stories: "stories",
+  story: "stories",
+  hikayeler: "stories",
+  "hikâyeler": "stories",
+  books: "books",
+  kitaplar: "books",
+  chapters: "chapters",
+  bölümler: "chapters",
+  scenes: "scenes",
+  sahneler: "scenes",
+  "plot threads": "plotThreads",
+  "olay örgüleri": "plotThreads",
+  "plot thread": "plotThreads",
+  themes: "themes",
+  temalar: "themes",
+  "draft notes": "draftNotes",
+  "taslak notları": "draftNotes",
   characters: "characters",
   karakterler: "characters",
   detectives: "characters",
@@ -377,8 +434,8 @@ const categoryPresetAliases = {
   olaylar: "events",
   wars: "events",
   "savaşlar": "events",
-  scenes: "events",
-  sahneler: "events",
+  scenes: "scenes",
+  sahneler: "scenes",
   encounters: "events",
   "encounter'lar": "events",
   religions: "religions",
@@ -566,6 +623,13 @@ const entityTypeLabels = {
     clues: { singular: "clue", plural: "clues" },
     encounters: { singular: "encounter", plural: "encounters" },
     campaign: { singular: "campaign note", plural: "campaign notes" },
+    stories: { singular: "story", plural: "stories" },
+    books: { singular: "book", plural: "books" },
+    chapters: { singular: "chapter", plural: "chapters" },
+    scenes: { singular: "scene", plural: "scenes" },
+    plotThreads: { singular: "plot thread", plural: "plot threads" },
+    themes: { singular: "theme", plural: "themes" },
+    draftNotes: { singular: "draft note", plural: "draft notes" },
     partyMembers: { singular: "party member", plural: "party members" },
     dungeons: { singular: "dungeon", plural: "dungeons" },
     lootRewards: { singular: "reward", plural: "rewards" },
@@ -600,6 +664,13 @@ const entityTypeLabels = {
     clues: { singular: "İpucu", plural: "ipucu" },
     encounters: { singular: "Karşılaşma", plural: "karşılaşma" },
     campaign: { singular: "Campaign notu", plural: "campaign notu" },
+    stories: { singular: "Hikaye", plural: "hikaye" },
+    books: { singular: "Kitap", plural: "kitap" },
+    chapters: { singular: "Bölüm", plural: "bölüm" },
+    scenes: { singular: "Sahne", plural: "sahne" },
+    plotThreads: { singular: "Olay örgüsü", plural: "olay örgüsü" },
+    themes: { singular: "Tema", plural: "tema" },
+    draftNotes: { singular: "Taslak notu", plural: "taslak notu" },
     partyMembers: { singular: "Parti üyesi", plural: "parti üyesi" },
     dungeons: { singular: "Zindan", plural: "zindan" },
     lootRewards: { singular: "Ödül", plural: "ödül" },
@@ -691,6 +762,8 @@ function createFieldDefinitions(categoryName) {
 function fieldTypeForPreset(name) {
   const fieldName = String(name || "");
   if (/image$/i.test(fieldName)) return "image";
+  if (["Synopsis", "Summary", "Main plot", "Draft notes", "Draft text", "Revision notes", "Setup", "Payoff", "Notes", "Symbolism"].includes(fieldName)) return "longText";
+  if (["Book number", "Chapter number", "Scene number", "Word count goal"].includes(fieldName)) return "number";
   return referenceTargetTypes(null, fieldName).length
     ? (referenceListFieldNames.has(fieldName) ? "entityReferenceList" : "entityReference")
     : "text";
@@ -721,6 +794,13 @@ const referenceListFieldNames = new Set([
   "Clues",
   "Related people",
   "Related NPCs",
+  "Main characters",
+  "POV characters",
+  "Related timeline entries",
+  "Related scenes",
+  "Related events",
+  "Characters present",
+  "Related characters",
   "Rewards",
 ]);
 
@@ -779,6 +859,41 @@ const referenceFieldTargets = {
     "Related NPCs": ["rpgNpcs", "characters"],
     Location: ["locations", "dungeons"],
     Reward: ["lootRewards", "items"],
+  },
+  stories: {
+    "Main characters": ["characters"],
+    "Start event": ["events"],
+    "End event": ["events"],
+    "Related timeline entries": ["events", "wars", "sessionNotes", "quests", "scenes", "chapters"],
+  },
+  books: {
+    "POV characters": ["characters"],
+    "Start chapter": ["chapters"],
+    "End chapter": ["chapters"],
+  },
+  chapters: {
+    "POV character": ["characters"],
+    Location: ["locations"],
+    "Related scenes": ["scenes"],
+    "Related events": ["events", "wars"],
+  },
+  scenes: {
+    "POV character": ["characters"],
+    Location: ["locations"],
+    "Characters present": ["characters"],
+    "Related event": ["events", "wars"],
+  },
+  plotThreads: {
+    "Related characters": ["characters"],
+    "Related scenes": ["scenes"],
+  },
+  themes: {
+    "Related characters": ["characters"],
+    "Related scenes": ["scenes"],
+  },
+  draftNotes: {
+    "Related scenes": ["scenes"],
+    "Related characters": ["characters"],
   },
   sessionNotes: {
     "Players present": ["partyMembers", "characters"],
@@ -870,6 +985,19 @@ function referenceTargetTypes(categoryName, fieldName) {
     "Important events": ["events"],
     "Quest giver": ["rpgNpcs", "characters"],
     "Related NPCs": ["rpgNpcs", "characters"],
+    "Main characters": ["characters"],
+    "POV character": ["characters"],
+    "POV characters": ["characters"],
+    "Characters present": ["characters"],
+    "Related characters": ["characters"],
+    "Related scenes": ["scenes"],
+    "Related events": ["events", "wars"],
+    "Related event": ["events", "wars"],
+    "Start event": ["events", "wars"],
+    "End event": ["events", "wars"],
+    "Start chapter": ["chapters"],
+    "End chapter": ["chapters"],
+    "Related timeline entries": ["events", "wars", "sessionNotes", "quests", "scenes", "chapters"],
     "Players present": ["partyMembers", "characters"],
     "Loot/rewards": ["lootRewards", "items"],
     "Loot/Rewards": ["lootRewards", "items"],
@@ -1013,6 +1141,43 @@ const fieldSectionPresets = {
     Basics: ["Rule topic", "Source", "Ruling"],
     Details: ["Applies to", "Example", "Session used", "Notes"],
   },
+  stories: {
+    Basics: ["Story title", "Genre", "Status", "Synopsis"],
+    Cast: ["Main characters"],
+    Plot: ["Main conflict", "Start event", "End event", "Related timeline entries"],
+    Themes: ["Theme"],
+  },
+  books: {
+    Basics: ["Book number", "Title", "Status", "Summary"],
+    Plot: ["Main plot", "Start chapter", "End chapter"],
+    Cast: ["POV characters"],
+  },
+  chapters: {
+    Basics: ["Chapter number", "Title", "Status", "Summary", "Word count goal"],
+    Story: ["POV character", "Location", "Related scenes", "Related events"],
+    Draft: ["Draft notes"],
+  },
+  scenes: {
+    Basics: ["Scene number", "Title", "Status", "Time/date"],
+    Story: ["POV character", "Location", "Characters present", "Related event"],
+    Conflict: ["Purpose", "Conflict", "Outcome"],
+    Draft: ["Draft text", "Revision notes"],
+  },
+  plotThreads: {
+    Basics: ["Thread type", "Status"],
+    Connections: ["Related characters", "Related scenes"],
+    Story: ["Setup", "Payoff", "Notes"],
+  },
+  themes: {
+    Basics: ["Theme type", "Symbolism"],
+    Connections: ["Related characters", "Related scenes"],
+    Notes: ["Notes"],
+  },
+  draftNotes: {
+    Basics: ["Status"],
+    Connections: ["Related scenes", "Related characters"],
+    Draft: ["Draft text", "Revision notes", "Notes"],
+  },
 };
 
 const sectionLabelTranslations = {
@@ -1034,6 +1199,11 @@ const sectionLabelTranslations = {
   "Table use": "Masa kullanımı",
   "Party relationship": "Parti ilişkisi",
   Details: "Detaylar",
+  Cast: "Kadro",
+  Plot: "Olay örgüsü",
+  Themes: "Temalar",
+  Draft: "Taslak",
+  Conflict: "Çatışma",
 };
 
 function sectionLabel(name) {
@@ -1198,11 +1368,25 @@ function renderFieldTypeOptions(selectedType = "text") {
   }).join("");
 }
 
-function renderEntityCustomFieldInput(field, entity) {
+function renderEntityCustomFieldInput(field, entity, categoryOverride = null) {
   const value = fieldInputValue(field, entity);
+  const category = categoryOverride || entityCategory(entity);
   const isImage = field.type === "image";
   const isReference = field.type === "entityReference" || field.type === "entityReferenceList";
   if (isReference) return renderReferenceFieldInput(field, entity, value);
+  if (field.name === "Status" && category && storyCategoryTypes.has(getCategoryTypeKey(category))) {
+    return `
+      <div class="field-entry" data-entity-field data-field-id="${escapeHtml(field.id || "")}" data-field-key="${escapeHtml(fieldStorageKey(field))}" data-field-name="${escapeHtml(field.name || "")}">
+        <button class="field-drag-handle" type="button" draggable="true" tabindex="-1" data-entity-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">â˜°</button>
+        <label>${escapeHtml(fieldLabel(field))}
+          <select name="field:${escapeHtml(fieldStorageKey(field))}">
+            ${["Idea", "Planned", "Drafting", "Revising", "Revised", "Done", "Archived"].map((status) => `<option value="${status}" ${storyStatusKey(value) === storyStatusKey(status) ? "selected" : ""}>${storyStatusLabel(storyStatusKey(status))}</option>`).join("")}
+          </select>
+        </label>
+        <button class="secondary danger-text" type="button" tabindex="-1" data-remove-entity-field>${t("removeField")}</button>
+      </div>
+    `;
+  }
   const visibleUrlValue = isImage && String(value).startsWith("data:image/") ? "" : value;
   const position = isImage ? fieldImagePositionValue(field, entity) : "50,50";
   const positionKey = imagePositionKey(field);
@@ -1241,7 +1425,7 @@ function renderEntityFormSections(category, fields, entity) {
   return [...groups.entries()].map(([section, sectionFields]) => `
     <section class="form-section stack" data-form-section="${escapeHtml(section)}">
       <h3 class="section-title">${escapeHtml(sectionLabel(section))}</h3>
-      ${sectionFields.map((field) => renderEntityCustomFieldInput(field, entity)).join("")}
+      ${sectionFields.map((field) => renderEntityCustomFieldInput(field, entity, category)).join("")}
     </section>
   `).join("");
 }
@@ -1257,7 +1441,7 @@ function appendFieldToEntityForm(container, category, field, entity) {
     `);
     sectionElement = [...container.querySelectorAll("[data-form-section]")].find((item) => item.dataset.formSection === section);
   }
-  sectionElement?.insertAdjacentHTML("beforeend", renderEntityCustomFieldInput(field, entity));
+  sectionElement?.insertAdjacentHTML("beforeend", renderEntityCustomFieldInput(field, entity, category));
 }
 
 function syncEntityFieldValuesFromForm(container, values = {}) {
@@ -1545,7 +1729,8 @@ function hydrateCategoryFields(category) {
 }
 
 const builtInTemplates = [
-  ["blank", "Boş Evren", "Temel not, karakter, mekan ve olay yapısı.", ["Notlar", "Karakterler", "Mekanlar", "Olaylar"]],
+  ["blank", "Boş Evren", "Temel not, karakter, mekan ve olay yapısı.", ["Notlar", "Karakterler", "Mekanlar", "Olaylar", "Stories", "Chapters", "Scenes"]],
+  ["writing", "Writing / Story Planning", "Stories, books, chapters, scenes, plot threads, themes, and draft notes.", ["Stories", "Books", "Chapters", "Scenes", "Plot Threads", "Themes", "Draft Notes", "Characters", "Locations", "Events", "Notes"]],
   ["medieval", "Orta Çağ", "Hanedanlar, krallıklar, kaleler ve savaşlar.", ["Karakterler", "Aileler", "Hanedanlar", "Krallıklar", "Şehirler", "Köyler", "Kaleler", "Dinler", "Loncalar", "Ordular", "Savaşlar", "Eşyalar", "Zaman çizelgesi", "Notlar"]],
   ["fantasy", "Fantastik", "Büyü, tanrılar, ırklar, efsaneler ve artefaktlar.", ["Karakterler", "Aileler", "Irklar", "Krallıklar", "Mekanlar", "Büyüler", "Büyü sistemleri", "Dinler", "Tanrılar", "Canavarlar", "Artefaktlar", "Kehanetler", "Efsaneler", "Savaşlar", "Zaman çizelgesi", "Notlar"]],
   ["dark-fantasy", "Karanlık Fantastik", "Lanetler, tarikatlar ve yasak bilgiler.", ["Karakterler", "Lanetler", "Tarikatlar", "Canavarlar", "Tanrılar", "Yasak büyüler", "Kayıp şehirler", "Kurbanlar", "Günahlar", "Kehanetler", "Eşyalar", "Olaylar", "Notlar"]],
@@ -1555,7 +1740,7 @@ const builtInTemplates = [
   ["post-apocalyptic", "Post-Apokaliptik", "Sığınaklar, kaynaklar, fraksiyonlar ve tehditler.", ["Karakterler", "Hayatta kalan gruplar", "Sığınaklar", "Tehlikeli bölgeler", "Kaynaklar", "Mutasyonlar", "Hastalıklar", "Eski dünya kalıntıları", "Fraksiyonlar", "Araçlar", "Tehditler", "Notlar"]],
   ["detective", "Polisiye", "Suç dosyaları, deliller, alibiler ve şüpheliler.", ["Dedektifler", "Şüpheliler", "Kurbanlar", "Suç dosyaları", "Deliller", "Tanıklar", "İfadeler", "Olay yerleri", "Alibiler", "Motifler", "Yanlış ipuçları", "Zaman çizelgesi", "Notlar"]],
   ["horror", "Korku", "Ritüeller, canavarlar, gizemler ve travmalar.", ["Karakterler", "Kurbanlar", "Canavarlar", "Lanetler", "Ritüeller", "Yasak bilgiler", "Mekanlar", "Günlükler", "Gizemler", "Travmalar", "Doğaüstü kurallar", "Notlar"]],
-  ["romance", "Romantik Drama", "İlişkiler, sırlar ve duygusal çatışmalar.", ["Karakterler", "İlişkiler", "Aileler", "Sosyal çevreler", "Geçmiş ilişkiler", "Duygusal çatışmalar", "Sırlar", "Dönüm noktaları", "Sahneler", "Notlar"]],
+  ["romance", "Romantik Drama", "İlişkiler, sırlar ve duygusal çatışmalar.", ["Stories", "Books", "Chapters", "Scenes", "Plot Threads", "Themes", "Karakterler", "İlişkiler", "Aileler", "Sosyal çevreler", "Geçmiş ilişkiler", "Duygusal çatışmalar", "Sırlar", "Dönüm noktaları", "Notlar"]],
   ["mythological", "Mitolojik", "Panteonlar, kutsal mekanlar ve ilahi yasalar.", ["Tanrılar", "Yarı tanrılar", "Panteonlar", "Kutsal mekanlar", "Ritüeller", "Kehanetler", "Efsaneler", "Kutsal eşyalar", "Ölüm sonrası alemler", "İlahi yasalar", "Notlar"]],
   ["rpg", "RPG / D&D Campaign", "Campaign, NPC, görev, oturum ve encounter takibi.", ["Campaign", "Oyuncu karakterleri", "NPC'ler", "Parti üyeleri", "Görevler", "Oturum notları", "Mekanlar", "Zindanlar", "Encounter'lar", "Canavarlar", "Loot / Ödüller", "Fraksiyonlar", "Tanrılar", "Kural notları"]],
 ].map(([templateId, name, description, categories]) => ({
@@ -1687,6 +1872,22 @@ const translations = {
     connections: "Connections",
     relationshipOverview: "Relationship Overview",
     relationshipGraph: "Relationship Graph",
+    storyPlanner: "Story Planner",
+    sceneBoard: "Scene Board",
+    storyPlanning: "Story planning",
+    storyStatus: "Status",
+    statusIdea: "Idea",
+    statusPlanned: "Planned",
+    statusDrafting: "Drafting",
+    statusRevising: "Revising",
+    statusRevised: "Revised",
+    statusDone: "Done",
+    statusArchived: "Archived",
+    povCharacter: "POV character",
+    relatedStoryBook: "Story / Book",
+    createStory: "Create story",
+    createChapter: "Create chapter",
+    createScene: "Create scene",
     viewGraph: "View graph",
     graphDepth: "Depth",
     graphDepthOne: "1 step",
@@ -1968,6 +2169,22 @@ const translations = {
     connections: "Bağlantılar",
     relationshipOverview: "Bağlantı görünümü",
     relationshipGraph: "Bağlantı Haritası",
+    storyPlanner: "Hikâye Planlayıcı",
+    sceneBoard: "Sahne Panosu",
+    storyPlanning: "Hikâye planlama",
+    storyStatus: "Durum",
+    statusIdea: "Fikir",
+    statusPlanned: "Planlandı",
+    statusDrafting: "Yazılıyor",
+    statusRevising: "Düzenleniyor",
+    statusRevised: "Düzenlendi",
+    statusDone: "Tamamlandı",
+    statusArchived: "Arşivlendi",
+    povCharacter: "Bakış açısı karakteri",
+    relatedStoryBook: "Hikâye / Kitap",
+    createStory: "Hikâye oluştur",
+    createChapter: "Bölüm oluştur",
+    createScene: "Sahne oluştur",
     viewGraph: "Grafikte göster",
     graphDepth: "Derinlik",
     graphDepthOne: "1 adım",
@@ -2489,6 +2706,10 @@ function renderLeftPanel(universe) {
           <strong>${t("timeline")}</strong>
           <small>${t("chronology")}</small>
         </button>
+        <button class="category-button ${state.view === "storyPlanner" ? "is-active" : ""}" data-action="story-planner">
+          <strong>${t("storyPlanner")}</strong>
+          <small>${t("storyPlanning")}</small>
+        </button>
         <button class="category-button ${state.view === "relationshipGraph" ? "is-active" : ""}" data-action="relationship-graph">
           <strong>${t("relationshipGraph")}</strong>
           <small>${t("connections")}</small>
@@ -2516,6 +2737,7 @@ function renderLeftPanel(universe) {
       <div class="button-row">
         <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
         <button class="secondary" data-action="templates">${t("templates")}</button>
+        <button class="secondary" data-action="story-planner">${t("storyPlanner")}</button>
         <button class="secondary" data-action="timeline">${t("timeline")}</button>
         <button class="secondary" data-action="relationship-graph">${t("relationshipGraph")}</button>
         <button class="secondary" data-action="trash">${t("trash")}</button>
@@ -2535,6 +2757,7 @@ function renderLeftPanel(universe) {
 function renderMainPanel(universe) {
   if (state.view === "trash") return renderTrash(universe);
   if (state.view === "templates") return renderTemplates();
+  if (state.view === "storyPlanner") return renderStoryPlannerView(universe);
   if (state.view === "timeline") return renderTimelineView(universe);
   if (state.view === "relationshipGraph") return renderRelationshipGraphView(universe);
   return `
@@ -2565,6 +2788,7 @@ function renderMainPanelContent(universe) {
           ${category ? `
             <div class="category-overview__actions">
               <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : t("edit")}</button>
+              ${category && storyCategoryTypes.has(getCategoryTypeKey(category)) ? `<button class="secondary" data-action="story-planner">${t("storyPlanner")}</button>` : ""}
               <button data-action="new-entity">${createEntityLabel(category)}</button>
               ${renderEntityViewToggle()}
             </div>
@@ -2619,6 +2843,7 @@ function renderProjectHome(universe) {
           <button class="secondary" data-action="new-category">${t("addCategory")}</button>
           <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
           <button class="secondary" data-action="open-first-family-tree">${t("familyTree")}</button>
+          <button class="secondary" data-action="story-planner">${t("storyPlanner")}</button>
           <button class="secondary" data-action="timeline">${t("timeline")}</button>
           <button class="secondary" data-action="relationship-graph">${t("relationshipGraph")}</button>
           <button class="secondary" data-action="quick-note">${t("idea")}</button>
@@ -3564,7 +3789,245 @@ function renderProjectNotesSummary(universe) {
   `;
 }
 
-const timelineCategoryTypes = new Set(["events", "wars", "sessionNotes", "quests"]);
+const timelineCategoryTypes = new Set(["events", "wars", "sessionNotes", "quests", "scenes", "chapters"]);
+const storyCategoryTypes = new Set(["stories", "books", "chapters", "scenes", "plotThreads", "themes", "draftNotes"]);
+const sceneBoardStatuses = ["idea", "planned", "drafting", "revised", "done"];
+
+function storyStatusKey(value) {
+  const normalized = String(value || "").trim().toLocaleLowerCase("tr");
+  return {
+    idea: "idea",
+    fikir: "idea",
+    planned: "planned",
+    "planlandı": "planned",
+    drafting: "drafting",
+    "yazılıyor": "drafting",
+    revising: "revising",
+    "düzenleniyor": "revising",
+    revised: "revised",
+    "düzenlendi": "revised",
+    done: "done",
+    "tamamlandı": "done",
+    archived: "archived",
+    "arşivlendi": "archived",
+  }[normalized] || normalized || "idea";
+}
+
+function storyStatusLabel(statusKey) {
+  return {
+    idea: t("statusIdea"),
+    planned: t("statusPlanned"),
+    drafting: t("statusDrafting"),
+    revising: t("statusRevising"),
+    revised: t("statusRevised"),
+    done: t("statusDone"),
+    archived: t("statusArchived"),
+  }[statusKey] || statusKey;
+}
+
+function storyFieldValue(entity, names) {
+  const category = entityCategory(entity);
+  for (const name of names) {
+    const value = fieldValueForName(entity, category, name);
+    if (value) return value;
+  }
+  return "";
+}
+
+function storyLinkedEntities(entity, fieldNames) {
+  const category = entityCategory(entity);
+  return fieldNames.flatMap((name) => {
+    const field = fieldByPresetName(category, name);
+    if (!field) return [];
+    const value = entity.customFieldValues?.[fieldStorageKey(field)] || entity.customFieldValues?.[field.name];
+    const ids = field.type === "entityReferenceList" ? normalizeReferenceListValue(value) : [value].filter(Boolean);
+    return ids.map(entityForId).filter(Boolean);
+  });
+}
+
+function storySortValue(entity) {
+  const type = entityCategoryType(entity);
+  const numberValue = Number(storyFieldValue(entity, type === "chapters" ? ["Chapter number"] : ["Scene number"]));
+  if (!Number.isNaN(numberValue) && numberValue > 0) return numberValue;
+  return Number(entity.storyOrder ?? Number.MAX_SAFE_INTEGER);
+}
+
+function storyPlannerEntities(universeId = state.selectedUniverseId) {
+  return universeEntities(universeId)
+    .filter((entity) => storyCategoryTypes.has(entityCategoryType(entity)))
+    .sort((a, b) => {
+      const typeDiff = [...storyCategoryTypes].indexOf(entityCategoryType(a)) - [...storyCategoryTypes].indexOf(entityCategoryType(b));
+      if (typeDiff !== 0) return typeDiff;
+      const orderDiff = storySortValue(a) - storySortValue(b);
+      if (orderDiff !== 0) return orderDiff;
+      return String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+    });
+}
+
+function storyPlannerFilters() {
+  return {
+    status: "",
+    povId: "",
+    locationId: "",
+    relatedId: "",
+    ...(state.storyPlannerFilters || {}),
+  };
+}
+
+function storyPlannerFilterOptions(items) {
+  const statuses = [...new Set(items.map((entity) => storyStatusKey(storyFieldValue(entity, ["Status"]))).filter(Boolean))];
+  const povs = uniqueEntities(items.flatMap((entity) => storyLinkedEntities(entity, ["POV character", "POV characters"])));
+  const locations = uniqueEntities(items.flatMap((entity) => storyLinkedEntities(entity, ["Location"])));
+  const related = uniqueEntities(items.filter((entity) => ["stories", "books"].includes(entityCategoryType(entity))));
+  return { statuses, povs, locations, related };
+}
+
+function filteredStoryPlannerEntities(items) {
+  const filters = storyPlannerFilters();
+  return items.filter((entity) => {
+    if (filters.status && storyStatusKey(storyFieldValue(entity, ["Status"])) !== filters.status) return false;
+    if (filters.povId && !storyLinkedEntities(entity, ["POV character", "POV characters"]).some((item) => item.id === filters.povId)) return false;
+    if (filters.locationId && !storyLinkedEntities(entity, ["Location"]).some((item) => item.id === filters.locationId)) return false;
+    if (filters.relatedId) {
+      const related = storyLinkedEntities(entity, ["Related scenes", "Start chapter", "End chapter", "Related timeline entries"]);
+      if (entity.id !== filters.relatedId && !related.some((item) => item.id === filters.relatedId)) return false;
+    }
+    return true;
+  });
+}
+
+function renderStoryPlannerFilters(items) {
+  const filters = storyPlannerFilters();
+  const { statuses, povs, locations, related } = storyPlannerFilterOptions(items);
+  return `
+    <section class="timeline-filters">
+      <label>${t("storyStatus")}
+        <select data-story-filter="status">
+          <option value="">${t("graphDepthAll")}</option>
+          ${statuses.map((status) => `<option value="${status}" ${filters.status === status ? "selected" : ""}>${storyStatusLabel(status)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${t("povCharacter")}
+        <select data-story-filter="povId">
+          <option value="">${t("graphDepthAll")}</option>
+          ${povs.map((entity) => `<option value="${entity.id}" ${filters.povId === entity.id ? "selected" : ""}>${escapeHtml(entity.title)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${t("locationsGroup")}
+        <select data-story-filter="locationId">
+          <option value="">${t("graphDepthAll")}</option>
+          ${locations.map((entity) => `<option value="${entity.id}" ${filters.locationId === entity.id ? "selected" : ""}>${escapeHtml(entity.title)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${t("relatedStoryBook")}
+        <select data-story-filter="relatedId">
+          <option value="">${t("graphDepthAll")}</option>
+          ${related.map((entity) => `<option value="${entity.id}" ${filters.relatedId === entity.id ? "selected" : ""}>${escapeHtml(entity.title)}</option>`).join("")}
+        </select>
+      </label>
+    </section>
+  `;
+}
+
+function renderStorySummaryCards(items) {
+  return `<div class="badge-list">${[...storyCategoryTypes].map((type) => {
+    const count = items.filter((entity) => entityCategoryType(entity) === type).length;
+    return `<span class="badge">${escapeHtml(entityTypeLabels[state.settings.language]?.[type]?.plural || type)}: ${count}</span>`;
+  }).join("")}</div>`;
+}
+
+function renderStoryPlannerItem(entity, index, total) {
+  const type = entityCategoryType(entity);
+  const status = storyStatusKey(storyFieldValue(entity, ["Status"]));
+  const pov = storyLinkedEntities(entity, ["POV character", "POV characters"]).slice(0, 2);
+  const locations = storyLinkedEntities(entity, ["Location"]).slice(0, 2);
+  const canMove = type === "chapters" || type === "scenes";
+  return `
+    <article class="timeline-item story-planner-item">
+      <div class="timeline-item__main">
+        <span class="timeline-dot"></span>
+        <span class="timeline-item__body">
+          <span class="timeline-meta">
+            <span class="badge">${escapeHtml(entityCategory(entity)?.name || t("category"))}</span>
+            <span class="badge">${storyStatusLabel(status)}</span>
+          </span>
+          <button class="link-button" data-action="select-entity" data-id="${entity.id}"><strong>${escapeHtml(entity.title)}</strong></button>
+          ${entity.summary ? `<small>${escapeHtml(entity.summary)}</small>` : ""}
+          ${pov.length ? `<small>${t("povCharacter")}: ${renderTimelineChipList(pov)}</small>` : ""}
+          ${locations.length ? `<small>${t("locationsGroup")}: ${renderTimelineChipList(locations)}</small>` : ""}
+        </span>
+      </div>
+      ${canMove ? `<div class="timeline-item__actions">
+        <button class="secondary" data-action="move-story-item" data-id="${entity.id}" data-direction="-1" ${index === 0 ? "disabled" : ""}>${t("moveEarlier")}</button>
+        <button class="secondary" data-action="move-story-item" data-id="${entity.id}" data-direction="1" ${index === total - 1 ? "disabled" : ""}>${t("moveLater")}</button>
+      </div>` : ""}
+    </article>
+  `;
+}
+
+function renderSceneBoardCard(entity) {
+  const pov = storyLinkedEntities(entity, ["POV character"]).slice(0, 1);
+  const locations = storyLinkedEntities(entity, ["Location"]).slice(0, 1);
+  const characters = storyLinkedEntities(entity, ["Characters present"]).slice(0, 3);
+  const purpose = storyFieldValue(entity, ["Purpose"]) || storyFieldValue(entity, ["Outcome"]);
+  return `
+    <button class="scene-card" data-action="select-entity" data-id="${entity.id}">
+      <strong>${escapeHtml(entity.title)}</strong>
+      ${purpose ? `<small>${escapeHtml(purpose)}</small>` : ""}
+      ${pov.length ? `<span>${t("povCharacter")}: ${escapeHtml(pov[0].title)}</span>` : ""}
+      ${locations.length ? `<span>${t("locationsGroup")}: ${escapeHtml(locations[0].title)}</span>` : ""}
+      ${characters.length ? `<span>${t("relatedCharacters")}: ${characters.map((item) => escapeHtml(item.title)).join(", ")}</span>` : ""}
+    </button>
+  `;
+}
+
+function renderSceneBoard(scenes) {
+  return `
+    <section class="stack">
+      <h3 class="section-title">${t("sceneBoard")}</h3>
+      <div class="scene-board">
+        ${sceneBoardStatuses.map((status) => {
+          const items = scenes.filter((entity) => storyStatusKey(storyFieldValue(entity, ["Status"])) === status);
+          return `
+            <section class="scene-board__column">
+              <h4>${storyStatusLabel(status)}</h4>
+              ${items.length ? items.map(renderSceneBoardCard).join("") : `<p class="muted">${t("noPagesHelp")}</p>`}
+            </section>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderStoryPlannerView(universe) {
+  const items = storyPlannerEntities(universe.id);
+  const visibleItems = filteredStoryPlannerEntities(items);
+  const scenes = visibleItems.filter((entity) => entityCategoryType(entity) === "scenes");
+  return `
+    <main class="main stack" data-main-panel>
+      <section class="toolbar">
+        <div class="subview-bar">
+          <button class="secondary" data-action="back-from-subview">â† ${t("back")}</button>
+          <h2>${t("storyPlanner")}</h2>
+        </div>
+        <div class="button-row">
+          <button data-action="new-story-entry" data-type="stories">${t("createStory")}</button>
+          <button class="secondary" data-action="new-story-entry" data-type="chapters">${t("createChapter")}</button>
+          <button class="secondary" data-action="new-story-entry" data-type="scenes">${t("createScene")}</button>
+        </div>
+      </section>
+      ${renderStorySummaryCards(items)}
+      ${renderStoryPlannerFilters(items)}
+      ${renderSceneBoard(scenes)}
+      ${visibleItems.length ? `
+        <section class="timeline-list">
+          ${visibleItems.map((entity, index) => renderStoryPlannerItem(entity, index, visibleItems.length)).join("")}
+        </section>
+      ` : `<section class="empty"><h3>${t("noPagesHelp")}</h3><p>${t("storyPlanning")}</p></section>`}
+    </main>
+  `;
+}
 
 function timelineFieldValue(entity, names) {
   const category = entityCategory(entity);
@@ -3576,7 +4039,7 @@ function timelineFieldValue(entity, names) {
 }
 
 function timelineDateValue(entity) {
-  return timelineFieldValue(entity, ["Date", "Start date", "Session number"]);
+  return timelineFieldValue(entity, ["Date", "Start date", "Time/date", "Chapter number", "Scene number", "Session number"]);
 }
 
 function timelineSortValue(entity) {
@@ -3622,7 +4085,7 @@ function timelineLocationEntities(entity) {
 }
 
 function timelineParticipantEntities(entity) {
-  return timelineLinkedEntities(entity, ["Participants", "Players present", "Related NPCs", "Quest giver", "Commanders", "Sides"]);
+  return timelineLinkedEntities(entity, ["Participants", "Players present", "Related NPCs", "Quest giver", "Commanders", "Sides", "POV character", "POV characters", "Characters present"]);
 }
 
 function timelineTags(entity) {
@@ -3827,6 +4290,7 @@ function bindEvents() {
   bindCategoryDragEvents(document);
   bindTimelineFilterEvents(document);
   bindGraphFilterEvents(document);
+  bindStoryPlannerFilterEvents(document);
   document.querySelectorAll("[data-search]").forEach((input) => {
     input.addEventListener("input", (event) => {
       state.search = event.target.value;
@@ -3949,6 +4413,9 @@ const actions = {
   timeline() {
     setState({ view: "timeline", selectedEntityId: null, search: "" });
   },
+  "story-planner"() {
+    setState({ view: "storyPlanner", selectedEntityId: null, search: "" });
+  },
   "relationship-graph"() {
     setState({ view: "relationshipGraph", selectedEntityId: null, graphFocusEntityId: null, search: "" });
   },
@@ -4031,6 +4498,15 @@ const actions = {
     if (eventCategory) state.selectedCategoryId = eventCategory.id;
     openEntityModal();
   },
+  "new-story-entry"({ type }) {
+    const category = ensureStoryCategory(type || "scenes");
+    if (!category) return;
+    state.selectedCategoryId = category.id;
+    state.selectedEntityId = null;
+    state.view = "universe";
+    saveState();
+    openEntityModal();
+  },
   "set-entity-view"({ mode }) {
     state.settings.entityViewMode = mode === "list" ? "list" : "cards";
     saveState();
@@ -4103,6 +4579,9 @@ const actions = {
   },
   "move-timeline-item"({ id: entityId, direction }) {
     moveTimelineItem(entityId, Number(direction || 0));
+  },
+  "move-story-item"({ id: entityId, direction }) {
+    moveStoryItem(entityId, Number(direction || 0));
   },
   templates() {
     setState({ view: "templates", selectedEntityId: null });
@@ -4221,6 +4700,17 @@ function bindGraphFilterEvents(root) {
       const filter = event.currentTarget.dataset.graphFilter;
       const value = event.currentTarget.type === "checkbox" ? event.currentTarget.checked : event.currentTarget.value;
       state.graphFilters = { ...graphFilters(), [filter]: value };
+      saveState();
+      render();
+    });
+  });
+}
+
+function bindStoryPlannerFilterEvents(root) {
+  root.querySelectorAll("[data-story-filter]").forEach((input) => {
+    input.addEventListener("change", (event) => {
+      const filter = event.currentTarget.dataset.storyFilter;
+      state.storyPlannerFilters = { ...storyPlannerFilters(), [filter]: event.currentTarget.value };
       saveState();
       render();
     });
@@ -4725,6 +5215,62 @@ function moveTimelineItem(entityId, direction) {
   const orderById = new Map(orderedIds.map((idValue, order) => [idValue, order]));
   state.entities = state.entities.map((entity) =>
     orderById.has(entity.id) ? { ...entity, timelineOrder: orderById.get(entity.id), updatedAt: now() } : entity
+  );
+  saveState();
+  render();
+}
+
+const defaultStoryCategoryNames = {
+  stories: "Stories",
+  books: "Books",
+  chapters: "Chapters",
+  scenes: "Scenes",
+  plotThreads: "Plot Threads",
+  themes: "Themes",
+  draftNotes: "Draft Notes",
+};
+
+function ensureStoryCategory(type) {
+  const universe = currentUniverse();
+  if (!universe) return null;
+  const existing = universeCategories(universe.id, true).find((category) => getCategoryTypeKey(category) === type);
+  if (existing) return existing;
+  const name = defaultStoryCategoryNames[type] || "Scenes";
+  const category = {
+    id: id("category"),
+    universeId: universe.id,
+    name,
+    description: "",
+    icon: "✦",
+    color: state.settings.accentColor || "#9a4f2e",
+    order: universeCategories(universe.id, true).length,
+    isDefault: true,
+    isHidden: false,
+    customFields: createFieldDefinitions(name),
+    createdAt: now(),
+    updatedAt: now(),
+    deletedAt: null,
+  };
+  state.categories.push(category);
+  saveState();
+  return category;
+}
+
+function moveStoryItem(entityId, direction) {
+  if (!direction) return;
+  const entity = entityForId(entityId);
+  if (!entity) return;
+  const type = entityCategoryType(entity);
+  const items = filteredStoryPlannerEntities(storyPlannerEntities())
+    .filter((item) => entityCategoryType(item) === type);
+  const index = items.findIndex((item) => item.id === entityId);
+  const targetIndex = index + direction;
+  if (index < 0 || targetIndex < 0 || targetIndex >= items.length) return;
+  const orderedIds = items.map((item) => item.id);
+  [orderedIds[index], orderedIds[targetIndex]] = [orderedIds[targetIndex], orderedIds[index]];
+  const orderById = new Map(orderedIds.map((idValue, order) => [idValue, order]));
+  state.entities = state.entities.map((item) =>
+    orderById.has(item.id) ? { ...item, storyOrder: orderById.get(item.id), updatedAt: now() } : item
   );
   saveState();
   render();

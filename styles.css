@@ -498,6 +498,38 @@ label {
   font-size: 0.82rem;
 }
 
+.consistency-list {
+  display: grid;
+  gap: 10px;
+}
+
+.consistency-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--muted);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.consistency-card h3,
+.consistency-card p {
+  margin: 0;
+}
+
+.consistency-card--critical {
+  border-left-color: var(--danger);
+}
+
+.consistency-card--warning {
+  border-left-color: #d97706;
+}
+
+.consistency-card--info {
+  border-left-color: var(--accent);
+}
+
 .image-field-preview {
   display: grid;
   gap: 6px;

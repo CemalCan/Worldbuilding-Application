@@ -1874,6 +1874,7 @@ const defaultSettings = {
 
 let storageRecoveryMessage = "";
 let state = loadState();
+let latestConsistencyFixes = new Map();
 
 const translations = {
   en: {
@@ -1974,6 +1975,22 @@ const translations = {
     relationshipOverview: "Relationship Overview",
     relationshipGraph: "Relationship Graph",
     mapBoard: "Map Board",
+    consistencyChecker: "Consistency Checker",
+    runCheck: "Run check",
+    critical: "Critical",
+    warning: "Warning",
+    info: "Info",
+    suggestedFix: "Suggested fix",
+    openEntry: "Open entry",
+    ignore: "Ignore",
+    fix: "Fix",
+    noConsistencyIssues: "No consistency issues found.",
+    findingType: "Finding type",
+    showIgnored: "Show ignored",
+    missingLinkedEntry: "Missing linked entry",
+    removeMissingReference: "Remove missing reference",
+    addCharacterToFamilyMembers: "Add character to family members",
+    updateCharacterFamilyField: "Update character family field",
     mapPins: "Map pins",
     selectMap: "Select map",
     addMapImageHelp: "Add a map image to start placing pins.",
@@ -2288,6 +2305,22 @@ const translations = {
     relationshipOverview: "Bağlantı görünümü",
     relationshipGraph: "Bağlantı Haritası",
     mapBoard: "Harita Panosu",
+    consistencyChecker: "Tutarlılık Kontrolü",
+    runCheck: "Kontrol et",
+    critical: "Kritik",
+    warning: "Uyarı",
+    info: "Bilgi",
+    suggestedFix: "Önerilen düzeltme",
+    openEntry: "Kaydı aç",
+    ignore: "Yoksay",
+    fix: "Düzelt",
+    noConsistencyIssues: "Tutarlılık sorunu bulunamadı.",
+    findingType: "Bulgu türü",
+    showIgnored: "Yoksayılanları göster",
+    missingLinkedEntry: "Eksik bağlı kayıt",
+    removeMissingReference: "Eksik referansı kaldır",
+    addCharacterToFamilyMembers: "Karakteri aile üyelerine ekle",
+    updateCharacterFamilyField: "Karakterin aile alanını güncelle",
     mapPins: "Harita pinleri",
     selectMap: "Harita seç",
     addMapImageHelp: "Pin eklemeye başlamak için bir harita görseli ekle.",
@@ -2849,6 +2882,10 @@ function renderLeftPanel(universe) {
           <strong>${t("mapBoard")}</strong>
           <small>${t("mapPins")}</small>
         </button>
+        <button class="category-button ${state.view === "consistencyChecker" ? "is-active" : ""}" data-action="consistency-checker">
+          <strong>${t("consistencyChecker")}</strong>
+          <small>${t("runCheck")}</small>
+        </button>
         <button class="category-button ${state.view === "relationshipGraph" ? "is-active" : ""}" data-action="relationship-graph">
           <strong>${t("relationshipGraph")}</strong>
           <small>${t("connections")}</small>
@@ -2878,6 +2915,7 @@ function renderLeftPanel(universe) {
         <button class="secondary" data-action="templates">${t("templates")}</button>
         <button class="secondary" data-action="story-planner">${t("storyPlanner")}</button>
         <button class="secondary" data-action="map-board">${t("mapBoard")}</button>
+        <button class="secondary" data-action="consistency-checker">${t("consistencyChecker")}</button>
         <button class="secondary" data-action="timeline">${t("timeline")}</button>
         <button class="secondary" data-action="relationship-graph">${t("relationshipGraph")}</button>
         <button class="secondary" data-action="trash">${t("trash")}</button>
@@ -2899,6 +2937,7 @@ function renderMainPanel(universe) {
   if (state.view === "templates") return renderTemplates();
   if (state.view === "storyPlanner") return renderStoryPlannerView(universe);
   if (state.view === "mapBoard") return renderMapBoardView(universe);
+  if (state.view === "consistencyChecker") return renderConsistencyCheckerView(universe);
   if (state.view === "timeline") return renderTimelineView(universe);
   if (state.view === "relationshipGraph") return renderRelationshipGraphView(universe);
   return `
@@ -2987,6 +3026,7 @@ function renderProjectHome(universe) {
           <button class="secondary" data-action="open-first-family-tree">${t("familyTree")}</button>
           <button class="secondary" data-action="story-planner">${t("storyPlanner")}</button>
           <button class="secondary" data-action="map-board">${t("mapBoard")}</button>
+          <button class="secondary" data-action="consistency-checker">${t("consistencyChecker")}</button>
           <button class="secondary" data-action="timeline">${t("timeline")}</button>
           <button class="secondary" data-action="relationship-graph">${t("relationshipGraph")}</button>
           <button class="secondary" data-action="quick-note">${t("idea")}</button>
@@ -4073,6 +4113,347 @@ function renderMapBoardView(universe) {
   `;
 }
 
+function findingId(parts) {
+  return parts.map((part) => String(part || "")).join("|");
+}
+
+function consistencyFilters() {
+  return { severity: "", categoryId: "", type: "", search: "", showIgnored: false, ...(state.consistencyFilters || {}) };
+}
+
+function createFinding(severity, type, title, message, entries = [], suggestion = "", fix = null) {
+  const idValue = findingId([severity, type, title, ...entries.map((entry) => entry?.id || entry), suggestion]);
+  return { id: idValue, severity, type, title, message, entries: entries.filter(Boolean), suggestion, fix };
+}
+
+function safeDate(value) {
+  if (!value || typeof value !== "string") return null;
+  if (!/\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\/\d{1,2}\/\d{2,4}/.test(value)) return null;
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function fieldReferenceFindings(entity, category) {
+  const findings = [];
+  (category?.customFields || []).forEach((field) => {
+    if (field.type !== "entityReference" && field.type !== "entityReferenceList") return;
+    const key = fieldStorageKey(field);
+    const value = entity.customFieldValues?.[key] || entity.customFieldValues?.[field.name];
+    const values = field.type === "entityReferenceList" ? normalizeReferenceListValue(value) : [value].filter(Boolean);
+    values.forEach((targetId) => {
+      if (activeEntityExists(targetId)) return;
+      findings.push(createFinding(
+        "critical",
+        "missing-reference",
+        t("missingLinkedEntry"),
+        `${entity.title} -> ${fieldLabel(field)}`,
+        [entity],
+        t("removeMissingReference"),
+        { action: "remove-field-reference", entityId: entity.id, fieldKey: key, targetId, isList: field.type === "entityReferenceList" }
+      ));
+    });
+  });
+  return findings;
+}
+
+function mapPinConsistencyFindings(universeId) {
+  return mapPinEntities(universeId).flatMap((pin) => {
+    const findings = [];
+    const linkedFields = ["Linked entry", "Map", "Related event", "Related quest"];
+    linkedFields.forEach((fieldName) => {
+      const targetId = pinField(pin, fieldName);
+      if (targetId && !activeEntityExists(targetId)) {
+        findings.push(createFinding("critical", "map-pin", t("missingLinkedEntry"), `${pin.title} ${fieldName}`, [pin], t("removeMissingReference"), { action: "clear-pin-field", pinId: pin.id, fieldName }));
+      }
+    });
+    if (!pin.title && !pinField(pin, "Pin label")) findings.push(createFinding("warning", "incomplete", t("mapPins"), "Pin without label.", [pin], t("edit")));
+    if (!pinField(pin, "Linked entry")) findings.push(createFinding("info", "incomplete", t("mapPins"), "Pin has no linked entry.", [pin], t("edit")));
+    return findings;
+  });
+}
+
+function familyConsistencyFindings(universeId) {
+  const findings = [];
+  const families = universeEntities(universeId).filter((entity) => entityCategoryType(entity) === "families");
+  const characters = universeEntities(universeId).filter((entity) => entityCategoryType(entity) === "characters");
+  families.forEach((family) => {
+    const category = entityCategory(family);
+    ["Founder", "Current head"].forEach((fieldName) => {
+      const targetId = fieldValueForName(family, category, fieldName);
+      if (targetId && !activeEntityExists(targetId)) {
+        findings.push(createFinding("critical", "family", t("missingLinkedEntry"), `${family.title}: ${fieldName}`, [family], t("removeMissingReference"), { action: "clear-family-field", entityId: family.id, fieldName }));
+      }
+    });
+    const members = normalizeReferenceListValue(fieldValueForName(family, category, "Members"));
+    members.forEach((memberId) => {
+      const character = entityForId(memberId);
+      if (!character) {
+        findings.push(createFinding("critical", "family", t("missingLinkedEntry"), `${family.title}: Members`, [family], t("removeMissingReference"), { action: "remove-family-member", familyId: family.id, memberId }));
+        return;
+      }
+      const characterFamilyId = fieldValueForName(character, entityCategory(character), "Family");
+      if (characterFamilyId && characterFamilyId !== family.id) {
+        findings.push(createFinding("warning", "family", "Family membership mismatch", `${character.title} belongs to another family field.`, [family, character], t("updateCharacterFamilyField"), { action: "set-character-family", characterId: character.id, familyId: family.id }));
+      }
+    });
+  });
+  characters.forEach((character) => {
+    const familyId = fieldValueForName(character, entityCategory(character), "Family");
+    if (!familyId) return;
+    const family = entityForId(familyId);
+    if (!family) {
+      findings.push(createFinding("critical", "family", t("missingLinkedEntry"), "This character references a deleted family.", [character], t("removeMissingReference"), { action: "clear-character-family", characterId: character.id }));
+      return;
+    }
+    const members = normalizeReferenceListValue(fieldValueForName(family, entityCategory(family), "Members"));
+    if (!members.includes(character.id)) {
+      findings.push(createFinding("warning", "family", "Family membership mismatch", `${character.title} is not listed in ${family.title}.`, [character, family], t("addCharacterToFamilyMembers"), { action: "add-family-member", familyId: family.id, characterId: character.id }));
+    }
+  });
+  return findings;
+}
+
+function timelineConsistencyFindings(universeId) {
+  const findings = [];
+  timelineEntities(universeId).forEach((entity) => {
+    const type = entityCategoryType(entity);
+    if (!timelineDateValue(entity)) findings.push(createFinding("info", "timeline", t("timeline"), `${entity.title}: missing date or chronology label.`, [entity], t("edit")));
+    if (type === "events") {
+      if (!timelineLocationEntities(entity).length) findings.push(createFinding("warning", "timeline", t("timeline"), `${entity.title}: missing location.`, [entity], t("edit")));
+      if (!timelineParticipantEntities(entity).length) findings.push(createFinding("warning", "timeline", t("timeline"), `${entity.title}: missing participants.`, [entity], t("edit")));
+    }
+    if (type === "quests" && !storyFieldValue(entity, ["Status"])) findings.push(createFinding("warning", "timeline", t("timeline"), `${entity.title}: missing status.`, [entity], t("edit")));
+    if (type === "sessionNotes" && (!storyFieldValue(entity, ["Session number"]) || !timelineDateValue(entity))) findings.push(createFinding("info", "timeline", t("timeline"), `${entity.title}: missing session number or date.`, [entity], t("edit")));
+    if (type === "wars") {
+      const start = safeDate(storyFieldValue(entity, ["Start date"]));
+      const end = safeDate(storyFieldValue(entity, ["End date"]));
+      if (start && end && end < start) findings.push(createFinding("warning", "timeline", t("timeline"), `${entity.title}: end date is before start date.`, [entity], t("edit")));
+    }
+  });
+  return findings;
+}
+
+function incompleteEntryFindings(universeId) {
+  const findings = [];
+  universeEntities(universeId).forEach((entity) => {
+    const type = entityCategoryType(entity);
+    const category = entityCategory(entity);
+    const missing = (fieldName) => !fieldValueForName(entity, category, fieldName);
+    const hasField = (fieldName) => Boolean(fieldByPresetName(category, fieldName));
+    if (type === "characters" && ((hasField("Backstory") && missing("Backstory")) || (hasField("Role") && missing("Role")))) findings.push(createFinding("info", "incomplete", t("relatedCharacters"), `${entity.title}: missing role or backstory.`, [entity], t("edit")));
+    if (type === "locations" && (missing("Location type") || missing("Description"))) findings.push(createFinding("info", "incomplete", t("locationsGroup"), `${entity.title}: missing type or description.`, [entity], t("edit")));
+    if (type === "events" && (missing("Date") || missing("Participants") || missing("Location"))) findings.push(createFinding("warning", "incomplete", t("eventsGroup"), `${entity.title}: missing event fields.`, [entity], t("edit")));
+    if (type === "quests" && (missing("Status") || missing("Objective"))) findings.push(createFinding("warning", "incomplete", t("questsGroup"), `${entity.title}: missing status or objective.`, [entity], t("edit")));
+    if (type === "maps" && missing("Map image")) findings.push(createFinding("warning", "incomplete", t("mapBoard"), `${entity.title}: map has no image.`, [entity], t("edit")));
+  });
+  activeItems(state.notes).filter((note) => note.universeId === universeId && note.type === "todo" && !note.completed && note.entityId && !activeEntityExists(note.entityId)).forEach((note) => {
+    findings.push(createFinding("warning", "notes", t("notes"), "Active todo is attached to a deleted entry.", [], t("edit")));
+  });
+  return findings;
+}
+
+function duplicateFindings(universeId) {
+  const findings = [];
+  const seenCategories = new Map();
+  universeCategories(universeId).forEach((category) => {
+    const name = normalizeCategoryName(category.name);
+    if (seenCategories.has(name)) findings.push(createFinding("warning", "duplicate", t("categories"), `Duplicate category: ${category.name}`, [category], t("edit")));
+    seenCategories.set(name, category);
+  });
+  const byCategoryTitle = new Map();
+  universeEntities(universeId).forEach((entity) => {
+    const key = `${entity.categoryId}:${normalizeCategoryName(entity.title)}`;
+    if (byCategoryTitle.has(key)) findings.push(createFinding("warning", "duplicate", t("itemPage"), `Duplicate title: ${entity.title}`, [byCategoryTitle.get(key), entity], t("edit")));
+    byCategoryTitle.set(key, entity);
+  });
+  const rels = new Map();
+  activeItems(state.relationships).filter((relationship) => relationship.universeId === universeId).forEach((relationship) => {
+    const key = [relationship.sourceEntityId, relationship.targetEntityId, relationship.type].join(":");
+    if (rels.has(key)) findings.push(createFinding("warning", "duplicate", t("relationshipType"), `Duplicate relationship: ${relationship.type}`, [], t("delete"), { action: "delete-relationship", relationshipId: relationship.id }));
+    rels.set(key, relationship);
+  });
+  const pins = new Map();
+  mapPinEntities(universeId).forEach((pin) => {
+    const key = `${pinField(pin, "Map")}:${normalizeCategoryName(pin.title || pinField(pin, "Pin label"))}`;
+    if (pins.has(key)) findings.push(createFinding("info", "duplicate", t("mapPins"), `Duplicate map pin: ${pin.title}`, [pin], t("edit")));
+    pins.set(key, pin);
+  });
+  return findings;
+}
+
+function relationshipConsistencyFindings(universeId) {
+  return activeItems(state.relationships).filter((relationship) => relationship.universeId === universeId).flatMap((relationship) => {
+    if (activeEntityExists(relationship.sourceEntityId) && activeEntityExists(relationship.targetEntityId)) return [];
+    return [createFinding("critical", "relationship", t("missingLinkedEntry"), `Relationship points to a missing entry: ${relationship.type}`, [], t("delete"), { action: "delete-relationship", relationshipId: relationship.id })];
+  });
+}
+
+function noteConsistencyFindings(universeId) {
+  return activeItems(state.notes).filter((note) => note.universeId === universeId).flatMap((note) => {
+    if (note.entityId && !activeEntityExists(note.entityId)) return [createFinding("warning", "notes", t("notes"), "Note is attached to a missing entry.", [], t("removeMissingReference"), { action: "detach-note", noteId: note.id })];
+    if (note.categoryId && !activeCategoryExists(note.categoryId)) return [createFinding("warning", "notes", t("notes"), "Note is attached to a missing category.", [], t("removeMissingReference"), { action: "detach-note", noteId: note.id })];
+    return [];
+  });
+}
+
+function consistencyFindings(universeId) {
+  const entities = universeEntities(universeId);
+  return [
+    ...entities.flatMap((entity) => fieldReferenceFindings(entity, entityCategory(entity))),
+    ...relationshipConsistencyFindings(universeId),
+    ...mapPinConsistencyFindings(universeId),
+    ...noteConsistencyFindings(universeId),
+    ...familyConsistencyFindings(universeId),
+    ...timelineConsistencyFindings(universeId),
+    ...incompleteEntryFindings(universeId),
+    ...duplicateFindings(universeId),
+  ];
+}
+
+function filteredConsistencyFindings(universe) {
+  const filters = consistencyFilters();
+  const ignored = new Set(state.ignoredConsistencyFindings || []);
+  const query = String(filters.search || "").toLocaleLowerCase("tr").trim();
+  return consistencyFindings(universe.id).filter((finding) => {
+    if (!filters.showIgnored && ignored.has(finding.id)) return false;
+    if (filters.severity && finding.severity !== filters.severity) return false;
+    if (filters.type && finding.type !== filters.type) return false;
+    if (filters.categoryId && !finding.entries.some((entry) => entry.categoryId === filters.categoryId || entry.id === filters.categoryId)) return false;
+    if (!query) return true;
+    return `${finding.title} ${finding.message} ${finding.suggestion}`.toLocaleLowerCase("tr").includes(query);
+  });
+}
+
+function renderConsistencyFilters(universe, findings) {
+  const filters = consistencyFilters();
+  const types = [...new Set(findings.map((finding) => finding.type))].sort();
+  return `
+    <section class="timeline-filters">
+      <label>${t("critical")}
+        <select data-consistency-filter="severity">
+          <option value="">${t("graphDepthAll")}</option>
+          ${["critical", "warning", "info"].map((severity) => `<option value="${severity}" ${filters.severity === severity ? "selected" : ""}>${severityLabel(severity)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${t("category")}
+        <select data-consistency-filter="categoryId">
+          <option value="">${t("allCategories")}</option>
+          ${universeCategories(universe.id, true).map((category) => `<option value="${category.id}" ${filters.categoryId === category.id ? "selected" : ""}>${escapeHtml(category.name)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${t("findingType")}
+        <select data-consistency-filter="type">
+          <option value="">${t("graphDepthAll")}</option>
+          ${types.map((type) => `<option value="${type}" ${filters.type === type ? "selected" : ""}>${escapeHtml(type)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${t("searchPages")} <input data-consistency-filter="search" value="${escapeHtml(filters.search || "")}" /></label>
+      <label class="checkbox-line"><input type="checkbox" data-consistency-filter="showIgnored" ${filters.showIgnored ? "checked" : ""} /> ${t("showIgnored")}</label>
+    </section>
+  `;
+}
+
+function severityLabel(severity) {
+  return { critical: t("critical"), warning: t("warning"), info: t("info") }[severity] || severity;
+}
+
+function renderConsistencyFinding(finding) {
+  return `
+    <article class="consistency-card consistency-card--${finding.severity}">
+      <div>
+        <span class="badge">${severityLabel(finding.severity)}</span>
+        <span class="badge">${escapeHtml(finding.type)}</span>
+      </div>
+      <div>
+        <h3>${escapeHtml(finding.title)}</h3>
+        <p>${escapeHtml(finding.message)}</p>
+      </div>
+      ${finding.entries.length ? `<div class="badge-list">${finding.entries.map((entry) => entry.title ? `<button class="badge link-chip" data-action="select-entity" data-id="${entry.id}">${escapeHtml(entry.title)}</button>` : `<span class="badge">${escapeHtml(entry.name || entry.id)}</span>`).join("")}</div>` : ""}
+      ${finding.suggestion ? `<p class="muted"><strong>${t("suggestedFix")}:</strong> ${escapeHtml(finding.suggestion)}</p>` : ""}
+      <div class="button-row">
+        ${finding.fix ? `<button class="secondary" data-action="fix-consistency" data-id="${escapeHtml(finding.id)}">${t("fix")}</button>` : ""}
+        <button class="secondary" data-action="ignore-consistency" data-id="${escapeHtml(finding.id)}">${t("ignore")}</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderConsistencyCheckerView(universe) {
+  const allFindings = consistencyFindings(universe.id);
+  latestConsistencyFixes = new Map(allFindings.filter((finding) => finding.fix).map((finding) => [finding.id, finding.fix]));
+  const findings = filteredConsistencyFindings(universe);
+  const counts = ["critical", "warning", "info"].map((severity) => [severity, findings.filter((finding) => finding.severity === severity).length]);
+  return `
+    <main class="main stack" data-main-panel>
+      <section class="toolbar">
+        <div class="subview-bar">
+          <button class="secondary" data-action="back-from-subview">â† ${t("back")}</button>
+          <h2>${t("consistencyChecker")}</h2>
+        </div>
+        <button class="secondary" data-action="run-consistency-check">${t("runCheck")}</button>
+      </section>
+      <div class="badge-list">${counts.map(([severity, count]) => `<span class="badge">${count} ${severityLabel(severity)}</span>`).join("")}</div>
+      ${renderConsistencyFilters(universe, allFindings)}
+      ${findings.length ? `<section class="consistency-list">${findings.map(renderConsistencyFinding).join("")}</section>` : `<section class="empty"><h3>${t("noConsistencyIssues")}</h3><p>${t("runCheck")}</p></section>`}
+    </main>
+  `;
+}
+
+function applyConsistencyFix(fix) {
+  if (!fix || !confirm(t("confirmPermanentDelete"))) return;
+  if (fix.action === "remove-field-reference") {
+    const entity = entityForId(fix.entityId);
+    if (!entity) return;
+    const values = { ...(entity.customFieldValues || {}) };
+    if (fix.isList) {
+      values[fix.fieldKey] = normalizeReferenceListValue(values[fix.fieldKey]).filter((item) => item !== fix.targetId).join(",");
+      if (!values[fix.fieldKey]) delete values[fix.fieldKey];
+    } else {
+      delete values[fix.fieldKey];
+      delete values[`${fix.fieldKey}:label`];
+    }
+    state.entities = state.entities.map((item) => item.id === entity.id ? { ...entity, customFieldValues: values, updatedAt: now() } : item);
+  }
+  if (fix.action === "clear-pin-field") {
+    const pin = entityForId(fix.pinId);
+    if (!pin) return;
+    const next = setFieldValueForName(pin, entityCategory(pin), fix.fieldName, "");
+    state.entities = state.entities.map((item) => item.id === pin.id ? next : item);
+  }
+  if (fix.action === "clear-family-field") {
+    const entity = entityForId(fix.entityId);
+    if (!entity) return;
+    const next = setFieldValueForName(entity, entityCategory(entity), fix.fieldName, "");
+    state.entities = state.entities.map((item) => item.id === entity.id ? next : item);
+  }
+  if (fix.action === "remove-family-member") {
+    const family = entityForId(fix.familyId);
+    if (!family) return;
+    const next = updateReferenceListForName(family, entityCategory(family), "Members", (members) => members.filter((memberId) => memberId !== fix.memberId));
+    state.entities = state.entities.map((item) => item.id === family.id ? next : item);
+  }
+  if (fix.action === "set-character-family" || fix.action === "clear-character-family") {
+    const character = entityForId(fix.characterId);
+    if (!character) return;
+    const next = setFieldValueForName(character, entityCategory(character), "Family", fix.action === "clear-character-family" ? "" : fix.familyId);
+    state.entities = state.entities.map((item) => item.id === character.id ? next : item);
+  }
+  if (fix.action === "add-family-member") {
+    const family = entityForId(fix.familyId);
+    if (!family) return;
+    const next = updateReferenceListForName(family, entityCategory(family), "Members", (members) => [...members, fix.characterId]);
+    state.entities = state.entities.map((item) => item.id === family.id ? next : item);
+  }
+  if (fix.action === "delete-relationship") {
+    state.relationships = state.relationships.map((relationship) => relationship.id === fix.relationshipId ? { ...relationship, deletedAt: now(), updatedAt: now() } : relationship);
+  }
+  if (fix.action === "detach-note") {
+    state.notes = state.notes.map((note) => note.id === fix.noteId ? { ...note, entityId: null, categoryId: null, updatedAt: now() } : note);
+  }
+  saveState();
+  render();
+}
+
 const timelineCategoryTypes = new Set(["events", "wars", "sessionNotes", "quests", "scenes", "chapters"]);
 const storyCategoryTypes = new Set(["stories", "books", "chapters", "scenes", "plotThreads", "themes", "draftNotes"]);
 const sceneBoardStatuses = ["idea", "planned", "drafting", "revised", "done"];
@@ -4576,6 +4957,7 @@ function bindEvents() {
   bindGraphFilterEvents(document);
   bindStoryPlannerFilterEvents(document);
   bindMapBoardEvents(document);
+  bindConsistencyFilterEvents(document);
   document.querySelectorAll("[data-search]").forEach((input) => {
     input.addEventListener("input", (event) => {
       state.search = event.target.value;
@@ -4704,6 +5086,12 @@ const actions = {
   "map-board"() {
     setState({ view: "mapBoard", selectedEntityId: null, search: "" });
   },
+  "consistency-checker"() {
+    setState({ view: "consistencyChecker", selectedEntityId: null, search: "" });
+  },
+  "run-consistency-check"() {
+    render();
+  },
   "map-board-for-entity"({ id: entityId }) {
     const pin = mapPinEntities().find((item) => pinField(item, "Linked entry") === entityId || pinField(item, "Related event") === entityId || pinField(item, "Related quest") === entityId);
     setState({ view: "mapBoard", selectedEntityId: null, selectedMapId: pin ? pinField(pin, "Map") : state.selectedMapId, selectedMapPinId: pin?.id || null });
@@ -4827,6 +5215,14 @@ const actions = {
     if (!confirm(t("confirmPageDelete"))) return;
     softDelete("entities", pinId);
     setState({ selectedMapPinId: null });
+  },
+  "ignore-consistency"({ id: findingIdValue }) {
+    state.ignoredConsistencyFindings = [...new Set([...(state.ignoredConsistencyFindings || []), findingIdValue])];
+    saveState();
+    render();
+  },
+  "fix-consistency"({ id: findingIdValue }) {
+    applyConsistencyFix(latestConsistencyFixes.get(findingIdValue));
   },
   "set-entity-view"({ mode }) {
     state.settings.entityViewMode = mode === "list" ? "list" : "cards";
@@ -5087,6 +5483,19 @@ function bindMapBoardEvents(root) {
       };
       pinButton.addEventListener("pointermove", move);
       pinButton.addEventListener("pointerup", finish);
+    });
+  });
+}
+
+function bindConsistencyFilterEvents(root) {
+  root.querySelectorAll("[data-consistency-filter]").forEach((input) => {
+    const eventName = input.tagName === "INPUT" && input.type !== "checkbox" ? "input" : "change";
+    input.addEventListener(eventName, (event) => {
+      const key = event.currentTarget.dataset.consistencyFilter;
+      const value = event.currentTarget.type === "checkbox" ? event.currentTarget.checked : event.currentTarget.value;
+      state.consistencyFilters = { ...consistencyFilters(), [key]: value };
+      saveState();
+      render();
     });
   });
 }

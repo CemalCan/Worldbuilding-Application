@@ -1478,7 +1478,7 @@ function renderEntityCustomFieldInput(field, entity, categoryOverride = null) {
   if (field.name === "Status" && category && storyCategoryTypes.has(getCategoryTypeKey(category))) {
     return `
       <div class="field-entry" data-entity-field data-field-id="${escapeHtml(field.id || "")}" data-field-key="${escapeHtml(fieldStorageKey(field))}" data-field-name="${escapeHtml(field.name || "")}">
-        <button class="field-drag-handle" type="button" draggable="true" tabindex="-1" data-entity-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">â˜°</button>
+        <button class="field-drag-handle" type="button" draggable="true" tabindex="-1" data-entity-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</button>
         <label>${escapeHtml(fieldLabel(field))}
           <select name="field:${escapeHtml(fieldStorageKey(field))}">
             ${["Idea", "Planned", "Drafting", "Revising", "Revised", "Done", "Archived"].map((status) => `<option value="${status}" ${storyStatusKey(value) === storyStatusKey(status) ? "selected" : ""}>${storyStatusLabel(storyStatusKey(status))}</option>`).join("")}
@@ -1980,10 +1980,25 @@ const translations = {
     critical: "Critical",
     warning: "Warning",
     info: "Info",
+    type: "Type",
+    severity: "Severity",
     suggestedFix: "Suggested fix",
     openEntry: "Open entry",
     ignore: "Ignore",
     fix: "Fix",
+    applyFix: "Apply fix",
+    confirmApplyFix: "This will clean up the broken reference or inconsistency. Continue?",
+    pinWithoutLabel: "Pin without label.",
+    pinWithoutLinkedEntry: "Pin has no linked entry.",
+    missingDateOrChronology: "Missing date or chronology label.",
+    missingLocation: "Missing location.",
+    missingParticipants: "Missing participants.",
+    missingStatus: "Missing status.",
+    missingSessionNumberOrDate: "Missing session number or date.",
+    endDateBeforeStartDate: "End date is before start date.",
+    duplicateTitle: "Duplicate title",
+    duplicateMapPin: "Duplicate map pin",
+    mapWithoutImage: "Map without image.",
     noConsistencyIssues: "No consistency issues found.",
     findingType: "Finding type",
     showIgnored: "Show ignored",
@@ -2107,6 +2122,8 @@ const translations = {
     categoryMovePrompt: "Move pages to which category?",
     targetCategoryMissing: "Valid target category not found.",
     confirmPageDelete: "This page will be moved to trash. Continue?",
+    confirmMapPinDelete: "Move map pin to trash?",
+    confirmMapPinPermanentDelete: "Delete map pin permanently?",
     confirmRelationshipDelete: "This relationship will be moved to trash.",
     confirmNoteDelete: "This note will be moved to trash.",
     attachNotePrompt: "Which page should this note attach to? Enter the page title.",
@@ -2190,6 +2207,7 @@ const translations = {
     resetUniverse: "Reset universe visibility",
     resetApp: "Reset app settings",
     importConfirm: "will be imported.",
+    importAction: "Import",
     importCounts: "categories,",
     importPages: "pages found.",
     wizardBasicInfo: "Basic Info",
@@ -2310,10 +2328,25 @@ const translations = {
     critical: "Kritik",
     warning: "Uyarı",
     info: "Bilgi",
+    type: "Tür",
+    severity: "Önem düzeyi",
     suggestedFix: "Önerilen düzeltme",
     openEntry: "Kaydı aç",
     ignore: "Yoksay",
     fix: "Düzelt",
+    applyFix: "Düzeltmeyi uygula",
+    confirmApplyFix: "Bu işlem bozuk bağlantıyı veya tutarsızlığı temizleyecek. Devam edilsin mi?",
+    pinWithoutLabel: "Etiketsiz pin.",
+    pinWithoutLinkedEntry: "Pinin bağlı kaydı yok.",
+    missingDateOrChronology: "Tarih veya kronoloji etiketi eksik.",
+    missingLocation: "Mekân eksik.",
+    missingParticipants: "Katılımcılar eksik.",
+    missingStatus: "Durum eksik.",
+    missingSessionNumberOrDate: "Oturum numarası veya tarih eksik.",
+    endDateBeforeStartDate: "Bitiş tarihi başlangıç tarihinden önce.",
+    duplicateTitle: "Tekrarlanan başlık",
+    duplicateMapPin: "Tekrarlanan harita pini",
+    mapWithoutImage: "Harita görseli eksik.",
     noConsistencyIssues: "Tutarlılık sorunu bulunamadı.",
     findingType: "Bulgu türü",
     showIgnored: "Yoksayılanları göster",
@@ -2437,6 +2470,8 @@ const translations = {
     categoryMovePrompt: "Sayfalar hangi kategoriye taşınsın?",
     targetCategoryMissing: "Geçerli hedef kategori bulunamadı.",
     confirmPageDelete: "Bu sayfa geri dönüşüm kutusuna taşınacak. Devam etmek istiyor musun?",
+    confirmMapPinDelete: "Harita pini geri dönüşüme taşınsın mı?",
+    confirmMapPinPermanentDelete: "Harita pini kalıcı olarak silinsin mi?",
     confirmRelationshipDelete: "Bu ilişki geri dönüşüm kutusuna taşınacak.",
     confirmNoteDelete: "Bu not geri dönüşüm kutusuna taşınacak.",
     attachNotePrompt: "Not hangi sayfaya bağlansın? Sayfa başlığını yaz.",
@@ -2520,6 +2555,7 @@ const translations = {
     resetUniverse: "Evren görünürlüğünü sıfırla",
     resetApp: "Uygulama ayarlarını sıfırla",
     importConfirm: "import edilecek.",
+    importAction: "İçe aktar",
     importCounts: "kategori,",
     importPages: "sayfa bulundu.",
     wizardBasicInfo: "Temel Bilgi",
@@ -3772,7 +3808,7 @@ function renderRelationshipGraphView(universe) {
     <main class="main stack" data-main-panel>
       <section class="stack">
         <div class="subview-bar">
-          <button class="secondary" data-action="${data.focusEntityId ? "back-from-graph" : "project-home"}">â† ${t("back")}</button>
+          <button class="secondary" data-action="${data.focusEntityId ? "back-from-graph" : "project-home"}">← ${t("back")}</button>
         </div>
         <div class="row">
           <div>
@@ -4087,7 +4123,7 @@ function renderMapBoardView(universe) {
     <main class="main stack" data-main-panel>
       <section class="toolbar">
         <div class="subview-bar">
-          <button class="secondary" data-action="back-from-subview">â† ${t("back")}</button>
+          <button class="secondary" data-action="back-from-subview">← ${t("back")}</button>
           <h2>${t("mapBoard")}</h2>
         </div>
         <button data-action="new-map-entry" data-type="maps">${createEntityLabel({ name: "Maps" })}</button>
@@ -4157,7 +4193,12 @@ function fieldReferenceFindings(entity, category) {
 }
 
 function mapPinConsistencyFindings(universeId) {
-  return mapPinEntities(universeId).flatMap((pin) => {
+  const mapFindings = mapEntities(universeId)
+    .filter((map) => !mapImageValue(map))
+    .map((map) => createFinding("warning", "incomplete", t("mapBoard"), `${map.title}: ${t("mapWithoutImage")}`, [map], t("edit")));
+  return [
+    ...mapFindings,
+    ...mapPinEntities(universeId).flatMap((pin) => {
     const findings = [];
     const linkedFields = ["Linked entry", "Map", "Related event", "Related quest"];
     linkedFields.forEach((fieldName) => {
@@ -4166,10 +4207,11 @@ function mapPinConsistencyFindings(universeId) {
         findings.push(createFinding("critical", "map-pin", t("missingLinkedEntry"), `${pin.title} ${fieldName}`, [pin], t("removeMissingReference"), { action: "clear-pin-field", pinId: pin.id, fieldName }));
       }
     });
-    if (!pin.title && !pinField(pin, "Pin label")) findings.push(createFinding("warning", "incomplete", t("mapPins"), "Pin without label.", [pin], t("edit")));
-    if (!pinField(pin, "Linked entry")) findings.push(createFinding("info", "incomplete", t("mapPins"), "Pin has no linked entry.", [pin], t("edit")));
+    if (!pin.title && !pinField(pin, "Pin label")) findings.push(createFinding("warning", "incomplete", t("mapPins"), t("pinWithoutLabel"), [pin], t("edit")));
+    if (!pinField(pin, "Linked entry")) findings.push(createFinding("info", "incomplete", t("mapPins"), t("pinWithoutLinkedEntry"), [pin], t("edit")));
     return findings;
-  });
+    }),
+  ];
 }
 
 function familyConsistencyFindings(universeId) {
@@ -4217,17 +4259,17 @@ function timelineConsistencyFindings(universeId) {
   const findings = [];
   timelineEntities(universeId).forEach((entity) => {
     const type = entityCategoryType(entity);
-    if (!timelineDateValue(entity)) findings.push(createFinding("info", "timeline", t("timeline"), `${entity.title}: missing date or chronology label.`, [entity], t("edit")));
+    if (!timelineDateValue(entity)) findings.push(createFinding("info", "timeline", t("timeline"), `${entity.title}: ${t("missingDateOrChronology")}`, [entity], t("edit")));
     if (type === "events") {
-      if (!timelineLocationEntities(entity).length) findings.push(createFinding("warning", "timeline", t("timeline"), `${entity.title}: missing location.`, [entity], t("edit")));
-      if (!timelineParticipantEntities(entity).length) findings.push(createFinding("warning", "timeline", t("timeline"), `${entity.title}: missing participants.`, [entity], t("edit")));
+      if (!timelineLocationEntities(entity).length) findings.push(createFinding("warning", "timeline", t("timeline"), `${entity.title}: ${t("missingLocation")}`, [entity], t("edit")));
+      if (!timelineParticipantEntities(entity).length) findings.push(createFinding("warning", "timeline", t("timeline"), `${entity.title}: ${t("missingParticipants")}`, [entity], t("edit")));
     }
-    if (type === "quests" && !storyFieldValue(entity, ["Status"])) findings.push(createFinding("warning", "timeline", t("timeline"), `${entity.title}: missing status.`, [entity], t("edit")));
-    if (type === "sessionNotes" && (!storyFieldValue(entity, ["Session number"]) || !timelineDateValue(entity))) findings.push(createFinding("info", "timeline", t("timeline"), `${entity.title}: missing session number or date.`, [entity], t("edit")));
+    if (type === "quests" && !storyFieldValue(entity, ["Status"])) findings.push(createFinding("warning", "timeline", t("timeline"), `${entity.title}: ${t("missingStatus")}`, [entity], t("edit")));
+    if (type === "sessionNotes" && (!storyFieldValue(entity, ["Session number"]) || !timelineDateValue(entity))) findings.push(createFinding("info", "timeline", t("timeline"), `${entity.title}: ${t("missingSessionNumberOrDate")}`, [entity], t("edit")));
     if (type === "wars") {
       const start = safeDate(storyFieldValue(entity, ["Start date"]));
       const end = safeDate(storyFieldValue(entity, ["End date"]));
-      if (start && end && end < start) findings.push(createFinding("warning", "timeline", t("timeline"), `${entity.title}: end date is before start date.`, [entity], t("edit")));
+      if (start && end && end < start) findings.push(createFinding("warning", "timeline", t("timeline"), `${entity.title}: ${t("endDateBeforeStartDate")}`, [entity], t("edit")));
     }
   });
   return findings;
@@ -4263,7 +4305,7 @@ function duplicateFindings(universeId) {
   const byCategoryTitle = new Map();
   universeEntities(universeId).forEach((entity) => {
     const key = `${entity.categoryId}:${normalizeCategoryName(entity.title)}`;
-    if (byCategoryTitle.has(key)) findings.push(createFinding("warning", "duplicate", t("itemPage"), `Duplicate title: ${entity.title}`, [byCategoryTitle.get(key), entity], t("edit")));
+    if (byCategoryTitle.has(key)) findings.push(createFinding("warning", "duplicate", t("itemPage"), `${t("duplicateTitle")}: ${entity.title}`, [byCategoryTitle.get(key), entity], t("edit")));
     byCategoryTitle.set(key, entity);
   });
   const rels = new Map();
@@ -4275,7 +4317,7 @@ function duplicateFindings(universeId) {
   const pins = new Map();
   mapPinEntities(universeId).forEach((pin) => {
     const key = `${pinField(pin, "Map")}:${normalizeCategoryName(pin.title || pinField(pin, "Pin label"))}`;
-    if (pins.has(key)) findings.push(createFinding("info", "duplicate", t("mapPins"), `Duplicate map pin: ${pin.title}`, [pin], t("edit")));
+    if (pins.has(key)) findings.push(createFinding("info", "duplicate", t("mapPins"), `${t("duplicateMapPin")}: ${pin.title}`, [pin], t("edit")));
     pins.set(key, pin);
   });
   return findings;
@@ -4329,7 +4371,7 @@ function renderConsistencyFilters(universe, findings) {
   const types = [...new Set(findings.map((finding) => finding.type))].sort();
   return `
     <section class="timeline-filters">
-      <label>${t("critical")}
+      <label>${t("severity")}
         <select data-consistency-filter="severity">
           <option value="">${t("graphDepthAll")}</option>
           ${["critical", "warning", "info"].map((severity) => `<option value="${severity}" ${filters.severity === severity ? "selected" : ""}>${severityLabel(severity)}</option>`).join("")}
@@ -4387,7 +4429,7 @@ function renderConsistencyCheckerView(universe) {
     <main class="main stack" data-main-panel>
       <section class="toolbar">
         <div class="subview-bar">
-          <button class="secondary" data-action="back-from-subview">â† ${t("back")}</button>
+          <button class="secondary" data-action="back-from-subview">← ${t("back")}</button>
           <h2>${t("consistencyChecker")}</h2>
         </div>
         <button class="secondary" data-action="run-consistency-check">${t("runCheck")}</button>
@@ -4400,7 +4442,7 @@ function renderConsistencyCheckerView(universe) {
 }
 
 function applyConsistencyFix(fix) {
-  if (!fix || !confirm(t("confirmPermanentDelete"))) return;
+  if (!fix || !confirm(t("confirmApplyFix"))) return;
   if (fix.action === "remove-field-reference") {
     const entity = entityForId(fix.entityId);
     if (!entity) return;
@@ -4673,7 +4715,7 @@ function renderStoryPlannerView(universe) {
     <main class="main stack" data-main-panel>
       <section class="toolbar">
         <div class="subview-bar">
-          <button class="secondary" data-action="back-from-subview">â† ${t("back")}</button>
+          <button class="secondary" data-action="back-from-subview">← ${t("back")}</button>
           <h2>${t("storyPlanner")}</h2>
         </div>
         <div class="button-row">
@@ -5212,7 +5254,7 @@ const actions = {
     openMapPinModal(entityForId(pinId));
   },
   "delete-map-pin"({ id: pinId }) {
-    if (!confirm(t("confirmPageDelete"))) return;
+    if (!confirm(t("confirmMapPinDelete"))) return;
     softDelete("entities", pinId);
     setState({ selectedMapPinId: null });
   },
@@ -5315,7 +5357,9 @@ const actions = {
     await restoreTrashItem(kind, itemId);
   },
   "purge-item": async function ({ kind, id: itemId }) {
-    const confirmed = await openChoiceModal(t("permanentDelete"), t("confirmPermanentDelete"), [
+    const item = state[collectionForKind(kind)]?.find((entry) => entry.id === itemId);
+    const isMapPin = kind === "page" && entityCategoryType(item) === "mapPins";
+    const confirmed = await openChoiceModal(t("permanentDelete"), isMapPin ? t("confirmMapPinPermanentDelete") : t("confirmPermanentDelete"), [
       { value: "delete", label: t("permanentDelete"), className: "danger" },
       { value: "cancel", label: t("cancel"), className: "secondary" },
     ]);
@@ -7274,6 +7318,44 @@ function ensureUniqueIds(items, label) {
   return seen;
 }
 
+function importFieldKey(field) {
+  if (!field || typeof field !== "object") return "";
+  return fieldStorageKey(field);
+}
+
+function importFieldDefinitionsForEntity(entity, categoryById) {
+  const category = categoryById.get(entity.categoryId);
+  return Array.isArray(category?.customFields) ? category.customFields : [];
+}
+
+function looksLikeEntityId(value) {
+  return /^entity[_-]/.test(String(value || ""));
+}
+
+function validateImportedReferenceValue(value, entityIds, label) {
+  if (!value) return;
+  if (entityIds.has(value)) return;
+  if (looksLikeEntityId(value)) {
+    throw new Error(`Import geçersiz: ${label} var olmayan bir kayda bağlı.`);
+  }
+}
+
+function validateImportedCustomFieldReferences(entity, fields, entityIds) {
+  const values = isPlainObject(entity.customFieldValues) ? entity.customFieldValues : {};
+  fields.forEach((field) => {
+    if (field.type !== "entityReference" && field.type !== "entityReferenceList") return;
+    const key = importFieldKey(field);
+    const value = values[key] ?? values[field.name];
+    if (field.type === "entityReference") {
+      validateImportedReferenceValue(value, entityIds, `${entity.title}.${field.name}`);
+      return;
+    }
+    normalizeReferenceListValue(value).forEach((entityId) => {
+      validateImportedReferenceValue(entityId, entityIds, `${entity.title}.${field.name}`);
+    });
+  });
+}
+
 function validateImportPayload(payload) {
   if (!isPlainObject(payload)) throw new Error("Geçersiz Loreforge JSON dosyası.");
   if (!isPlainObject(payload.universe)) throw new Error("Import geçersiz: evren bilgisi eksik.");
@@ -7291,9 +7373,18 @@ function validateImportPayload(payload) {
   const tagIds = ensureUniqueIds(tags, "tags");
   ensureUniqueIds(relationships, "relationships");
   ensureUniqueIds(notes, "notes");
+  const categoryById = new Map(categories.map((category) => [category.id, category]));
 
   for (const category of categories) {
     requireString(category.name, "category.name");
+    if (category.customFields !== undefined && !Array.isArray(category.customFields)) {
+      throw new Error(`Import geçersiz: "${category.name}" kategorisinin alan tanımları hatalı.`);
+    }
+    (category.customFields || []).forEach((field) => {
+      if (!isPlainObject(field)) throw new Error(`Import geçersiz: "${category.name}" kategorisinde hatalı alan tanımı var.`);
+      requireString(field.name, "field.name");
+      if (field.type !== undefined) requireString(field.type, "field.type");
+    });
   }
 
   for (const tag of tags) {
@@ -7309,6 +7400,10 @@ function validateImportPayload(payload) {
     if (!Array.isArray(entity.tagIds)) {
       throw new Error(`Import geçersiz: "${entity.title}" sayfasının tagIds alanı hatalı.`);
     }
+    if (entity.customFieldValues !== undefined && !isPlainObject(entity.customFieldValues)) {
+      throw new Error(`Import geçersiz: "${entity.title}" sayfasının customFieldValues alanı hatalı.`);
+    }
+    validateImportedCustomFieldReferences(entity, importFieldDefinitionsForEntity(entity, categoryById), entityIds);
     for (const tagId of entity.tagIds) {
       if (!tagIds.has(tagId)) {
         throw new Error(`Import geçersiz: "${entity.title}" sayfası var olmayan bir etikete bağlı.`);
@@ -7351,29 +7446,38 @@ function importUniverse() {
     try {
       const payload = JSON.parse(await file.text());
       const validated = validateImportPayload(payload);
-      const ok = confirm(`${payload.universe.name} ${t("importConfirm")} ${validated.categories.length} ${t("importCounts")} ${validated.entities.length} ${t("importPages")}`);
-      if (!ok) return;
+      const ok = await openChoiceModal(t("importAction"), `${payload.universe.name} ${t("importConfirm")} ${validated.categories.length} ${t("importCounts")} ${validated.entities.length} ${t("importPages")}`, [
+        { value: "import", label: t("importAction"), className: "secondary" },
+        { value: "cancel", label: t("cancel"), className: "secondary" },
+      ]);
+      if (ok !== "import") return;
       const idMap = new Map();
       const mapId = (oldId, prefix) => {
         if (!idMap.has(oldId)) idMap.set(oldId, id(prefix));
         return idMap.get(oldId);
       };
       const importedEntityIds = new Set(validated.entities.map((item) => item.id));
-      const remapCustomFieldValues = (values = {}) => Object.fromEntries(Object.entries(values || {}).map(([key, value]) => {
-        if (Array.isArray(value)) {
-          return [key, value.map((item) => importedEntityIds.has(item) ? mapId(item, "entity") : item)];
-        }
-        if (typeof value === "string" && importedEntityIds.has(value)) {
-          return [key, mapId(value, "entity")];
-        }
-        if (typeof value === "string" && value.includes(",")) {
-          return [key, value.split(",").map((item) => {
-            const trimmed = item.trim();
-            return importedEntityIds.has(trimmed) ? mapId(trimmed, "entity") : trimmed;
-          }).join(",")];
-        }
-        return [key, value];
-      }));
+      const categoryByOldId = new Map(validated.categories.map((category) => [category.id, category]));
+      const remapCustomFieldValues = (entity) => {
+        const values = entity.customFieldValues || {};
+        const fields = importFieldDefinitionsForEntity(entity, categoryByOldId);
+        const referenceFields = new Map(fields
+          .filter((field) => field.type === "entityReference" || field.type === "entityReferenceList")
+          .flatMap((field) => [[importFieldKey(field), field], [field.name, field]]));
+        return Object.fromEntries(Object.entries(values).map(([key, value]) => {
+          const field = referenceFields.get(key);
+          if (!field) return [key, value];
+          if (field.type === "entityReference") {
+            return [key, importedEntityIds.has(value) ? mapId(value, "entity") : value];
+          }
+          if (Array.isArray(value)) {
+            return [key, value.map((item) => importedEntityIds.has(item) ? mapId(item, "entity") : item)];
+          }
+          return [key, normalizeReferenceListValue(value).map((item) =>
+            importedEntityIds.has(item) ? mapId(item, "entity") : item
+          ).join(",")];
+        }));
+      };
       const universeId = mapId(payload.universe.id, "universe");
       state.universes.push({ ...payload.universe, id: universeId, name: `${payload.universe.name} (Import)`, createdAt: now(), updatedAt: now(), deletedAt: null });
       state.categories.push(...validated.categories.map((item) => ({ ...item, id: mapId(item.id, "category"), universeId, deletedAt: null })));
@@ -7384,7 +7488,7 @@ function importUniverse() {
         universeId,
         categoryId: mapId(item.categoryId, "category"),
         tagIds: (item.tagIds || []).map((tagId) => mapId(tagId, "tag")),
-        customFieldValues: remapCustomFieldValues(item.customFieldValues || {}),
+        customFieldValues: remapCustomFieldValues(item),
         deletedAt: null,
       })));
       state.relationships.push(...validated.relationships.map((item) => ({

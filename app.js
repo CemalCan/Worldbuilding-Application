@@ -1920,6 +1920,7 @@ const translations = {
     createEntry: "Create entry",
     addCategory: "Add category",
     addFromTemplate: "Add from template",
+    addTemplateFirst: "Add the matching category from a template first.",
     templateCategories: "Template categories",
     alreadyExists: "Already exists",
     renameToAdd: "Rename to add",
@@ -2153,6 +2154,7 @@ const translations = {
     theme: "Theme",
     save: "Save",
     cancel: "Cancel",
+    close: "Close",
     create: "Create",
     universeNameRequired: "Universe name is required.",
     pageTitleRequired: "Page title is required.",
@@ -2280,6 +2282,7 @@ const translations = {
     createEntry: "Kayıt oluştur",
     addCategory: "Kategori ekle",
     addFromTemplate: "Şablondan ekle",
+    addTemplateFirst: "Önce eşleşen kategoriyi bir şablondan ekle.",
     templateCategories: "Şablon kategorileri",
     alreadyExists: "Zaten var",
     renameToAdd: "Eklemek için yeniden adlandır",
@@ -2513,6 +2516,7 @@ const translations = {
     theme: "Tema",
     save: "Kaydet",
     cancel: "İptal",
+    close: "Kapat",
     create: "Oluştur",
     universeNameRequired: "Evren adı zorunludur.",
     pageTitleRequired: "Sayfa başlığı zorunludur.",
@@ -2800,6 +2804,7 @@ function applyTheme() {
     large: "17px",
   }[state.settings.fontSize] || "15px");
   document.documentElement.style.setProperty("--accent", state.settings.accentColor || "#9a4f2e");
+  document.documentElement.lang = state.settings.language === "tr" ? "tr" : "en";
 }
 
 function render() {
@@ -3070,6 +3075,15 @@ function dashboardCategoryByTypes(universeId, types) {
   return universeCategories(universeId, true).find((category) => allowed.has(getCategoryTypeKey(category)));
 }
 
+function dashboardCategoryForType(universeId, type) {
+  const aliases = {
+    characters: ["characters"],
+    locations: ["locations"],
+    events: ["events"],
+  };
+  return dashboardCategoryByTypes(universeId, aliases[type] || [type]);
+}
+
 function renderDashboardMetric(label, value, action = "", extra = "") {
   const content = `
     <strong>${escapeHtml(String(value))}</strong>
@@ -3082,6 +3096,15 @@ function renderDashboardMetric(label, value, action = "", extra = "") {
 }
 
 function renderDashboardModuleCard({ label, count, action, categoryId = "", help = "" }) {
+  if (action === "select-category" && !categoryId) {
+    return `
+      <button class="dashboard-module-card" data-action="add-from-template">
+        <strong>${escapeHtml(label)}</strong>
+        <span class="badge">${count}</span>
+        <small>${escapeHtml(t("addTemplateFirst"))}</small>
+      </button>
+    `;
+  }
   return `
     <button class="dashboard-module-card" data-action="${action}" ${categoryId ? `data-id="${categoryId}"` : ""}>
       <strong>${escapeHtml(label)}</strong>
@@ -3110,8 +3133,7 @@ function renderDashboardNoteLink(note) {
   `;
 }
 
-function renderConsistencyDashboardSummary(universeId) {
-  const findings = consistencyFindings(universeId).filter((finding) => !(state.ignoredConsistencyFindings || []).includes(finding.id));
+function renderConsistencyDashboardSummary(findings) {
   if (!findings.length) {
     return renderDashboardMetric(t("consistencyIssues"), 0, "consistency-checker", t("noConsistencyIssues"));
   }
@@ -3152,13 +3174,14 @@ function renderProjectHome(universe) {
   const quickIdeas = activeItems(state.notes).filter((note) => note.universeId === universe.id && note.type === "idea" && !note.entityId && !note.categoryId);
   const activeTodos = activeItems(state.notes).filter((note) => note.universeId === universe.id && note.type === "todo" && !note.completed);
   const storyItems = storyPlannerEntities(universe.id);
+  const dashboardConsistencyFindings = consistencyFindings(universe.id).filter((finding) => !(state.ignoredConsistencyFindings || []).includes(finding.id));
   const draftingScenes = storyItems.filter((entity) => entityCategoryType(entity) === "scenes" && ["drafting", "revising"].includes(storyStatusKey(storyFieldValue(entity, ["Status"])))).slice(0, 3);
   const moduleCards = [
-    { key: "characters", label: getEntityTypeLabel({ name: "Characters" }, "plural"), items: dashboardEntitiesByTypes(universe.id, ["characters"]), action: "select-category" },
-    { key: "families", label: getEntityTypeLabel({ name: "Families" }, "plural"), items: dashboardEntitiesByTypes(universe.id, ["families"]), action: "select-category" },
-    { key: "locations", label: getEntityTypeLabel({ name: "Locations" }, "plural"), items: dashboardEntitiesByTypes(universe.id, ["locations"]), action: "select-category" },
-    { key: "events", label: getEntityTypeLabel({ name: "Events" }, "plural"), items: dashboardEntitiesByTypes(universe.id, ["events", "wars"]), action: "select-category" },
-  ].filter((item) => item.items.length || dashboardCategoryByTypes(universe.id, [item.key]));
+    { types: ["characters"], label: getEntityTypeLabel({ name: "Characters" }, "plural"), items: dashboardEntitiesByTypes(universe.id, ["characters"]), action: "select-category" },
+    { types: ["families"], label: getEntityTypeLabel({ name: "Families" }, "plural"), items: dashboardEntitiesByTypes(universe.id, ["families"]), action: "select-category" },
+    { types: ["locations"], label: getEntityTypeLabel({ name: "Locations" }, "plural"), items: dashboardEntitiesByTypes(universe.id, ["locations"]), action: "select-category" },
+    { types: ["events", "wars"], label: getEntityTypeLabel({ name: "Events" }, "plural"), items: dashboardEntitiesByTypes(universe.id, ["events", "wars"]), action: "select-category" },
+  ].filter((item) => item.items.length || dashboardCategoryByTypes(universe.id, item.types));
   const updatedAt = universe.updatedAt || recentEntities[0]?.updatedAt || recentEntities[0]?.createdAt || universe.createdAt;
   return `
     <section class="project-home stack">
@@ -3194,7 +3217,7 @@ function renderProjectHome(universe) {
         ${renderDashboardMetric(t("notes"), activeItems(state.notes).filter((note) => note.universeId === universe.id).length)}
         ${renderDashboardMetric(t("timelineEntries"), timelineEntities(universe.id).length, "timeline")}
         ${renderDashboardMetric(t("mapPins"), pins.length, "map-board")}
-        ${renderConsistencyDashboardSummary(universe.id)}
+        ${renderConsistencyDashboardSummary(dashboardConsistencyFindings)}
       </section>
       ${renderEmptyProjectGuidance(universe)}
       <section class="dashboard-grid">
@@ -3234,7 +3257,7 @@ function renderProjectHome(universe) {
         <h3 class="section-title">${t("moduleOverview")}</h3>
         <div class="dashboard-module-grid">
           ${moduleCards.map((item) => {
-            const category = dashboardCategoryByTypes(universe.id, [item.key]);
+            const category = dashboardCategoryByTypes(universe.id, item.types);
             return renderDashboardModuleCard({ label: item.label, count: item.items.length, action: "select-category", categoryId: category?.id || "" });
           }).join("")}
           ${renderDashboardModuleCard({ label: t("notes"), count: activeItems(state.notes).filter((note) => note.universeId === universe.id).length, action: "quick-note", help: `${quickIdeas.length} ${t("quickIdeas")}` })}
@@ -3242,7 +3265,7 @@ function renderProjectHome(universe) {
           ${renderDashboardModuleCard({ label: t("storyPlanner"), count: storyItems.length, action: "story-planner" })}
           ${renderDashboardModuleCard({ label: t("mapBoard"), count: maps.length, action: "map-board", help: `${pins.length} ${t("mapPins")}` })}
           ${renderDashboardModuleCard({ label: t("relationshipGraph"), count: allEntities.length, action: "relationship-graph", help: t("connections") })}
-          ${renderDashboardModuleCard({ label: t("consistencyChecker"), count: consistencyFindings(universe.id).length, action: "consistency-checker", help: t("runCheck") })}
+          ${renderDashboardModuleCard({ label: t("consistencyChecker"), count: dashboardConsistencyFindings.length, action: "consistency-checker", help: t("runCheck") })}
         </div>
       </section>
       <section class="stack">
@@ -4336,6 +4359,21 @@ function safeDate(value) {
   return Number.isNaN(timestamp) ? null : timestamp;
 }
 
+function looksLikeEntityId(value) {
+  return /^entity[_-]/.test(String(value || ""));
+}
+
+function isBrokenEntityReferenceValue(value, values, key) {
+  if (!value || activeEntityExists(value)) return false;
+  if (looksLikeEntityId(value)) return true;
+  const labels = referenceLabelsSnapshot(values, key);
+  return Boolean(
+    values?.[`${key}:label`] ||
+    labels[value] ||
+    state.entities.some((entity) => entity.id === value && entity.deletedAt)
+  );
+}
+
 function fieldReferenceFindings(entity, category) {
   const findings = [];
   (category?.customFields || []).forEach((field) => {
@@ -4344,7 +4382,7 @@ function fieldReferenceFindings(entity, category) {
     const value = entity.customFieldValues?.[key] || entity.customFieldValues?.[field.name];
     const values = field.type === "entityReferenceList" ? normalizeReferenceListValue(value) : [value].filter(Boolean);
     values.forEach((targetId) => {
-      if (activeEntityExists(targetId)) return;
+      if (!isBrokenEntityReferenceValue(targetId, entity.customFieldValues || {}, key)) return;
       findings.push(createFinding(
         "critical",
         "missing-reference",
@@ -5252,6 +5290,14 @@ function refreshSearchResults() {
   bindActionEvents(mainPanel);
 }
 
+async function confirmDestructiveAction(messageKey, titleKey = "delete") {
+  const confirmed = await openChoiceModal(t(titleKey), t(messageKey), [
+    { value: "confirm", label: t("moveToTrash"), className: "danger" },
+    { value: "cancel", label: t("cancel"), className: "secondary" },
+  ]);
+  return confirmed === "confirm";
+}
+
 const actions = {
   home() {
     setState({ view: "home", selectedUniverseId: null, selectedCategoryId: null, selectedEntityId: null, search: "" });
@@ -5273,8 +5319,8 @@ const actions = {
     const universe = state.universes.find((item) => item.id === universeId);
     openUniverseModal(universe);
   },
-  "delete-universe"({ id: universeId }) {
-    if (!confirm(t("confirmUniverseDelete"))) return;
+  "delete-universe": async function ({ id: universeId }) {
+    if (!(await confirmDestructiveAction("confirmUniverseDelete"))) return;
     softDelete("universes", universeId);
     if (state.selectedUniverseId === universeId) {
       state.selectedUniverseId = null;
@@ -5393,8 +5439,12 @@ const actions = {
     openEntityModal();
   },
   "new-dashboard-entry"({ type }) {
-    const category = dashboardCategoryByTypes(state.selectedUniverseId, [type]) || universeCategories()[0];
-    if (category) state.selectedCategoryId = category.id;
+    const category = dashboardCategoryForType(state.selectedUniverseId, type);
+    if (!category) {
+      openTemplateExpansionModal();
+      return;
+    }
+    state.selectedCategoryId = category.id;
     state.selectedEntityId = null;
     state.view = "universe";
     saveState();
@@ -5433,8 +5483,8 @@ const actions = {
   "edit-map-pin"({ id: pinId }) {
     openMapPinModal(entityForId(pinId));
   },
-  "delete-map-pin"({ id: pinId }) {
-    if (!confirm(t("confirmMapPinDelete"))) return;
+  "delete-map-pin": async function ({ id: pinId }) {
+    if (!(await confirmDestructiveAction("confirmMapPinDelete"))) return;
     softDelete("entities", pinId);
     setState({ selectedMapPinId: null });
   },
@@ -5461,14 +5511,14 @@ const actions = {
   "edit-entity"({ id: entityId }) {
     openEntityModal(state.entities.find((entity) => entity.id === entityId));
   },
-  "delete-entity"({ id: entityId }) {
-    if (!confirm(t("confirmPageDelete"))) return;
+  "delete-entity": async function ({ id: entityId }) {
+    if (!(await confirmDestructiveAction("confirmPageDelete"))) return;
     softDelete("entities", entityId);
     setState({ selectedEntityId: null });
   },
   "new-relationship": openRelationshipModal,
-  "delete-relationship"({ id: relationshipId }) {
-    if (!confirm(t("confirmRelationshipDelete"))) return;
+  "delete-relationship": async function ({ id: relationshipId }) {
+    if (!(await confirmDestructiveAction("confirmRelationshipDelete"))) return;
     softDelete("relationships", relationshipId);
   },
   "new-note": () => openNoteModal(currentEntity()?.id || null),
@@ -5476,8 +5526,8 @@ const actions = {
   "edit-note"({ id: noteId }) {
     openNoteModal(null, state.notes.find((note) => note.id === noteId));
   },
-  "delete-note"({ id: noteId }) {
-    if (!confirm(t("confirmNoteDelete"))) return;
+  "delete-note": async function ({ id: noteId }) {
+    if (!(await confirmDestructiveAction("confirmNoteDelete"))) return;
     softDelete("notes", noteId);
   },
   "toggle-note-pin"({ id: noteId }) {
@@ -5526,8 +5576,8 @@ const actions = {
     setState({ view: "templates", selectedEntityId: null });
   },
   "new-template": openTemplateModal,
-  "delete-template"({ id: templateId }) {
-    if (!confirm(t("confirmTemplateDelete"))) return;
+  "delete-template": async function ({ id: templateId }) {
+    if (!(await confirmDestructiveAction("confirmTemplateDelete"))) return;
     softDelete("templates", templateId);
   },
   trash() {
@@ -6463,10 +6513,12 @@ function bindModalBackdropClose(backdrop, close) {
     startedOnBackdrop = event.target === backdrop;
   });
   backdrop.addEventListener("pointerup", (event) => {
-    if (event.target === backdrop && startedOnBackdrop) close();
+    const selectedText = window.getSelection?.().toString() || "";
+    if (event.target === backdrop && startedOnBackdrop && !selectedText) close();
     startedOnBackdrop = false;
   });
   backdrop.addEventListener("click", (event) => {
+    if (event.target === backdrop) return;
     if (event.target.dataset.modalClose !== undefined) close();
     startedOnBackdrop = false;
   });
@@ -6477,6 +6529,7 @@ function openModal(title, bodyHtml, onSubmit, onClose) {
   const fragment = template.content.cloneNode(true);
   const backdrop = fragment.querySelector(".modal-backdrop");
   fragment.querySelector("[data-modal-title]").textContent = title;
+  fragment.querySelector(".modal__header [data-modal-close]")?.setAttribute("aria-label", t("close"));
   fragment.querySelector("[data-modal-body]").innerHTML = bodyHtml;
   const close = () => {
     if (!backdrop.isConnected) return;
@@ -7506,10 +7559,6 @@ function importFieldKey(field) {
 function importFieldDefinitionsForEntity(entity, categoryById) {
   const category = categoryById.get(entity.categoryId);
   return Array.isArray(category?.customFields) ? category.customFields : [];
-}
-
-function looksLikeEntityId(value) {
-  return /^entity[_-]/.test(String(value || ""));
 }
 
 function validateImportedReferenceValue(value, entityIds, label) {

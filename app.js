@@ -156,6 +156,10 @@ const categoryFieldPresetGroups = {
   plotThreads: ["Thread type", "Status", "Related characters", "Related scenes", "Setup", "Payoff", "Notes"],
   themes: ["Theme type", "Related characters", "Related scenes", "Symbolism", "Notes"],
   draftNotes: ["Status", "Related scenes", "Related characters", "Draft text", "Revision notes", "Notes"],
+  maps: ["Map name", "Map type", "Map image", "Description", "Related locations", "Related regions", "Related events", "Notes"],
+  mapPins: ["Pin label", "Pin type", "Linked entry", "Map", "X position", "Y position", "Description", "Visible/hidden", "Related event", "Related quest"],
+  routes: ["Route name", "Start location", "End location", "Stops", "Distance", "Travel time", "Danger level", "Notes"],
+  regions: ["Region name", "Region type", "Parent location", "Ruler/Owner", "Climate", "Population", "Important places", "Notes"],
 };
 
 const fieldPresetLabelTranslations = {
@@ -367,6 +371,30 @@ const fieldPresetLabelTranslations = {
   Payoff: "Karşılık",
   "Theme type": "Tema türü",
   Symbolism: "Sembolizm",
+  "Map name": "Harita adı",
+  "Map type": "Harita türü",
+  "Map image": "Harita görseli",
+  "Related locations": "Bağlı mekânlar",
+  "Related regions": "Bağlı bölgeler",
+  "Pin label": "Pin etiketi",
+  "Pin type": "Pin türü",
+  "Linked entry": "Bağlı kayıt",
+  Map: "Harita",
+  "X position": "X konumu",
+  "Y position": "Y konumu",
+  "Visible/hidden": "Görünür/gizli",
+  "Related quest": "Bağlı görev",
+  "Route name": "Rota adı",
+  "Start location": "Başlangıç mekânı",
+  "End location": "Bitiş mekânı",
+  Stops: "Duraklar",
+  Distance: "Mesafe",
+  "Travel time": "Seyahat süresi",
+  "Danger level": "Tehlike seviyesi",
+  "Region name": "Bölge adı",
+  "Region type": "Bölge türü",
+  "Parent location": "Üst mekân",
+  "Important places": "Önemli yerler",
 };
 
 const categoryPresetAliases = {
@@ -388,6 +416,15 @@ const categoryPresetAliases = {
   temalar: "themes",
   "draft notes": "draftNotes",
   "taslak notları": "draftNotes",
+  maps: "maps",
+  haritalar: "maps",
+  "map pins": "mapPins",
+  pins: "mapPins",
+  pinler: "mapPins",
+  routes: "routes",
+  rotalar: "routes",
+  regions: "regions",
+  bölgeler: "regions",
   characters: "characters",
   karakterler: "characters",
   detectives: "characters",
@@ -630,6 +667,10 @@ const entityTypeLabels = {
     plotThreads: { singular: "plot thread", plural: "plot threads" },
     themes: { singular: "theme", plural: "themes" },
     draftNotes: { singular: "draft note", plural: "draft notes" },
+    maps: { singular: "map", plural: "maps" },
+    mapPins: { singular: "map pin", plural: "map pins" },
+    routes: { singular: "route", plural: "routes" },
+    regions: { singular: "region", plural: "regions" },
     partyMembers: { singular: "party member", plural: "party members" },
     dungeons: { singular: "dungeon", plural: "dungeons" },
     lootRewards: { singular: "reward", plural: "rewards" },
@@ -671,6 +712,10 @@ const entityTypeLabels = {
     plotThreads: { singular: "Olay örgüsü", plural: "olay örgüsü" },
     themes: { singular: "Tema", plural: "tema" },
     draftNotes: { singular: "Taslak notu", plural: "taslak notu" },
+    maps: { singular: "Harita", plural: "harita" },
+    mapPins: { singular: "Harita pini", plural: "harita pini" },
+    routes: { singular: "Rota", plural: "rota" },
+    regions: { singular: "Bölge", plural: "bölge" },
     partyMembers: { singular: "Parti üyesi", plural: "parti üyesi" },
     dungeons: { singular: "Zindan", plural: "zindan" },
     lootRewards: { singular: "Ödül", plural: "ödül" },
@@ -763,7 +808,7 @@ function fieldTypeForPreset(name) {
   const fieldName = String(name || "");
   if (/image$/i.test(fieldName)) return "image";
   if (["Synopsis", "Summary", "Main plot", "Draft notes", "Draft text", "Revision notes", "Setup", "Payoff", "Notes", "Symbolism"].includes(fieldName)) return "longText";
-  if (["Book number", "Chapter number", "Scene number", "Word count goal"].includes(fieldName)) return "number";
+  if (["Book number", "Chapter number", "Scene number", "Word count goal", "X position", "Y position", "Distance", "Travel time", "Population"].includes(fieldName)) return "number";
   return referenceTargetTypes(null, fieldName).length
     ? (referenceListFieldNames.has(fieldName) ? "entityReferenceList" : "entityReference")
     : "text";
@@ -801,6 +846,10 @@ const referenceListFieldNames = new Set([
   "Related events",
   "Characters present",
   "Related characters",
+  "Related locations",
+  "Related regions",
+  "Stops",
+  "Important places",
   "Rewards",
 ]);
 
@@ -894,6 +943,27 @@ const referenceFieldTargets = {
   draftNotes: {
     "Related scenes": ["scenes"],
     "Related characters": ["characters"],
+  },
+  maps: {
+    "Related locations": ["locations"],
+    "Related regions": ["regions"],
+    "Related events": ["events", "wars", "scenes", "chapters", "quests"],
+  },
+  mapPins: {
+    "Linked entry": ["locations", "characters", "events", "quests", "organizations", "items", "creatures", "regions"],
+    Map: ["maps"],
+    "Related event": ["events", "wars", "scenes", "chapters"],
+    "Related quest": ["quests"],
+  },
+  routes: {
+    "Start location": ["locations", "regions"],
+    "End location": ["locations", "regions"],
+    Stops: ["locations", "regions"],
+  },
+  regions: {
+    "Parent location": ["locations", "regions"],
+    "Ruler/Owner": ["characters", "organizations", "governments"],
+    "Important places": ["locations"],
   },
   sessionNotes: {
     "Players present": ["partyMembers", "characters"],
@@ -998,6 +1068,16 @@ function referenceTargetTypes(categoryName, fieldName) {
     "Start chapter": ["chapters"],
     "End chapter": ["chapters"],
     "Related timeline entries": ["events", "wars", "sessionNotes", "quests", "scenes", "chapters"],
+    "Related locations": ["locations"],
+    "Related regions": ["regions"],
+    "Linked entry": ["locations", "characters", "events", "quests", "organizations", "items", "creatures", "regions"],
+    Map: ["maps"],
+    "Related quest": ["quests"],
+    "Start location": ["locations", "regions"],
+    "End location": ["locations", "regions"],
+    Stops: ["locations", "regions"],
+    "Parent location": ["locations", "regions"],
+    "Important places": ["locations"],
     "Players present": ["partyMembers", "characters"],
     "Loot/rewards": ["lootRewards", "items"],
     "Loot/Rewards": ["lootRewards", "items"],
@@ -1178,6 +1258,26 @@ const fieldSectionPresets = {
     Connections: ["Related scenes", "Related characters"],
     Draft: ["Draft text", "Revision notes", "Notes"],
   },
+  maps: {
+    Basics: ["Map name", "Map type", "Map image", "Description"],
+    Connections: ["Related locations", "Related regions", "Related events"],
+    Notes: ["Notes"],
+  },
+  mapPins: {
+    Basics: ["Pin label", "Pin type", "Visible/hidden", "Description"],
+    Connections: ["Linked entry", "Map", "Related event", "Related quest"],
+    Position: ["X position", "Y position"],
+  },
+  routes: {
+    Basics: ["Route name", "Distance", "Travel time", "Danger level"],
+    Connections: ["Start location", "End location", "Stops"],
+    Notes: ["Notes"],
+  },
+  regions: {
+    Basics: ["Region name", "Region type", "Climate", "Population"],
+    Connections: ["Parent location", "Ruler/Owner", "Important places"],
+    Notes: ["Notes"],
+  },
 };
 
 const sectionLabelTranslations = {
@@ -1204,6 +1304,7 @@ const sectionLabelTranslations = {
   Themes: "Temalar",
   Draft: "Taslak",
   Conflict: "Çatışma",
+  Position: "Konum",
 };
 
 function sectionLabel(name) {
@@ -1729,10 +1830,10 @@ function hydrateCategoryFields(category) {
 }
 
 const builtInTemplates = [
-  ["blank", "Boş Evren", "Temel not, karakter, mekan ve olay yapısı.", ["Notlar", "Karakterler", "Mekanlar", "Olaylar", "Stories", "Chapters", "Scenes"]],
+  ["blank", "Boş Evren", "Temel not, karakter, mekan ve olay yapısı.", ["Notlar", "Karakterler", "Mekanlar", "Olaylar", "Stories", "Chapters", "Scenes", "Maps", "Map Pins"]],
   ["writing", "Writing / Story Planning", "Stories, books, chapters, scenes, plot threads, themes, and draft notes.", ["Stories", "Books", "Chapters", "Scenes", "Plot Threads", "Themes", "Draft Notes", "Characters", "Locations", "Events", "Notes"]],
   ["medieval", "Orta Çağ", "Hanedanlar, krallıklar, kaleler ve savaşlar.", ["Karakterler", "Aileler", "Hanedanlar", "Krallıklar", "Şehirler", "Köyler", "Kaleler", "Dinler", "Loncalar", "Ordular", "Savaşlar", "Eşyalar", "Zaman çizelgesi", "Notlar"]],
-  ["fantasy", "Fantastik", "Büyü, tanrılar, ırklar, efsaneler ve artefaktlar.", ["Karakterler", "Aileler", "Irklar", "Krallıklar", "Mekanlar", "Büyüler", "Büyü sistemleri", "Dinler", "Tanrılar", "Canavarlar", "Artefaktlar", "Kehanetler", "Efsaneler", "Savaşlar", "Zaman çizelgesi", "Notlar"]],
+  ["fantasy", "Fantastik", "Büyü, tanrılar, ırklar, efsaneler ve artefaktlar.", ["Karakterler", "Aileler", "Irklar", "Krallıklar", "Mekanlar", "Regions", "Maps", "Map Pins", "Routes", "Büyüler", "Büyü sistemleri", "Dinler", "Tanrılar", "Canavarlar", "Artefaktlar", "Kehanetler", "Efsaneler", "Savaşlar", "Zaman çizelgesi", "Notlar"]],
   ["dark-fantasy", "Karanlık Fantastik", "Lanetler, tarikatlar ve yasak bilgiler.", ["Karakterler", "Lanetler", "Tarikatlar", "Canavarlar", "Tanrılar", "Yasak büyüler", "Kayıp şehirler", "Kurbanlar", "Günahlar", "Kehanetler", "Eşyalar", "Olaylar", "Notlar"]],
   ["cyberpunk", "Cyberpunk", "Megakentler, şirketler, çeteler ve siber implantlar.", ["Karakterler", "Megakentler", "Şirketler", "Çeteler", "Hacker grupları", "Siber implantlar", "Yapay zekalar", "Sanal ağlar", "Suç dosyaları", "Kara borsa", "Güvenlik güçleri", "Silahlar", "Notlar", "Zaman çizelgesi"]],
   ["sci-fi", "Bilim Kurgu", "Gezegenler, yıldız sistemleri ve teknolojiler.", ["Karakterler", "Gezegenler", "Yıldız sistemleri", "Uzay gemileri", "Uzaylı türler", "Teknolojiler", "Yapay zekalar", "Koloniler", "Federasyonlar", "Şirketler", "Silah sistemleri", "Bilimsel kurallar", "Görev kayıtları", "Notlar"]],
@@ -1742,7 +1843,7 @@ const builtInTemplates = [
   ["horror", "Korku", "Ritüeller, canavarlar, gizemler ve travmalar.", ["Karakterler", "Kurbanlar", "Canavarlar", "Lanetler", "Ritüeller", "Yasak bilgiler", "Mekanlar", "Günlükler", "Gizemler", "Travmalar", "Doğaüstü kurallar", "Notlar"]],
   ["romance", "Romantik Drama", "İlişkiler, sırlar ve duygusal çatışmalar.", ["Stories", "Books", "Chapters", "Scenes", "Plot Threads", "Themes", "Karakterler", "İlişkiler", "Aileler", "Sosyal çevreler", "Geçmiş ilişkiler", "Duygusal çatışmalar", "Sırlar", "Dönüm noktaları", "Notlar"]],
   ["mythological", "Mitolojik", "Panteonlar, kutsal mekanlar ve ilahi yasalar.", ["Tanrılar", "Yarı tanrılar", "Panteonlar", "Kutsal mekanlar", "Ritüeller", "Kehanetler", "Efsaneler", "Kutsal eşyalar", "Ölüm sonrası alemler", "İlahi yasalar", "Notlar"]],
-  ["rpg", "RPG / D&D Campaign", "Campaign, NPC, görev, oturum ve encounter takibi.", ["Campaign", "Oyuncu karakterleri", "NPC'ler", "Parti üyeleri", "Görevler", "Oturum notları", "Mekanlar", "Zindanlar", "Encounter'lar", "Canavarlar", "Loot / Ödüller", "Fraksiyonlar", "Tanrılar", "Kural notları"]],
+  ["rpg", "RPG / D&D Campaign", "Campaign, NPC, görev, oturum ve encounter takibi.", ["Campaign", "Oyuncu karakterleri", "NPC'ler", "Parti üyeleri", "Görevler", "Oturum notları", "Mekanlar", "Maps", "Map Pins", "Routes", "Regions", "Zindanlar", "Encounter'lar", "Canavarlar", "Loot / Ödüller", "Fraksiyonlar", "Tanrılar", "Kural notları"]],
 ].map(([templateId, name, description, categories]) => ({
   id: templateId,
   name,
@@ -1872,6 +1973,23 @@ const translations = {
     connections: "Connections",
     relationshipOverview: "Relationship Overview",
     relationshipGraph: "Relationship Graph",
+    mapBoard: "Map Board",
+    mapPins: "Map pins",
+    selectMap: "Select map",
+    addMapImageHelp: "Add a map image to start placing pins.",
+    addPin: "Add pin",
+    editPin: "Edit pin",
+    deletePin: "Delete pin",
+    openLinkedEntry: "Open linked entry",
+    pinTypeLocation: "Location",
+    pinTypeCharacter: "Character",
+    pinTypeEvent: "Event",
+    pinTypeQuest: "Quest",
+    pinTypeOrganization: "Organization",
+    pinTypeItem: "Item",
+    pinTypeDanger: "Danger",
+    pinTypeSecret: "Secret",
+    pinTypeCustom: "Custom",
     storyPlanner: "Story Planner",
     sceneBoard: "Scene Board",
     storyPlanning: "Story planning",
@@ -2169,6 +2287,23 @@ const translations = {
     connections: "Bağlantılar",
     relationshipOverview: "Bağlantı görünümü",
     relationshipGraph: "Bağlantı Haritası",
+    mapBoard: "Harita Panosu",
+    mapPins: "Harita pinleri",
+    selectMap: "Harita seç",
+    addMapImageHelp: "Pin eklemeye başlamak için bir harita görseli ekle.",
+    addPin: "Pin ekle",
+    editPin: "Pini düzenle",
+    deletePin: "Pini sil",
+    openLinkedEntry: "Bağlı kaydı aç",
+    pinTypeLocation: "Mekân",
+    pinTypeCharacter: "Karakter",
+    pinTypeEvent: "Olay",
+    pinTypeQuest: "Görev",
+    pinTypeOrganization: "Örgüt",
+    pinTypeItem: "Eşya",
+    pinTypeDanger: "Tehlike",
+    pinTypeSecret: "Gizli",
+    pinTypeCustom: "Özel",
     storyPlanner: "Hikâye Planlayıcı",
     sceneBoard: "Sahne Panosu",
     storyPlanning: "Hikâye planlama",
@@ -2710,6 +2845,10 @@ function renderLeftPanel(universe) {
           <strong>${t("storyPlanner")}</strong>
           <small>${t("storyPlanning")}</small>
         </button>
+        <button class="category-button ${state.view === "mapBoard" ? "is-active" : ""}" data-action="map-board">
+          <strong>${t("mapBoard")}</strong>
+          <small>${t("mapPins")}</small>
+        </button>
         <button class="category-button ${state.view === "relationshipGraph" ? "is-active" : ""}" data-action="relationship-graph">
           <strong>${t("relationshipGraph")}</strong>
           <small>${t("connections")}</small>
@@ -2738,6 +2877,7 @@ function renderLeftPanel(universe) {
         <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
         <button class="secondary" data-action="templates">${t("templates")}</button>
         <button class="secondary" data-action="story-planner">${t("storyPlanner")}</button>
+        <button class="secondary" data-action="map-board">${t("mapBoard")}</button>
         <button class="secondary" data-action="timeline">${t("timeline")}</button>
         <button class="secondary" data-action="relationship-graph">${t("relationshipGraph")}</button>
         <button class="secondary" data-action="trash">${t("trash")}</button>
@@ -2758,6 +2898,7 @@ function renderMainPanel(universe) {
   if (state.view === "trash") return renderTrash(universe);
   if (state.view === "templates") return renderTemplates();
   if (state.view === "storyPlanner") return renderStoryPlannerView(universe);
+  if (state.view === "mapBoard") return renderMapBoardView(universe);
   if (state.view === "timeline") return renderTimelineView(universe);
   if (state.view === "relationshipGraph") return renderRelationshipGraphView(universe);
   return `
@@ -2789,6 +2930,7 @@ function renderMainPanelContent(universe) {
             <div class="category-overview__actions">
               <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : t("edit")}</button>
               ${category && storyCategoryTypes.has(getCategoryTypeKey(category)) ? `<button class="secondary" data-action="story-planner">${t("storyPlanner")}</button>` : ""}
+              ${category && mapCategoryTypes.has(getCategoryTypeKey(category)) ? `<button class="secondary" data-action="map-board">${t("mapBoard")}</button>` : ""}
               <button data-action="new-entity">${createEntityLabel(category)}</button>
               ${renderEntityViewToggle()}
             </div>
@@ -2844,6 +2986,7 @@ function renderProjectHome(universe) {
           <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
           <button class="secondary" data-action="open-first-family-tree">${t("familyTree")}</button>
           <button class="secondary" data-action="story-planner">${t("storyPlanner")}</button>
+          <button class="secondary" data-action="map-board">${t("mapBoard")}</button>
           <button class="secondary" data-action="timeline">${t("timeline")}</button>
           <button class="secondary" data-action="relationship-graph">${t("relationshipGraph")}</button>
           <button class="secondary" data-action="quick-note">${t("idea")}</button>
@@ -2890,7 +3033,13 @@ function filteredEntities(universeId) {
       .filter((note) => note.entityId === entity.id)
       .map((note) => `${note.title || ""} ${note.content} ${noteTypeLabel(note.type)}`)
       .join(" ");
-    return `${entity.title} ${entity.summary || ""} ${entity.content || ""} ${tagNames} ${notes}`
+    const customValues = Object.values(entity.customFieldValues || {}).map((value) => {
+      const entityValue = entityForId(value);
+      if (entityValue) return entityValue.title;
+      if (Array.isArray(value)) return value.map((item) => entityForId(item)?.title || item).join(" ");
+      return value;
+    }).join(" ");
+    return `${entity.title} ${entity.summary || ""} ${entity.content || ""} ${tagNames} ${notes} ${customValues}`
       .toLocaleLowerCase("tr")
       .includes(query);
   });
@@ -3062,6 +3211,7 @@ function renderEntityDetail(entity) {
         <h3 class="section-title">${sectionLabel("Notes")}</h3>
         <article class="markdown">${markdownToHtml(entity.content || t("noContent"))}</article>
       </section>
+      ${renderLinkedMapPins(entity)}
       ${renderRelationshipOverview(entity)}
       ${showFamilyTree ? renderFamilyTree(entity) : ""}
     </section>
@@ -3133,6 +3283,31 @@ function renderCustomFields(entity) {
         </section>
       `).join("")}
     </div>
+  `;
+}
+
+function renderLinkedMapPins(entity) {
+  const pins = mapPinEntities(entity.universeId).filter((pin) => pinField(pin, "Linked entry") === entity.id || pinField(pin, "Related event") === entity.id || pinField(pin, "Related quest") === entity.id);
+  if (!pins.length) return "";
+  return `
+    <section class="card stack">
+      <div class="row">
+        <h3 class="section-title">${t("mapPins")}</h3>
+        <button class="secondary" data-action="map-board-for-entity" data-id="${entity.id}">${t("mapBoard")}</button>
+      </div>
+      <div class="connection-card-grid">
+        ${pins.map((pin) => {
+          const map = entityForId(pinField(pin, "Map"));
+          return `
+            <button class="connection-card" data-action="select-map-pin" data-id="${pin.id}">
+              <strong>${escapeHtml(pin.title || pinField(pin, "Pin label") || t("mapPins"))}</strong>
+              <small>${escapeHtml(map?.title || t("selectMap"))}</small>
+              <span class="muted">${escapeHtml(pinTypeLabel(pinField(pin, "Pin type")))}</span>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    </section>
   `;
 }
 
@@ -3789,6 +3964,115 @@ function renderProjectNotesSummary(universe) {
   `;
 }
 
+const mapCategoryTypes = new Set(["maps", "mapPins", "routes", "regions"]);
+
+function mapEntities(universeId = state.selectedUniverseId) {
+  return universeEntities(universeId).filter((entity) => entityCategoryType(entity) === "maps");
+}
+
+function mapPinEntities(universeId = state.selectedUniverseId) {
+  return universeEntities(universeId).filter((entity) => entityCategoryType(entity) === "mapPins");
+}
+
+function mapImageValue(mapEntity) {
+  return fieldValueForName(mapEntity, entityCategory(mapEntity), "Map image");
+}
+
+function mapPinsForMap(mapId) {
+  return mapPinEntities().filter((pin) => fieldValueForName(pin, entityCategory(pin), "Map") === mapId);
+}
+
+function pinField(pin, name) {
+  if (!pin) return "";
+  return fieldValueForName(pin, entityCategory(pin), name);
+}
+
+function pinTypeLabel(type) {
+  return {
+    location: t("pinTypeLocation"),
+    character: t("pinTypeCharacter"),
+    event: t("pinTypeEvent"),
+    quest: t("pinTypeQuest"),
+    organization: t("pinTypeOrganization"),
+    item: t("pinTypeItem"),
+    danger: t("pinTypeDanger"),
+    secret: t("pinTypeSecret"),
+    custom: t("pinTypeCustom"),
+  }[String(type || "").toLocaleLowerCase("tr")] || type || t("pinTypeCustom");
+}
+
+function mapBoardState(universe) {
+  const maps = mapEntities(universe.id);
+  const selectedMap = maps.find((map) => map.id === state.selectedMapId) || maps[0] || null;
+  const pins = selectedMap ? mapPinsForMap(selectedMap.id).filter((pin) => String(pinField(pin, "Visible/hidden") || "visible").toLocaleLowerCase("tr") !== "hidden") : [];
+  const selectedPin = pins.find((pin) => pin.id === state.selectedMapPinId) || null;
+  return { maps, selectedMap, pins, selectedPin };
+}
+
+function renderMapPin(pin) {
+  const x = Math.min(100, Math.max(0, Number(pinField(pin, "X position") || 50)));
+  const y = Math.min(100, Math.max(0, Number(pinField(pin, "Y position") || 50)));
+  const type = String(pinField(pin, "Pin type") || "custom").toLocaleLowerCase("tr");
+  return `
+    <button class="map-pin map-pin--${escapeHtml(type)} ${state.selectedMapPinId === pin.id ? "is-active" : ""}" data-action="select-map-pin" data-id="${pin.id}" data-map-pin style="left:${x}%; top:${y}%;" title="${escapeHtml(pin.title)}">
+      <span></span>
+    </button>
+  `;
+}
+
+function renderMapPinPopover(pin) {
+  if (!pin) return "";
+  const linked = entityForId(pinField(pin, "Linked entry"));
+  return `
+    <aside class="map-pin-popover card stack">
+      <div>
+        <p class="muted">${escapeHtml(pinTypeLabel(pinField(pin, "Pin type")))}</p>
+        <h3>${escapeHtml(pin.title || pinField(pin, "Pin label") || t("mapPins"))}</h3>
+        ${pin.summary ? `<p>${escapeHtml(pin.summary)}</p>` : ""}
+      </div>
+      ${linked ? `<button class="secondary" data-action="select-entity" data-id="${linked.id}">${t("openLinkedEntry")}: ${escapeHtml(linked.title)}</button>` : ""}
+      ${pinField(pin, "Description") ? `<p class="muted">${escapeHtml(pinField(pin, "Description"))}</p>` : ""}
+      <div class="button-row">
+        <button class="secondary" data-action="edit-map-pin" data-id="${pin.id}">${t("editPin")}</button>
+        <button class="danger" data-action="delete-map-pin" data-id="${pin.id}">${t("deletePin")}</button>
+      </div>
+    </aside>
+  `;
+}
+
+function renderMapBoardView(universe) {
+  const { maps, selectedMap, pins, selectedPin } = mapBoardState(universe);
+  const imageValue = selectedMap ? mapImageValue(selectedMap) : "";
+  return `
+    <main class="main stack" data-main-panel>
+      <section class="toolbar">
+        <div class="subview-bar">
+          <button class="secondary" data-action="back-from-subview">â† ${t("back")}</button>
+          <h2>${t("mapBoard")}</h2>
+        </div>
+        <button data-action="new-map-entry" data-type="maps">${createEntityLabel({ name: "Maps" })}</button>
+      </section>
+      <section class="timeline-filters">
+        <label>${t("selectMap")}
+          <select data-map-select>
+            ${maps.map((map) => `<option value="${map.id}" ${selectedMap?.id === map.id ? "selected" : ""}>${escapeHtml(map.title)}</option>`).join("")}
+          </select>
+        </label>
+        <button class="secondary" data-action="add-map-pin" ${selectedMap ? "" : "disabled"}>${t("addPin")}</button>
+      </section>
+      ${selectedMap && imageValue ? `
+        <section class="map-board-layout">
+          <div class="map-canvas" data-map-canvas data-map-id="${selectedMap.id}">
+            <img src="${escapeHtml(imageValue)}" alt="${escapeHtml(selectedMap.title)}" draggable="false" />
+            ${pins.map(renderMapPin).join("")}
+          </div>
+          ${renderMapPinPopover(selectedPin)}
+        </section>
+      ` : `<section class="empty"><h3>${t("mapBoard")}</h3><p>${t("addMapImageHelp")}</p></section>`}
+    </main>
+  `;
+}
+
 const timelineCategoryTypes = new Set(["events", "wars", "sessionNotes", "quests", "scenes", "chapters"]);
 const storyCategoryTypes = new Set(["stories", "books", "chapters", "scenes", "plotThreads", "themes", "draftNotes"]);
 const sceneBoardStatuses = ["idea", "planned", "drafting", "revised", "done"];
@@ -4291,6 +4575,7 @@ function bindEvents() {
   bindTimelineFilterEvents(document);
   bindGraphFilterEvents(document);
   bindStoryPlannerFilterEvents(document);
+  bindMapBoardEvents(document);
   document.querySelectorAll("[data-search]").forEach((input) => {
     input.addEventListener("input", (event) => {
       state.search = event.target.value;
@@ -4416,6 +4701,13 @@ const actions = {
   "story-planner"() {
     setState({ view: "storyPlanner", selectedEntityId: null, search: "" });
   },
+  "map-board"() {
+    setState({ view: "mapBoard", selectedEntityId: null, search: "" });
+  },
+  "map-board-for-entity"({ id: entityId }) {
+    const pin = mapPinEntities().find((item) => pinField(item, "Linked entry") === entityId || pinField(item, "Related event") === entityId || pinField(item, "Related quest") === entityId);
+    setState({ view: "mapBoard", selectedEntityId: null, selectedMapId: pin ? pinField(pin, "Map") : state.selectedMapId, selectedMapPinId: pin?.id || null });
+  },
   "relationship-graph"() {
     setState({ view: "relationshipGraph", selectedEntityId: null, graphFocusEntityId: null, search: "" });
   },
@@ -4506,6 +4798,35 @@ const actions = {
     state.view = "universe";
     saveState();
     openEntityModal();
+  },
+  "new-map-entry"({ type }) {
+    const category = ensureMapCategory(type || "maps");
+    if (!category) return;
+    state.selectedCategoryId = category.id;
+    state.selectedEntityId = null;
+    state.view = "universe";
+    saveState();
+    openEntityModal();
+  },
+  "add-map-pin"() {
+    const universe = currentUniverse();
+    if (!universe) return;
+    const { selectedMap } = mapBoardState(universe);
+    if (!selectedMap) return;
+    openMapPinModal(null, { mapId: selectedMap.id, x: 50, y: 50 });
+  },
+  "select-map-pin"({ id: pinId }) {
+    const pin = entityForId(pinId);
+    if (!pin) return;
+    setState({ view: "mapBoard", selectedMapId: pinField(pin, "Map") || state.selectedMapId, selectedMapPinId: pin.id, selectedEntityId: null });
+  },
+  "edit-map-pin"({ id: pinId }) {
+    openMapPinModal(entityForId(pinId));
+  },
+  "delete-map-pin"({ id: pinId }) {
+    if (!confirm(t("confirmPageDelete"))) return;
+    softDelete("entities", pinId);
+    setState({ selectedMapPinId: null });
   },
   "set-entity-view"({ mode }) {
     state.settings.entityViewMode = mode === "list" ? "list" : "cards";
@@ -4713,6 +5034,59 @@ function bindStoryPlannerFilterEvents(root) {
       state.storyPlannerFilters = { ...storyPlannerFilters(), [filter]: event.currentTarget.value };
       saveState();
       render();
+    });
+  });
+}
+
+function bindMapBoardEvents(root) {
+  root.querySelectorAll("[data-map-select]").forEach((select) => {
+    select.addEventListener("change", (event) => {
+      state.selectedMapId = event.currentTarget.value;
+      state.selectedMapPinId = null;
+      saveState();
+      render();
+    });
+  });
+  const canvas = root.querySelector("[data-map-canvas]");
+  if (canvas) {
+    canvas.addEventListener("click", (event) => {
+      if (event.target.closest("[data-map-pin]")) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 100;
+      const y = ((event.clientY - rect.top) / rect.height) * 100;
+      openMapPinModal(null, { mapId: canvas.dataset.mapId, x, y });
+    });
+  }
+  root.querySelectorAll("[data-map-pin]").forEach((pinButton) => {
+    let dragging = false;
+    pinButton.addEventListener("pointerdown", (event) => {
+      const board = pinButton.closest("[data-map-canvas]");
+      if (!board) return;
+      event.preventDefault();
+      dragging = true;
+      pinButton.setPointerCapture(event.pointerId);
+      pinButton.classList.add("is-dragging");
+      const move = (moveEvent) => {
+        if (!dragging) return;
+        const rect = board.getBoundingClientRect();
+        const x = Math.min(100, Math.max(0, ((moveEvent.clientX - rect.left) / rect.width) * 100));
+        const y = Math.min(100, Math.max(0, ((moveEvent.clientY - rect.top) / rect.height) * 100));
+        pinButton.style.left = `${x}%`;
+        pinButton.style.top = `${y}%`;
+      };
+      const finish = (upEvent) => {
+        if (!dragging) return;
+        dragging = false;
+        pinButton.classList.remove("is-dragging");
+        pinButton.removeEventListener("pointermove", move);
+        pinButton.removeEventListener("pointerup", finish);
+        const rect = board.getBoundingClientRect();
+        const x = Math.min(100, Math.max(0, ((upEvent.clientX - rect.left) / rect.width) * 100)).toFixed(2);
+        const y = Math.min(100, Math.max(0, ((upEvent.clientY - rect.top) / rect.height) * 100)).toFixed(2);
+        moveMapPin(pinButton.dataset.id, x, y);
+      };
+      pinButton.addEventListener("pointermove", move);
+      pinButton.addEventListener("pointerup", finish);
     });
   });
 }
@@ -5230,6 +5604,13 @@ const defaultStoryCategoryNames = {
   draftNotes: "Draft Notes",
 };
 
+const defaultMapCategoryNames = {
+  maps: "Maps",
+  mapPins: "Map Pins",
+  routes: "Routes",
+  regions: "Regions",
+};
+
 function ensureStoryCategory(type) {
   const universe = currentUniverse();
   if (!universe) return null;
@@ -5254,6 +5635,173 @@ function ensureStoryCategory(type) {
   state.categories.push(category);
   saveState();
   return category;
+}
+
+function ensureMapCategory(type) {
+  const universe = currentUniverse();
+  if (!universe) return null;
+  const existing = universeCategories(universe.id, true).find((category) => getCategoryTypeKey(category) === type);
+  if (existing) return existing;
+  const name = defaultMapCategoryNames[type] || "Maps";
+  const category = {
+    id: id("category"),
+    universeId: universe.id,
+    name,
+    description: "",
+    icon: "⌖",
+    color: state.settings.accentColor || "#9a4f2e",
+    order: universeCategories(universe.id, true).length,
+    isDefault: true,
+    isHidden: false,
+    customFields: createFieldDefinitions(name),
+    createdAt: now(),
+    updatedAt: now(),
+    deletedAt: null,
+  };
+  state.categories.push(category);
+  saveState();
+  return category;
+}
+
+function setCustomFieldValue(values, category, presetName, value) {
+  const field = fieldByPresetName(category, presetName);
+  if (!field) return values;
+  const key = fieldStorageKey(field);
+  if (value === null || value === undefined || value === "") delete values[key];
+  else values[key] = value;
+  return values;
+}
+
+function moveMapPin(pinId, x, y) {
+  const pin = entityForId(pinId);
+  if (!pin) return;
+  const category = entityCategory(pin);
+  let next = { ...pin };
+  next = setFieldValueForName(next, category, "X position", x);
+  next = setFieldValueForName(next, category, "Y position", y);
+  state.entities = state.entities.map((entity) => entity.id === pin.id ? next : entity);
+  state.selectedMapPinId = pin.id;
+  saveState();
+  render();
+}
+
+function pinTypeOptions(selected = "custom") {
+  const types = [
+    ["location", t("pinTypeLocation")],
+    ["character", t("pinTypeCharacter")],
+    ["event", t("pinTypeEvent")],
+    ["quest", t("pinTypeQuest")],
+    ["organization", t("pinTypeOrganization")],
+    ["item", t("pinTypeItem")],
+    ["danger", t("pinTypeDanger")],
+    ["secret", t("pinTypeSecret")],
+    ["custom", t("pinTypeCustom")],
+  ];
+  const selectedType = String(selected || "custom").toLocaleLowerCase("tr");
+  return types.map(([value, label]) => `<option value="${value}" ${selectedType === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+}
+
+function presetFieldLabel(name) {
+  return state.settings.language === "tr" ? fieldPresetLabelTranslations[name] || name : name;
+}
+
+function openMapPinModal(pin = null, defaults = {}) {
+  const category = ensureMapCategory("mapPins");
+  const maps = mapEntities();
+  if (!category || !maps.length) {
+    alert(t("addMapImageHelp"));
+    return;
+  }
+  const isEditing = Boolean(pin?.id);
+  const mapId = defaults.mapId || (pin ? pinField(pin, "Map") : state.selectedMapId) || maps[0]?.id || "";
+  const linkedId = pin ? pinField(pin, "Linked entry") : "";
+  const relatedEventId = pin ? pinField(pin, "Related event") : "";
+  const relatedQuestId = pin ? pinField(pin, "Related quest") : "";
+  const linkTargets = universeEntities().filter((entity) => entityCategoryType(entity) !== "mapPins");
+  const eventTargets = universeEntities().filter((entity) => ["events", "wars", "scenes", "chapters"].includes(entityCategoryType(entity)));
+  const questTargets = universeEntities().filter((entity) => entityCategoryType(entity) === "quests");
+  openModal(isEditing ? t("editPin") : t("addPin"), `
+    <form class="form-grid">
+      <label>${presetFieldLabel("Pin label")} <input name="pinLabel" required value="${escapeHtml(pin?.title || pinField(pin, "Pin label") || "")}" /></label>
+      <label>${presetFieldLabel("Pin type")} <select name="pinType">${pinTypeOptions(pinField(pin, "Pin type"))}</select></label>
+      <label>${t("selectMap")}
+        <select name="mapId">
+          ${maps.map((map) => `<option value="${map.id}" ${map.id === mapId ? "selected" : ""}>${escapeHtml(map.title)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${presetFieldLabel("Linked entry")}
+        <select name="linkedEntry">
+          <option value="">${t("selectPlaceholder")}</option>
+          ${linkTargets.map((entity) => `<option value="${entity.id}" ${entity.id === linkedId ? "selected" : ""}>${escapeHtml(entity.title)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${presetFieldLabel("Related event")}
+        <select name="relatedEvent">
+          <option value="">${t("selectPlaceholder")}</option>
+          ${eventTargets.map((entity) => `<option value="${entity.id}" ${entity.id === relatedEventId ? "selected" : ""}>${escapeHtml(entity.title)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${presetFieldLabel("Related quest")}
+        <select name="relatedQuest">
+          <option value="">${t("selectPlaceholder")}</option>
+          ${questTargets.map((entity) => `<option value="${entity.id}" ${entity.id === relatedQuestId ? "selected" : ""}>${escapeHtml(entity.title)}</option>`).join("")}
+        </select>
+      </label>
+      <label>${presetFieldLabel("Description")} <textarea name="description">${escapeHtml(pinField(pin, "Description") || pin?.summary || "")}</textarea></label>
+      <label>${presetFieldLabel("Visible/hidden")}
+        <select name="visibility">
+          <option value="visible" ${String(pinField(pin, "Visible/hidden") || "visible") !== "hidden" ? "selected" : ""}>${t("show")}</option>
+          <option value="hidden" ${String(pinField(pin, "Visible/hidden")) === "hidden" ? "selected" : ""}>${t("hide")}</option>
+        </select>
+      </label>
+      <input type="hidden" name="x" value="${escapeHtml(defaults.x?.toFixed?.(2) || pinField(pin, "X position") || "50")}" />
+      <input type="hidden" name="y" value="${escapeHtml(defaults.y?.toFixed?.(2) || pinField(pin, "Y position") || "50")}" />
+      <div class="button-row"><button type="submit">${t("save")}</button></div>
+    </form>
+  `, (form) => {
+    const title = String(form.get("pinLabel") || "").trim();
+    if (!title) return false;
+    const values = { ...(pin?.customFieldValues || {}) };
+    setCustomFieldValue(values, category, "Pin label", title);
+    setCustomFieldValue(values, category, "Pin type", form.get("pinType"));
+    setCustomFieldValue(values, category, "Map", form.get("mapId"));
+    setCustomFieldValue(values, category, "Linked entry", form.get("linkedEntry"));
+    setCustomFieldValue(values, category, "Related event", form.get("relatedEvent"));
+    setCustomFieldValue(values, category, "Related quest", form.get("relatedQuest"));
+    setCustomFieldValue(values, category, "Description", form.get("description"));
+    setCustomFieldValue(values, category, "Visible/hidden", form.get("visibility"));
+    setCustomFieldValue(values, category, "X position", form.get("x"));
+    setCustomFieldValue(values, category, "Y position", form.get("y"));
+    addReferenceLabelSnapshots(values, category.customFields || []);
+    if (isEditing) {
+      state.entities = state.entities.map((entity) => entity.id === pin.id ? { ...pin, title, summary: form.get("description"), customFieldValues: values, updatedAt: now() } : entity);
+      state.selectedMapId = form.get("mapId");
+      state.selectedMapPinId = pin.id;
+      saveState();
+      render();
+      return;
+    }
+    const entityId = id("entity");
+    state.entities.push({
+      id: entityId,
+      universeId: state.selectedUniverseId,
+      categoryId: category.id,
+      title,
+      summary: form.get("description"),
+      content: "",
+      customFieldValues: values,
+      coverImage: "",
+      icon: "",
+      tagIds: [],
+      createdAt: now(),
+      updatedAt: now(),
+      deletedAt: null,
+    });
+    state.selectedMapId = form.get("mapId");
+    state.selectedMapPinId = entityId;
+    saveState();
+    render();
+  });
 }
 
 function moveStoryItem(entityId, direction) {

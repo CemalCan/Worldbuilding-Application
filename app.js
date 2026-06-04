@@ -406,6 +406,7 @@ const categoryPresetAliases = {
   books: "books",
   kitaplar: "books",
   chapters: "chapters",
+  bolumler: "chapters",
   bölümler: "chapters",
   scenes: "scenes",
   sahneler: "scenes",
@@ -417,13 +418,16 @@ const categoryPresetAliases = {
   "draft notes": "draftNotes",
   "taslak notları": "draftNotes",
   maps: "maps",
+  map: "maps",
   haritalar: "maps",
+  harita: "maps",
   "map pins": "mapPins",
   pins: "mapPins",
   pinler: "mapPins",
   routes: "routes",
   rotalar: "routes",
   regions: "regions",
+  bolgeler: "regions",
   bölgeler: "regions",
   characters: "characters",
   karakterler: "characters",
@@ -461,15 +465,14 @@ const categoryPresetAliases = {
   koloniler: "locations",
   shelters: "locations",
   "sığınaklar": "locations",
-  maps: "locations",
-  haritalar: "locations",
   dungeons: "locations",
   zindanlar: "locations",
   "holy places": "locations",
   "kutsal mekanlar": "locations",
   events: "events",
   olaylar: "events",
-  wars: "events",
+  wars: "wars",
+  savaslar: "wars",
   "savaşlar": "events",
   scenes: "scenes",
   sahneler: "scenes",
@@ -622,6 +625,8 @@ const categoryPresetAliases = {
 function normalizeCategoryName(name) {
   return String(name || "")
     .toLocaleLowerCase("tr")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .trim();
 }
 
@@ -629,6 +634,20 @@ function getFieldPresetNames(categoryName) {
   const normalized = normalizeCategoryName(categoryName);
   const group = categoryPresetAliases[normalized];
   return group ? categoryFieldPresetGroups[group] || [] : [];
+}
+
+function inferCategoryTypeFromFields(category) {
+  const keys = new Set((category?.customFields || []).map((field) => fieldStorageKey(field)));
+  let bestType = "";
+  let bestScore = 0;
+  Object.entries(categoryFieldPresetGroups).forEach(([type, names]) => {
+    const score = names.filter((name) => keys.has(fieldPresetKey(name))).length;
+    if (score > bestScore) {
+      bestType = type;
+      bestScore = score;
+    }
+  });
+  return bestScore >= 2 ? bestType : "";
 }
 
 const entityTypeLabels = {
@@ -725,7 +744,10 @@ const entityTypeLabels = {
 };
 
 function getCategoryTypeKey(category) {
-  return categoryPresetAliases[normalizeCategoryName(category?.name)] || "entry";
+  if (!category) return "entry";
+  const explicitType = category.presetType || category.typeKey || category.categoryType;
+  if (explicitType && categoryFieldPresetGroups[explicitType]) return explicitType;
+  return categoryPresetAliases[normalizeCategoryName(category.name)] || inferCategoryTypeFromFields(category) || "entry";
 }
 
 function getEntityTypeLabel(category, form = "singular") {
@@ -788,8 +810,9 @@ function lockedCategoryMessage(category) {
 }
 
 function createFieldDefinitions(categoryName) {
+  const categoryType = categoryTypeForName(categoryName);
   return getFieldPresetNames(categoryName).map((name) => {
-    const targetCategoryTypes = referenceTargetTypes(categoryName, name);
+    const targetCategoryTypes = referenceTargetTypes(categoryType || categoryName, name);
     return {
       id: id("field"),
       name,
@@ -915,7 +938,7 @@ const referenceFieldTargets = {
     "Main characters": ["characters"],
     "Start event": ["events", "wars", "sessionNotes", "quests"],
     "End event": ["events", "wars", "sessionNotes", "quests"],
-    "Related timeline entries": ["events", "wars", "sessionNotes", "quests", "scenes", "chapters"],
+    "Related timeline entries": ["events", "wars", "sessionNotes", "quests"],
   },
   books: {
     "POV characters": ["characters"],
@@ -949,12 +972,12 @@ const referenceFieldTargets = {
   maps: {
     "Related locations": ["locations"],
     "Related regions": ["regions"],
-    "Related events": ["events", "wars", "scenes", "chapters", "quests"],
+    "Related events": ["events", "wars", "sessionNotes", "quests"],
   },
   mapPins: {
     "Linked entry": ["locations", "characters", "events", "quests", "organizations", "items", "creatures", "regions"],
     Map: ["maps"],
-    "Related event": ["events", "wars", "scenes", "chapters"],
+    "Related event": ["events", "wars", "sessionNotes", "quests"],
     "Related quest": ["quests"],
   },
   routes: {
@@ -1069,7 +1092,7 @@ function referenceTargetTypes(categoryName, fieldName) {
     "End event": ["events", "wars"],
     "Start chapter": ["chapters"],
     "End chapter": ["chapters"],
-    "Related timeline entries": ["events", "wars", "sessionNotes", "quests", "scenes", "chapters"],
+    "Related timeline entries": ["events", "wars", "sessionNotes", "quests"],
     "Related locations": ["locations"],
     "Related regions": ["regions"],
     "Linked entry": ["locations", "characters", "events", "quests", "organizations", "items", "creatures", "regions"],
@@ -1126,7 +1149,23 @@ function fieldStorageKey(field) {
 
 function isSystemFieldValueKey(key) {
   const valueKey = String(key || "");
-  return valueKey.endsWith(":label") || valueKey.endsWith(":labels") || valueKey.endsWith(":position");
+  return valueKey.endsWith(":label")
+    || valueKey.endsWith(":labels")
+    || valueKey.endsWith(":position")
+    || /^preset:[^:]+:(label|labels|position)$/i.test(valueKey)
+    || valueKey.startsWith("__")
+    || valueKey.startsWith("sync:");
+}
+
+function isSystemFieldValueEntry(key, value) {
+  if (isSystemFieldValueKey(key)) return true;
+  if (String(key || "").startsWith("preset:") && /labels?/i.test(String(key))) return true;
+  if (typeof value === "string" && value.trim().startsWith("{")) {
+    const parsed = parseJsonObject(value);
+    const keys = Object.keys(parsed);
+    if (keys.length && keys.every((item) => looksLikeEntityId(item))) return true;
+  }
+  return false;
 }
 
 function fieldLabel(field) {
@@ -1467,6 +1506,23 @@ const fieldTypeText = {
 
 function fieldTypeInfo(type) {
   const language = state?.settings?.language || "en";
+  if (language === "tr") {
+    const trLabels = {
+      text: "KÄ±sa Metin",
+      longText: "Uzun Metin",
+      number: "SayÄ±",
+      date: "Tarih",
+      boolean: "Evet/HayÄ±r",
+      select: "Tek SeÃ§im",
+      multiSelect: "Ã‡oklu SeÃ§im",
+      entityReference: "KayÄ±t BaÄŸlantÄ±sÄ±",
+      entityReferenceList: "KayÄ±t BaÄŸlantÄ± Listesi",
+      url: "URL",
+      image: "GÃ¶rsel",
+    };
+    const base = fieldTypeText.tr?.[type] || fieldTypeText.en[type] || { help: "" };
+    return { ...base, label: trLabels[type] || base.label || type };
+  }
   return fieldTypeText[language]?.[type] || fieldTypeText.en[type] || { label: type, help: "" };
 }
 
@@ -1475,6 +1531,30 @@ function renderFieldTypeOptions(selectedType = "text") {
     const typeInfo = fieldTypeInfo(type);
     return `<option value="${type}" title="${escapeHtml(typeInfo.help)}" ${selectedType === type ? "selected" : ""}>${escapeHtml(typeInfo.label)}</option>`;
   }).join("");
+}
+
+function addFieldButtonLabel() {
+  return state.settings.language === "tr" ? "Alan Ekle" : "Add Field";
+}
+
+function linkedCategoryLabel() {
+  return state.settings.language === "tr" ? "BaÄŸlÄ± Kategori" : "Linked Category";
+}
+
+function addRequiredCategoryLabel() {
+  return state.settings.language === "tr" ? "Gerekli kategoriyi ÅŸablondan ekle" : "Add required category from template";
+}
+
+function editCategoryLabel() {
+  return state.settings.language === "tr" ? "Kategoriyi DÃ¼zenle" : "Edit Category";
+}
+
+function editEntryLabel() {
+  return state.settings.language === "tr" ? "KaydÄ± DÃ¼zenle" : "Edit Entry";
+}
+
+function organizeCategoriesLabel() {
+  return state.settings.language === "tr" ? "Kategorileri DÃ¼zenle" : "Organize Categories";
 }
 
 function categoryTypeOptions(selectedTypes = []) {
@@ -1636,7 +1716,7 @@ function setImagePreviewPositionFromPointer(fieldElement, event) {
 }
 
 function renderFieldManager(fields, category) {
-  const rows = [...fields, ...Array.from({ length: 3 }, () => ({ id: "", name: "", type: "text", required: false }))];
+  const rows = [...fields];
   return `
     <section class="card stack" data-field-manager>
       <div class="row">
@@ -1644,42 +1724,53 @@ function renderFieldManager(fields, category) {
         <div class="button-row">
           <button class="secondary" type="button" tabindex="-1" data-reset-field-order>${t("resetFieldOrder")}</button>
           <button class="secondary" type="button" tabindex="-1" data-reset-category-fields>${t("resetFields")}</button>
+          <button class="secondary" type="button" data-add-category-field>${addFieldButtonLabel()}</button>
         </div>
       </div>
       <p class="muted">${t("addFieldHint")}</p>
-      <div class="stack">
-        ${rows.map((field) => `
-          <div class="field-editor-row two-col" data-field-editor-row>
-            <button class="field-drag-handle" type="button" draggable="true" tabindex="-1" data-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">::</button>
-            <label>${t("fieldName")}
-              <input name="fieldName" value="${escapeHtml(fieldLabel(field))}" />
-            </label>
-            <label>${t("fieldType")}
-              <select name="fieldType" title="${escapeHtml(fieldTypeInfo(field.type || "text").help)}">
-                ${renderFieldTypeOptions(field.type || "text")}
-              </select>
-              <small class="muted">${escapeHtml(fieldTypeInfo(field.type || "text").help)}</small>
-            </label>
-            <label>Section
-              <input name="fieldSection" value="${escapeHtml(field.section || fieldSectionName(category, field))}" />
-            </label>
-            <label>Entry link target
-              <select name="fieldTargetTypes" multiple size="5">
-                ${categoryTypeOptions(field.targetCategoryTypes || [])}
-              </select>
-              <small class="muted">Used by Entry link and Entry link list fields.</small>
-            </label>
-            <div class="field-row-actions" aria-label="${escapeHtml(t("fieldActions"))}">
-              <button class="secondary danger-text" type="button" tabindex="-1" data-remove-category-field title="${escapeHtml(t("removeField"))}">x ${t("removeField")}</button>
-            </div>
-            <input type="hidden" name="fieldId" value="${escapeHtml(field.id || "")}" />
-            <input type="hidden" name="fieldPresetKey" value="${escapeHtml(field.presetKey || "")}" />
-            <input type="hidden" name="fieldOriginalName" value="${escapeHtml(field.name || "")}" />
-            <input type="hidden" name="fieldBuiltIn" value="${field.isBuiltIn ? "true" : "false"}" />
-          </div>
-        `).join("")}
+      <datalist id="field-section-options">
+        ${Object.keys(sectionLabelTranslations).map((section) => `<option value="${escapeHtml(sectionLabel(section))}"></option>`).join("")}
+      </datalist>
+      <div class="stack" data-field-editor-list>
+        ${rows.map((field) => renderFieldEditorRow(field, category)).join("")}
       </div>
     </section>
+  `;
+}
+
+function renderFieldEditorRow(field = { id: "", name: "", type: "text", required: false }, category) {
+  const fieldType = field.type || "text";
+  const isLinkType = fieldType === "entityReference" || fieldType === "entityReferenceList";
+  const sectionValue = field.section || fieldSectionName(category, field);
+  return `
+    <div class="field-editor-row two-col" data-field-editor-row>
+      <button class="field-drag-handle" type="button" draggable="true" tabindex="-1" data-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">::</button>
+      <label>${t("fieldName")}
+        <input name="fieldName" value="${escapeHtml(fieldLabel(field))}" />
+      </label>
+      <label>${t("fieldType")}
+        <select name="fieldType" title="${escapeHtml(fieldTypeInfo(fieldType).help)}">
+          ${renderFieldTypeOptions(fieldType)}
+        </select>
+        <small class="muted">${escapeHtml(fieldTypeInfo(fieldType).help)}</small>
+      </label>
+      <label>${state.settings.language === "tr" ? "BÃ¶lÃ¼m" : "Section"}
+        <input name="fieldSection" list="field-section-options" value="${escapeHtml(sectionLabel(sectionValue))}" data-section-input />
+      </label>
+      <label data-link-target-field ${isLinkType ? "" : "hidden"}>${linkedCategoryLabel()}
+        <select name="fieldTargetTypes" multiple size="5">
+          ${categoryTypeOptions(field.targetCategoryTypes || [])}
+        </select>
+        <small class="muted">${fieldTypeInfo("entityReference").help}</small>
+      </label>
+      <div class="field-row-actions" aria-label="${escapeHtml(t("fieldActions"))}">
+        <button class="secondary danger-text" type="button" tabindex="-1" data-remove-category-field title="${escapeHtml(t("removeField"))}">x ${t("removeField")}</button>
+      </div>
+      <input type="hidden" name="fieldId" value="${escapeHtml(field.id || "")}" />
+      <input type="hidden" name="fieldPresetKey" value="${escapeHtml(field.presetKey || "")}" />
+      <input type="hidden" name="fieldOriginalName" value="${escapeHtml(field.name || "")}" />
+      <input type="hidden" name="fieldBuiltIn" value="${field.isBuiltIn ? "true" : "false"}" />
+    </div>
   `;
 }
 function collectCategoryFields(form) {
@@ -1693,7 +1784,7 @@ function collectCategoryFields(form) {
       presetKey: row.querySelector('[name="fieldPresetKey"]')?.value || undefined,
       isBuiltIn: row.querySelector('[name="fieldBuiltIn"]')?.value === "true",
       targetCategoryTypes: [...(row.querySelector('[name="fieldTargetTypes"]')?.selectedOptions || [])].map((option) => option.value),
-      section: String(row.querySelector('[name="fieldSection"]')?.value || "").trim() || undefined,
+      section: sectionKeyFromLabel(String(row.querySelector('[name="fieldSection"]')?.value || "").trim()) || undefined,
       originalName: row.querySelector('[name="fieldOriginalName"]')?.value || "",
     }))
     .filter((field) => field.name)
@@ -1765,6 +1856,23 @@ function fieldFromEditorRow(row) {
 }
 
 function attachCategoryFieldActions(category) {
+  const syncLinkTargetVisibility = (row) => {
+    const type = row.querySelector('[name="fieldType"]')?.value || "text";
+    const target = row.querySelector("[data-link-target-field]");
+    if (target) target.hidden = !(type === "entityReference" || type === "entityReferenceList");
+  };
+  const attachDynamicFieldControls = () => {
+    document.querySelectorAll("[data-field-editor-row]").forEach((row) => {
+      syncLinkTargetVisibility(row);
+      row.querySelector('[name="fieldType"]')?.addEventListener("change", () => syncLinkTargetVisibility(row));
+    });
+  };
+  document.querySelector("[data-add-category-field]")?.addEventListener("click", () => {
+    const list = document.querySelector("[data-field-editor-list]");
+    if (!list) return;
+    list.insertAdjacentHTML("beforeend", renderFieldEditorRow({ id: "", name: "", type: "text", required: false }, category));
+    attachCategoryFieldActions(category);
+  });
   document.querySelector("[data-reset-field-order]")?.addEventListener("click", () => {
     const form = document.querySelector(".modal-backdrop form");
     const fieldSection = form?.querySelector("[data-field-manager]");
@@ -1799,6 +1907,7 @@ function attachCategoryFieldActions(category) {
     });
   });
   attachFieldDragReorder();
+  attachDynamicFieldControls();
 }
 
 function attachFieldDragReorder() {
@@ -2081,6 +2190,11 @@ const translations = {
     storyPlanning: "Story planning",
     storyStatus: "Status",
     statusIdea: "Idea",
+    emptyStatusIdea: "No ideas yet.",
+    emptyStatusPlanned: "No planned scenes yet.",
+    emptyStatusDrafting: "No drafting scenes yet.",
+    emptyStatusRevised: "No revised scenes yet.",
+    emptyStatusDone: "No finished scenes yet.",
     statusPlanned: "Planned",
     statusDrafting: "Drafting",
     statusRevising: "Revising",
@@ -2214,7 +2328,10 @@ const translations = {
     customFieldsLabel: "Custom fields",
     fieldName: "Field name",
     fieldType: "Field type",
-    addFieldHint: "Use empty rows to add custom fields. Drag rows to reorder or use remove to hide a field.",
+    addField: "Add Field",
+    linkedCategory: "Linked Category",
+    addFieldHint: "Use Add Field to create custom fields. Drag rows to reorder or use remove to hide a field.",
+    addRequiredCategory: "Add required category from template",
     resetFields: "Reset fields to default",
     resetFieldOrder: "Reset field order to default",
     removedFieldWarning: "Some removed fields have existing page values. The values will be preserved as raw data, but hidden from the category form. Continue?",
@@ -2800,6 +2917,14 @@ function universeCategories(universeId = state.selectedUniverseId, includeHidden
     .sort((a, b) => a.order - b.order);
 }
 
+function sectionKeyFromLabel(label) {
+  const value = String(label || "").trim();
+  if (!value) return "";
+  if (state.settings.language !== "tr") return value;
+  const match = Object.entries(sectionLabelTranslations).find(([, translated]) => translated === value);
+  return match?.[0] || value;
+}
+
 function universeEntities(universeId = state.selectedUniverseId) {
   return activeItems(state.entities).filter((entity) => entity.universeId === universeId);
 }
@@ -2810,6 +2935,67 @@ function currentCategory() {
 
 function currentEntity() {
   return state.entities.find((entity) => entity.id === state.selectedEntityId && !entity.deletedAt);
+}
+
+function categoryByType(type, universeId = state.selectedUniverseId, options = {}) {
+  const categories = universeCategories(universeId, Boolean(options.includeHidden));
+  return categories.find((category) => getCategoryTypeKey(category) === type) || null;
+}
+
+function categoriesByTypes(types, universeId = state.selectedUniverseId, options = {}) {
+  const allowed = new Set(types || []);
+  return universeCategories(universeId, Boolean(options.includeHidden))
+    .filter((category) => allowed.has(getCategoryTypeKey(category)));
+}
+
+function entitiesByCategoryTypes(types, universeId = state.selectedUniverseId) {
+  const categoryIds = new Set(categoriesByTypes(types, universeId, { includeHidden: true }).map((category) => category.id));
+  return universeEntities(universeId).filter((entity) => categoryIds.has(entity.categoryId));
+}
+
+function templatePresetForType(type) {
+  for (const template of activeItems(state.templates || [])) {
+    const preset = (template.categoryPresets || []).find((item) => getCategoryTypeKey({ ...item, presetType: item.presetType || categoryTypeForName(item.name) }) === type);
+    if (preset) return { template, preset };
+  }
+  for (const template of builtInTemplates) {
+    const preset = (template.categoryPresets || []).find((item) => getCategoryTypeKey({ ...item, presetType: item.presetType || categoryTypeForName(item.name) }) === type);
+    if (preset) return { template, preset };
+  }
+  return null;
+}
+
+function createRequiredCategory(type, universeId = state.selectedUniverseId) {
+  const universe = state.universes.find((item) => item.id === universeId && !item.deletedAt);
+  if (!universe) return null;
+  const existing = categoryByType(type, universeId, { includeHidden: true });
+  if (existing) {
+    if (existing.isHidden) updateItem("categories", existing.id, { isHidden: false });
+    return state.categories.find((category) => category.id === existing.id) || existing;
+  }
+  const match = templatePresetForType(type);
+  const preset = match?.preset || { name: defaultRequiredCategoryNames[type] || type };
+  const name = preset.name || defaultRequiredCategoryNames[type] || type;
+  const fields = preset.customFields?.length ? cloneFieldDefinitions(preset.customFields) : createFieldDefinitions(name);
+  const category = {
+    id: id("category"),
+    universeId,
+    name,
+    presetType: type,
+    description: preset.description || "",
+    icon: "",
+    color: "",
+    order: universeCategories(universeId, true).length,
+    isDefault: true,
+    isHidden: false,
+    customFields: fields.length ? fields : createFieldDefinitions(name),
+    createdAt: now(),
+    updatedAt: now(),
+    deletedAt: null,
+  };
+  state.categories.push(category);
+  saveState();
+  return category;
 }
 
 function escapeHtml(value = "") {
@@ -3030,7 +3216,7 @@ function renderLeftPanel(universe) {
                 ${isEditingOrganization ? `
                   <div class="category-controls" aria-label="${escapeHtml(t("organizationEditMode"))}">
                     <span class="drag-handle" draggable="true" tabindex="-1" data-category-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">::</span>
-                    <button class="secondary" tabindex="-1" data-action="edit-category" data-id="${category.id}">${t("edit")}</button>
+                    <button class="secondary" tabindex="-1" data-action="edit-category" data-id="${category.id}">${editCategoryLabel()}</button>
                     <button class="secondary" tabindex="-1" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
                     <button class="danger" tabindex="-1" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
                   </div>
@@ -3094,7 +3280,7 @@ function renderMainPanelContent(universe) {
           </div>
           ${category ? `
             <div class="category-overview__actions page-toolbar__actions">
-              <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : t("edit")}</button>
+              <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : organizeCategoriesLabel()}</button>
               ${category && storyCategoryTypes.has(getCategoryTypeKey(category)) ? `<button class="secondary" data-action="story-planner">${t("storyPlanner")}</button>` : ""}
               ${category && mapCategoryTypes.has(getCategoryTypeKey(category)) ? `<button class="secondary" data-action="map-board">${t("mapBoard")}</button>` : ""}
               <button data-action="new-entity">${createEntityLabel(category)}</button>
@@ -3105,7 +3291,7 @@ function renderMainPanelContent(universe) {
         ${category && isEditingOrganization ? `
           <p class="muted edit-mode-help">${t("organizationEditHelp")}</p>
           <div class="button-row category-overview__edit-actions">
-            <button class="secondary" data-action="edit-category" data-id="${category.id}">${t("edit")}</button>
+            <button class="secondary" data-action="edit-category" data-id="${category.id}">${editCategoryLabel()}</button>
             <button class="secondary" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
             <button class="danger" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
           </div>
@@ -3128,13 +3314,11 @@ function renderEntityViewToggle() {
 }
 
 function dashboardEntitiesByTypes(universeId, types) {
-  const allowed = new Set(types);
-  return universeEntities(universeId).filter((entity) => allowed.has(entityCategoryType(entity)));
+  return entitiesByCategoryTypes(types, universeId);
 }
 
 function dashboardCategoryByTypes(universeId, types) {
-  const allowed = new Set(types);
-  return universeCategories(universeId, true).find((category) => allowed.has(getCategoryTypeKey(category)));
+  return categoriesByTypes(types, universeId, { includeHidden: true })[0] || null;
 }
 
 function dashboardCategoryForType(universeId, type) {
@@ -3259,7 +3443,7 @@ function renderProjectHome(universe) {
           <details class="action-menu">
             <summary class="secondary">${t("more")}</summary>
             <div class="action-menu__items">
-              <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : t("edit")}</button>
+              <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : organizeCategoriesLabel()}</button>
               <button class="secondary" data-action="new-category">${t("addCategory")}</button>
               <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
               <button class="secondary" data-action="quick-note">${t("idea")}</button>
@@ -3319,7 +3503,7 @@ function filteredEntities(universeId) {
       .filter((note) => note.entityId === entity.id)
       .map((note) => `${note.title || ""} ${note.content} ${noteTypeLabel(note.type)}`)
       .join(" ");
-    const customValues = Object.entries(entity.customFieldValues || {}).filter(([key]) => !isSystemFieldValueKey(key)).map(([, value]) => {
+    const customValues = Object.entries(entity.customFieldValues || {}).filter(([key, value]) => !isSystemFieldValueEntry(key, value)).map(([, value]) => {
       const entityValue = entityForId(value);
       if (entityValue) return entityValue.title;
       if (Array.isArray(value)) return value.map((item) => entityForId(item)?.title || item).join(" ");
@@ -3477,7 +3661,7 @@ function renderEntityDetail(entity) {
             <div class="button-row">
               ${showFamilyTree ? `<button class="secondary" data-action="scroll-family-tree">${t("familyTree")}</button>` : ""}
               <button class="secondary" data-action="view-entity-graph" data-id="${entity.id}">${t("viewGraph")}</button>
-              <button data-action="edit-entity" data-id="${entity.id}">${t("edit")}</button>
+              <button data-action="edit-entity" data-id="${entity.id}">${editEntryLabel()}</button>
               <button class="danger" data-action="delete-entity" data-id="${entity.id}">${t("delete")}</button>
             </div>
           </div>
@@ -3517,7 +3701,7 @@ function entityFieldEntries(entity) {
   const knownKeys = new Set((category?.customFields || []).flatMap((field) => [fieldStorageKey(field), field.name]));
   const extraEntries = Object.entries(values)
     .filter(([key]) => !knownKeys.has(key))
-    .filter(([key]) => !isSystemFieldValueKey(key))
+    .filter(([key, value]) => !isSystemFieldValueEntry(key, value))
     .filter(([, value]) => value)
     .map(([key, value]) => ({ label: key, value, key, field: null, section: "Details" }));
   return [...builtInEntries, ...extraEntries];
@@ -3990,8 +4174,9 @@ function graphContentStyle(universeId) {
 }
 
 function renderRelationshipGraphFilters(universe, data) {
+  const connectedNodeIds = new Set(data.allEdges.flatMap((edge) => [edge.sourceId, edge.targetId]));
   const categories = universeCategories(universe.id, true)
-    .map((category) => ({ category, count: universeEntities(universe.id).filter((entity) => entity.categoryId === category.id).length }))
+    .map((category) => ({ category, count: universeEntities(universe.id).filter((entity) => entity.categoryId === category.id && connectedNodeIds.has(entity.id)).length }))
     .filter((item) => item.count || data.filters.categoryId === item.category.id);
   const relationshipTypes = graphRelationshipTypes(data.typeEdges);
   const filters = data.filters;
@@ -4777,7 +4962,7 @@ async function applyConsistencyFix(fix) {
   render();
 }
 
-const timelineCategoryTypes = new Set(["events", "wars", "sessionNotes", "quests", "scenes", "chapters"]);
+const timelineCategoryTypes = new Set(["events", "wars", "sessionNotes", "quests"]);
 const storyCategoryTypes = new Set(["stories", "books", "chapters", "scenes", "plotThreads", "themes", "draftNotes"]);
 const sceneBoardStatuses = ["idea", "planned", "drafting", "revised", "done"];
 
@@ -4811,6 +4996,25 @@ function storyStatusLabel(statusKey) {
     done: t("statusDone"),
     archived: t("statusArchived"),
   }[statusKey] || statusKey;
+}
+
+function storyStatusEmptyLabel(statusKey) {
+  if (state.settings.language === "tr") {
+    return {
+      idea: "HenÃ¼z fikir yok.",
+      planned: "HenÃ¼z planlanmÄ±ÅŸ sahne yok.",
+      drafting: "HenÃ¼z yazÄ±lan sahne yok.",
+      revised: "HenÃ¼z dÃ¼zenlenen sahne yok.",
+      done: "HenÃ¼z tamamlanan sahne yok.",
+    }[statusKey] || t("noPagesHelp");
+  }
+  return {
+    idea: t("emptyStatusIdea"),
+    planned: t("emptyStatusPlanned"),
+    drafting: t("emptyStatusDrafting"),
+    revised: t("emptyStatusRevised"),
+    done: t("emptyStatusDone"),
+  }[statusKey] || t("noPagesHelp");
 }
 
 function storyFieldValue(entity, names) {
@@ -4979,7 +5183,7 @@ function renderSceneBoard(scenes) {
           return `
             <section class="scene-board__column">
               <h4>${storyStatusLabel(status)}</h4>
-              ${items.length ? items.map(renderSceneBoardCard).join("") : `<p class="muted">${t("noPagesHelp")}</p>`}
+              ${items.length ? items.map(renderSceneBoardCard).join("") : `<p class="muted">${storyStatusEmptyLabel(status)}</p>`}
             </section>
           `;
         }).join("")}
@@ -4992,6 +5196,7 @@ function renderStoryPlannerView(universe) {
   const items = storyPlannerEntities(universe.id);
   const visibleItems = filteredStoryPlannerEntities(items);
   const scenes = visibleItems.filter((entity) => entityCategoryType(entity) === "scenes");
+  const hasStory = items.some((entity) => ["stories", "books"].includes(entityCategoryType(entity)));
   return `
     <main class="main stack" data-main-panel>
       <section class="toolbar">
@@ -5006,6 +5211,7 @@ function renderStoryPlannerView(universe) {
         </div>
       </section>
       ${renderStorySummaryCards(items)}
+      ${hasStory ? "" : `<section class="empty"><h3>${t("createStory")}</h3><p>${t("storyPlanning")}</p></section>`}
       ${renderStoryPlannerFilters(items)}
       ${renderSceneBoard(scenes)}
       ${visibleItems.length ? `
@@ -5178,10 +5384,10 @@ function renderTimelineItem(entity, index, total) {
           ${tags.length ? `<span class="tag-row">${tags.map((tag) => `<span class="tag">${escapeHtml(tag.name)}</span>`).join("")}</span>` : ""}
         </span>
       </div>
-      <div class="timeline-item__actions">
+      ${canMove ? `<div class="timeline-item__actions">
         <button class="secondary" data-action="move-timeline-item" data-id="${entity.id}" data-direction="-1" ${!canMove || index === 0 ? "disabled" : ""}>${t("moveEarlier")}</button>
         <button class="secondary" data-action="move-timeline-item" data-id="${entity.id}" data-direction="1" ${!canMove || index === total - 1 ? "disabled" : ""}>${t("moveLater")}</button>
-      </div>
+      </div>` : ""}
     </article>
   `;
 }
@@ -5531,18 +5737,32 @@ const actions = {
     openEntityModal();
   },
   "new-timeline-entry"() {
-    const eventCategory = universeCategories().find((category) => ["events", "wars", "sessionNotes", "quests"].includes(getCategoryTypeKey(category)));
+    const eventCategory = categoriesByTypes(["events", "wars", "sessionNotes", "quests"], state.selectedUniverseId, { includeHidden: true })[0];
     if (!eventCategory) {
-      promptAddRequiredCategory("events");
+      openRequiredCategorySetupDialog("events", (category) => {
+        state.selectedCategoryId = category.id;
+        state.selectedEntityId = null;
+        state.view = "universe";
+        saveState();
+        openEntityModal();
+      });
       return;
     }
     state.selectedCategoryId = eventCategory.id;
+    state.selectedEntityId = null;
+    state.view = "universe";
     openEntityModal();
   },
   "new-dashboard-entry"({ type }) {
     const category = dashboardCategoryForType(state.selectedUniverseId, type);
     if (!category) {
-      openTemplateExpansionModal();
+      openRequiredCategorySetupDialog(type, (createdCategory) => {
+        state.selectedCategoryId = createdCategory.id;
+        state.selectedEntityId = null;
+        state.view = "universe";
+        saveState();
+        openEntityModal();
+      });
       return;
     }
     state.selectedCategoryId = category.id;
@@ -5552,8 +5772,19 @@ const actions = {
     openEntityModal();
   },
   "new-story-entry"({ type }) {
-    const category = ensureStoryCategory(type || "scenes");
-    if (!category) return;
+    const targetType = type || "scenes";
+    const category = categoryByType(targetType, state.selectedUniverseId, { includeHidden: true });
+    if (!category) {
+      openRequiredCategorySetupDialog(targetType, (createdCategory) => {
+        state.selectedCategoryId = createdCategory.id;
+        state.selectedEntityId = null;
+        state.view = "universe";
+        saveState();
+        openEntityModal();
+      });
+      return;
+    }
+    if (category.isHidden) updateItem("categories", category.id, { isHidden: false });
     state.selectedCategoryId = category.id;
     state.selectedEntityId = null;
     state.view = "universe";
@@ -5561,11 +5792,19 @@ const actions = {
     openEntityModal();
   },
   "new-map-entry"({ type }) {
-    const category = universeCategories().find((item) => getCategoryTypeKey(item) === (type || "maps"));
+    const targetType = type || "maps";
+    const category = categoryByType(targetType, state.selectedUniverseId, { includeHidden: true });
     if (!category) {
-      openMapCategorySetupDialog();
+      openRequiredCategorySetupDialog(targetType, (createdCategory) => {
+        state.selectedCategoryId = createdCategory.id;
+        state.selectedEntityId = null;
+        state.view = "universe";
+        saveState();
+        openEntityModal();
+      });
       return;
     }
+    if (category.isHidden) updateItem("categories", category.id, { isHidden: false });
     state.selectedCategoryId = category.id;
     state.selectedEntityId = null;
     state.view = "universe";
@@ -5799,6 +6038,10 @@ function bindGraphFilterEvents(root) {
       render();
     });
   });
+}
+
+function categoryTypeForName(categoryName) {
+  return categoryPresetAliases[normalizeCategoryName(categoryName)] || "";
 }
 
 function bindGraphMapEvents(root) {
@@ -6209,14 +6452,15 @@ function openLinkedEntityCreateModal(fieldElement, field, sourceEntity) {
     if (!created) return false;
     appendReferenceOption(fieldElement, field, created);
     if (form.get("createMode") === "edit") {
-      document.querySelectorAll(".modal-backdrop").forEach((item) => item.remove());
+      const previousCategoryId = state.selectedCategoryId;
       state.selectedUniverseId = created.universeId;
       state.selectedCategoryId = created.categoryId;
-      state.selectedEntityId = created.id;
-      state.view = "universe";
       saveState();
-      render();
-      setTimeout(() => openEntityModal(created), 0);
+      setTimeout(() => {
+        openEntityModal(created);
+        state.selectedCategoryId = previousCategoryId;
+        saveState();
+      }, 0);
     }
   });
 }
@@ -6485,26 +6729,47 @@ const defaultMapCategoryNames = {
   regions: "Regions",
 };
 
-function promptAddRequiredCategory(type) {
-  alert(`${t("targetCategoryMissing")} ${defaultStoryCategoryNames[type] || defaultMapCategoryNames[type] || ""}`.trim());
-  openTemplateExpansionModal();
+const defaultRequiredCategoryNames = { ...defaultStoryCategoryNames, ...defaultMapCategoryNames, events: "Events" };
+
+function openRequiredCategorySetupDialog(type, afterCreate) {
+  const existing = categoryByType(type, state.selectedUniverseId, { includeHidden: true });
+  if (existing) {
+    if (existing.isHidden) updateItem("categories", existing.id, { isHidden: false });
+    afterCreate?.(state.categories.find((category) => category.id === existing.id) || existing);
+    return;
+  }
+  const label = defaultRequiredCategoryNames[type] || type;
+  openChoiceModal(t("categoryCreate"), `${t("targetCategoryMissing")} ${label}`, [
+    { value: "add", label: addRequiredCategoryLabel(), className: "secondary" },
+    { value: "cancel", label: t("cancel"), className: "secondary" },
+  ]).then((choice) => {
+    if (choice !== "add") return;
+    const category = createRequiredCategory(type);
+    if (category) afterCreate?.(category);
+  });
 }
 
 function ensureStoryCategory(type) {
   const universe = currentUniverse();
   if (!universe) return null;
-  const existing = universeCategories(universe.id, true).find((category) => getCategoryTypeKey(category) === type);
-  if (existing) return existing;
-  promptAddRequiredCategory(type);
+  const existing = categoryByType(type, universe.id, { includeHidden: true });
+  if (existing) {
+    if (existing.isHidden) updateItem("categories", existing.id, { isHidden: false });
+    return state.categories.find((category) => category.id === existing.id) || existing;
+  }
+  openRequiredCategorySetupDialog(type);
   return null;
 }
 
 function ensureMapCategory(type) {
   const universe = currentUniverse();
   if (!universe) return null;
-  const existing = universeCategories(universe.id, true).find((category) => getCategoryTypeKey(category) === type);
-  if (existing) return existing;
-  promptAddRequiredCategory(type);
+  const existing = categoryByType(type, universe.id, { includeHidden: true });
+  if (existing) {
+    if (existing.isHidden) updateItem("categories", existing.id, { isHidden: false });
+    return state.categories.find((category) => category.id === existing.id) || existing;
+  }
+  openRequiredCategorySetupDialog(type);
   return null;
 }
 function setCustomFieldValue(values, category, presetName, value) {
@@ -6562,7 +6827,7 @@ function openMapPinModal(pin = null, defaults = {}) {
   const relatedEventId = pin ? pinField(pin, "Related event") : "";
   const relatedQuestId = pin ? pinField(pin, "Related quest") : "";
   const linkTargets = universeEntities().filter((entity) => entityCategoryType(entity) !== "mapPins");
-  const eventTargets = universeEntities().filter((entity) => ["events", "wars", "scenes", "chapters"].includes(entityCategoryType(entity)));
+  const eventTargets = entitiesByCategoryTypes(["events", "wars", "sessionNotes", "quests"]);
   const questTargets = universeEntities().filter((entity) => entityCategoryType(entity) === "quests");
   openModal(isEditing ? t("editPin") : t("addPin"), `
     <form class="form-grid">
@@ -6649,11 +6914,12 @@ function openMapPinModal(pin = null, defaults = {}) {
 }
 
 function openMapCategorySetupDialog() {
-  openChoiceModal(t("mapBoard"), t("targetCategoryMissing"), [
-    { value: "template", label: t("addMapsFromTemplate"), className: "secondary" },
-    { value: "cancel", label: t("cancel"), className: "secondary" },
-  ]).then((choice) => {
-    if (choice === "template") openTemplateExpansionModal();
+  openRequiredCategorySetupDialog("maps", (category) => {
+    state.selectedCategoryId = category.id;
+    state.selectedEntityId = null;
+    state.view = "universe";
+    saveState();
+    openEntityModal();
   });
 }
 
@@ -6796,6 +7062,7 @@ function createUniverseFromSelection({ name, description, templateId, themeId, c
     id: id("category"),
     universeId,
     name: preset.name,
+    presetType: preset.presetType || categoryTypeForName(preset.name) || undefined,
     description: "",
     icon: "",
     color: "",
@@ -6987,6 +7254,7 @@ function openCategoryModal(category) {
     if (category) {
       updateItem("categories", category.id, {
         name: form.get("name"),
+        presetType: category.presetType || categoryTypeForName(form.get("name")) || inferCategoryTypeFromFields({ ...category, customFields: fields }) || undefined,
         description: form.get("description"),
         icon: form.get("icon"),
         color: form.get("color"),
@@ -6999,6 +7267,7 @@ function openCategoryModal(category) {
       id: id("category"),
       universeId: state.selectedUniverseId,
       name: form.get("name"),
+      presetType: categoryTypeForName(form.get("name")) || inferCategoryTypeFromFields({ customFields: fields }) || undefined,
       description: form.get("description"),
       icon: form.get("icon"),
       color: form.get("color"),
@@ -7107,6 +7376,7 @@ function openTemplateExpansionModal() {
         id: id("category"),
         universeId: universe.id,
         name: finalName,
+        presetType: preset.presetType || categoryTypeForName(preset.name) || categoryTypeForName(finalName) || undefined,
         description: "",
         icon: "",
         color: "",
@@ -7236,7 +7506,7 @@ function openEntityModal(entity) {
             ${renderFieldTypeOptions("text")}
           </select>
         </label>
-        <label>Entry link target
+        <label data-link-target-field hidden>${linkedCategoryLabel()}
           <select name="fieldTargetTypes" multiple size="5">
             ${categoryTypeOptions([])}
           </select>
@@ -7670,6 +7940,14 @@ function openSettingsModal() {
       document.querySelector(".modal-backdrop")?.remove();
       render();
     });
+    const fieldTypeSelect = document.querySelector(".modal-backdrop:last-child [name='fieldType']");
+    const targetField = document.querySelector(".modal-backdrop:last-child [data-link-target-field]");
+    const syncTargetField = () => {
+      const type = fieldTypeSelect?.value || "text";
+      if (targetField) targetField.hidden = !(type === "entityReference" || type === "entityReferenceList");
+    };
+    fieldTypeSelect?.addEventListener("change", syncTargetField);
+    syncTargetField();
   });
 }
 
@@ -7741,9 +8019,7 @@ function validateImportedReferenceValue(value, entityIds, label, fallbackLabel =
   if (!value) return;
   if (entityIds.has(value)) return;
   if (fallbackLabel) return;
-  if (looksLikeEntityId(value)) {
-    throw new Error(`Import geçersiz: ${label} var olmayan bir kayda bağlı.`);
-  }
+  if (looksLikeEntityId(value)) return;
 }
 
 function validateImportedCustomFieldReferences(entity, fields, entityIds) {
@@ -7753,13 +8029,13 @@ function validateImportedCustomFieldReferences(entity, fields, entityIds) {
     const key = importFieldKey(field);
     const value = values[key] ?? values[field.name];
     if (field.type === "entityReference") {
-      const fallbackLabel = referenceLabelSnapshot(values, key);
+      const fallbackLabel = referenceLabelSnapshot(values, key) || referenceLabelSnapshot(values, field.name);
       normalizeReferenceListValue(value).forEach((entityId) => {
         validateImportedReferenceValue(entityId, entityIds, `${entity.title}.${field.name}`, fallbackLabel);
       });
       return;
     }
-    const fallbackLabels = referenceLabelsSnapshot(values, key);
+    const fallbackLabels = { ...referenceLabelsSnapshot(values, key), ...referenceLabelsSnapshot(values, field.name) };
     normalizeReferenceListValue(value).forEach((entityId) => {
       validateImportedReferenceValue(entityId, entityIds, `${entity.title}.${field.name}`, fallbackLabels[entityId]);
     });
@@ -7882,6 +8158,9 @@ function importUniverse() {
               label,
             ]));
             return [key, JSON.stringify(remappedLabels)];
+          }
+          if (key.endsWith(":label")) {
+            return [key, value];
           }
           const field = referenceFields.get(key);
           if (!field) return [key, value];

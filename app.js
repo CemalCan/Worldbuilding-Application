@@ -1936,9 +1936,12 @@ const translations = {
     edit: "Edit",
     delete: "Delete",
     categories: "Categories",
+    workspace: "Workspace",
+    more: "More",
     homeNav: "Home",
     projectHome: "Project home",
     projectSummary: "Project summary",
+    nextSteps: "Next Steps",
     categoryOverview: "Category overview",
     moduleOverview: "Module overview",
     continueWorking: "Continue working",
@@ -2299,9 +2302,12 @@ const translations = {
     edit: "Düzenle",
     delete: "Sil",
     categories: "Kategoriler",
+    workspace: "Çalışma Alanı",
+    more: "Diğer",
     homeNav: "Ana Sayfa",
     projectHome: "Proje ana sayfası",
     projectSummary: "Proje özeti",
+    nextSteps: "Sonraki Adımlar",
     categoryOverview: "Kategori özeti",
     moduleOverview: "Modül özeti",
     continueWorking: "Çalışmaya devam et",
@@ -2467,13 +2473,13 @@ const translations = {
     timelineEntries: "Zaman çizelgesi kayıtları",
     noTimelineEntries: "Henüz zaman çizelgesi kaydı yok.",
     noTimelineEntriesHelp: "Kronolojini oluşturmaya başlamak için bir olay ekle.",
-    allCategories: "Tüm kategoriler",
+    allCategories: "Tüm Kategoriler",
     allTags: "Tüm etiketler",
     allLocations: "Tüm mekânlar",
     allParticipants: "Tüm katılımcılar",
     chronology: "Kronoloji",
-    moveEarlier: "Daha erkene taşı",
-    moveLater: "Daha geçe taşı",
+    moveEarlier: "Daha Erkene Taşı",
+    moveLater: "Daha Geçe Taşı",
     familyTree: "Soy Ağacı",
     founder: "Kurucu",
     currentHead: "Mevcut lider",
@@ -2961,68 +2967,72 @@ function renderLeftPanel(universe) {
   const isEditingOrganization = isProjectEditMode(universe.id);
   return `
     <aside class="panel stack">
-      <div class="row">
-        <h2>${t("categories")}</h2>
-        <div class="button-row">
-          <button class="icon-button" data-action="new-category" title="${t("addCategory")}">+</button>
+      <div class="sidebar-section">
+        <h2>${t("workspace")}</h2>
+        <div class="stack sidebar-nav-group">
+          <button class="category-button ${state.view === "projectHome" ? "is-active" : ""}" data-action="project-home">
+            <strong>${t("homeNav")}</strong>
+            <small>${t("projectHome")}</small>
+          </button>
+          <button class="category-button ${state.view === "timeline" ? "is-active" : ""}" data-action="timeline">
+            <strong>${t("timeline")}</strong>
+            <small>${t("chronology")}</small>
+          </button>
+          <button class="category-button ${state.view === "storyPlanner" ? "is-active" : ""}" data-action="story-planner">
+            <strong>${t("storyPlanner")}</strong>
+            <small>${t("storyPlanning")}</small>
+          </button>
+          <button class="category-button ${state.view === "mapBoard" ? "is-active" : ""}" data-action="map-board">
+            <strong>${t("mapBoard")}</strong>
+            <small>${t("mapPins")}</small>
+          </button>
+          <button class="category-button ${state.view === "relationshipGraph" ? "is-active" : ""}" data-action="relationship-graph">
+            <strong>${t("relationshipGraph")}</strong>
+            <small>${t("connections")}</small>
+          </button>
+          <button class="category-button ${state.view === "consistencyChecker" ? "is-active" : ""}" data-action="consistency-checker">
+            <strong>${t("consistencyChecker")}</strong>
+            <small>${t("runCheck")}</small>
+          </button>
         </div>
       </div>
-      ${isEditingOrganization ? `<p class="muted edit-mode-help">${t("organizationEditHelp")}</p>` : ""}
-      <input data-search placeholder="${t("searchPages")}" value="${escapeHtml(state.search)}" />
-      <div class="stack" data-category-list>
-        <button class="category-button ${state.view === "projectHome" ? "is-active" : ""}" data-action="project-home">
-          <strong>${t("homeNav")}</strong>
-          <small>${t("projectHome")}</small>
-        </button>
-        <button class="category-button ${state.view === "timeline" ? "is-active" : ""}" data-action="timeline">
-          <strong>${t("timeline")}</strong>
-          <small>${t("chronology")}</small>
-        </button>
-        <button class="category-button ${state.view === "storyPlanner" ? "is-active" : ""}" data-action="story-planner">
-          <strong>${t("storyPlanner")}</strong>
-          <small>${t("storyPlanning")}</small>
-        </button>
-        <button class="category-button ${state.view === "mapBoard" ? "is-active" : ""}" data-action="map-board">
-          <strong>${t("mapBoard")}</strong>
-          <small>${t("mapPins")}</small>
-        </button>
-        <button class="category-button ${state.view === "consistencyChecker" ? "is-active" : ""}" data-action="consistency-checker">
-          <strong>${t("consistencyChecker")}</strong>
-          <small>${t("runCheck")}</small>
-        </button>
-        <button class="category-button ${state.view === "relationshipGraph" ? "is-active" : ""}" data-action="relationship-graph">
-          <strong>${t("relationshipGraph")}</strong>
-          <small>${t("connections")}</small>
-        </button>
-        ${categories.map((category) => {
-          const count = universeEntities(universe.id).filter((entity) => entity.categoryId === category.id).length;
-          return `
-            <div class="category-nav-row" data-category-row data-id="${category.id}">
-              <button class="category-button ${category.id === state.selectedCategoryId ? "is-active" : ""}" data-action="select-category" data-id="${category.id}">
-                <strong>${escapeHtml(category.name)}</strong>
-                <small>${count} ${t("itemPage")}</small>
-              </button>
-              ${isEditingOrganization ? `
-                <div class="category-controls" aria-label="${escapeHtml(t("organizationEditMode"))}">
-                  <span class="drag-handle" draggable="true" tabindex="-1" data-category-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</span>
-                  <button class="secondary" tabindex="-1" data-action="edit-category" data-id="${category.id}">${t("edit")}</button>
-                  <button class="secondary" tabindex="-1" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
-                  <button class="danger" tabindex="-1" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
-                </div>
-              ` : ""}
-            </div>
-          `;
-        }).join("")}
+      <div class="sidebar-section">
+        <div class="row">
+          <h2>${t("categories")}</h2>
+          <button class="icon-button" data-action="new-category" title="${t("addCategory")}">+</button>
+        </div>
+        ${isEditingOrganization ? `<p class="muted edit-mode-help">${t("organizationEditHelp")}</p>` : ""}
+        <input data-search placeholder="${t("searchPages")}" value="${escapeHtml(state.search)}" />
+        <div class="stack sidebar-nav-group" data-category-list>
+          ${categories.map((category) => {
+            const count = universeEntities(universe.id).filter((entity) => entity.categoryId === category.id).length;
+            const activeCategory = state.view === "universe" && category.id === state.selectedCategoryId;
+            return `
+              <div class="category-nav-row" data-category-row data-id="${category.id}">
+                <button class="category-button ${activeCategory ? "is-active" : ""}" data-action="select-category" data-id="${category.id}">
+                  <strong>${escapeHtml(category.name)}</strong>
+                  <small>${count} ${t("itemPage")}</small>
+                </button>
+                ${isEditingOrganization ? `
+                  <div class="category-controls" aria-label="${escapeHtml(t("organizationEditMode"))}">
+                    <span class="drag-handle" draggable="true" tabindex="-1" data-category-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">::</span>
+                    <button class="secondary" tabindex="-1" data-action="edit-category" data-id="${category.id}">${t("edit")}</button>
+                    <button class="secondary" tabindex="-1" data-action="hide-category" data-id="${category.id}">${t("hide")}</button>
+                    <button class="danger" tabindex="-1" data-action="delete-category" data-id="${category.id}">${t("delete")}</button>
+                  </div>
+                ` : ""}
+              </div>
+            `;
+          }).join("")}
+        </div>
       </div>
-      <div class="button-row">
-        <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
-        <button class="secondary" data-action="templates">${t("templates")}</button>
-        <button class="secondary" data-action="story-planner">${t("storyPlanner")}</button>
-        <button class="secondary" data-action="map-board">${t("mapBoard")}</button>
-        <button class="secondary" data-action="consistency-checker">${t("consistencyChecker")}</button>
-        <button class="secondary" data-action="timeline">${t("timeline")}</button>
-        <button class="secondary" data-action="relationship-graph">${t("relationshipGraph")}</button>
-        <button class="secondary" data-action="trash">${t("trash")}</button>
+      <div class="sidebar-section sidebar-section--compact">
+        <h2>${t("more")}</h2>
+        <div class="button-row">
+          <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
+          <button class="secondary" data-action="templates">${t("templates")}</button>
+          <button class="secondary" data-action="trash">${t("trash")}</button>
+        </div>
       </div>
       ${hiddenCategories.length && isEditingOrganization ? `
         <div class="stack">
@@ -3035,7 +3045,6 @@ function renderLeftPanel(universe) {
     </aside>
   `;
 }
-
 function renderMainPanel(universe) {
   if (state.view === "trash") return renderTrash(universe);
   if (state.view === "templates") return renderTemplates();
@@ -3063,14 +3072,14 @@ function renderMainPanelContent(universe) {
   const entities = category ? filteredEntities(universe.id).filter((item) => item.categoryId === category.id) : [];
   return `
       <section class="category-overview">
-        <div class="category-overview__main">
+        <div class="category-overview__main page-toolbar">
           <div>
             <p class="muted">${entities.length} ${t("itemPage")}</p>
             <h2>${escapeHtml(category?.name || t("noCategory"))}</h2>
             ${category?.description ? `<p>${escapeHtml(category.description)}</p>` : ""}
           </div>
           ${category ? `
-            <div class="category-overview__actions">
+            <div class="category-overview__actions page-toolbar__actions">
               <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : t("edit")}</button>
               ${category && storyCategoryTypes.has(getCategoryTypeKey(category)) ? `<button class="secondary" data-action="story-planner">${t("storyPlanner")}</button>` : ""}
               ${category && mapCategoryTypes.has(getCategoryTypeKey(category)) ? `<button class="secondary" data-action="map-board">${t("mapBoard")}</button>` : ""}
@@ -3204,128 +3213,86 @@ function renderProjectHome(universe) {
   const recentEntities = [...allEntities]
     .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))
     .slice(0, 5);
-  const timelineItems = timelineEntities(universe.id).slice(0, 4);
+  const timelineCount = timelineEntities(universe.id).length;
   const maps = mapEntities(universe.id);
   const pins = mapPinEntities(universe.id);
-  const notes = sortedNotes(projectNotes(universe.id));
-  const pinnedNotes = notes.filter((note) => note.isPinned).slice(0, 2);
-  const recentNotes = notes.filter((note) => !note.isPinned).slice(0, 3);
+  const notesCount = activeItems(state.notes).filter((note) => note.universeId === universe.id).length;
   const quickIdeas = activeItems(state.notes).filter((note) => note.universeId === universe.id && note.type === "idea" && !note.entityId && !note.categoryId);
-  const activeTodos = activeItems(state.notes).filter((note) => note.universeId === universe.id && note.type === "todo" && !note.completed);
   const storyItems = storyPlannerEntities(universe.id);
   const dashboardConsistencyFindings = consistencyFindings(universe.id).filter((finding) => !(state.ignoredConsistencyFindings || []).includes(finding.id));
-  const draftingScenes = storyItems.filter((entity) => entityCategoryType(entity) === "scenes" && ["drafting", "revising"].includes(storyStatusKey(storyFieldValue(entity, ["Status"])))).slice(0, 3);
   const moduleCards = [
-    { types: ["characters"], label: getEntityTypeLabel({ name: "Characters" }, "plural"), items: dashboardEntitiesByTypes(universe.id, ["characters"]), action: "select-category" },
-    { types: ["families"], label: getEntityTypeLabel({ name: "Families" }, "plural"), items: dashboardEntitiesByTypes(universe.id, ["families"]), action: "select-category" },
-    { types: ["locations"], label: getEntityTypeLabel({ name: "Locations" }, "plural"), items: dashboardEntitiesByTypes(universe.id, ["locations"]), action: "select-category" },
-    { types: ["events", "wars"], label: getEntityTypeLabel({ name: "Events" }, "plural"), items: dashboardEntitiesByTypes(universe.id, ["events", "wars"]), action: "select-category" },
-  ].filter((item) => item.items.length || dashboardCategoryByTypes(universe.id, item.types));
+    { label: t("timeline"), count: timelineCount, action: "timeline", help: t("chronology") },
+    { label: t("storyPlanner"), count: storyItems.length, action: "story-planner", help: t("sceneBoard") },
+    { label: t("mapBoard"), count: maps.length, action: "map-board", help: `${pins.length} ${t("mapPins")}` },
+    { label: t("relationshipGraph"), count: allEntities.length, action: "relationship-graph", help: t("connections") },
+    { label: t("consistencyChecker"), count: dashboardConsistencyFindings.length, action: "consistency-checker", help: t("runCheck") },
+  ];
+  const nextSteps = [
+    { label: t("createEntry"), action: "new-entity", primary: true },
+    { label: t("addFromTemplate"), action: "add-from-template" },
+    { label: t("writeQuickIdea"), action: "quick-note" },
+  ];
   const updatedAt = universe.updatedAt || recentEntities[0]?.updatedAt || recentEntities[0]?.createdAt || universe.createdAt;
   return `
     <section class="project-home stack">
-      <div class="project-home__header">
-        <div>
+      <div class="page-toolbar">
+        <div class="page-toolbar__title">
           <p class="muted">${t("projectSummary")}</p>
           <h2>${escapeHtml(universe.name)}</h2>
+        </div>
+        <div class="page-toolbar__actions">
+          <button data-action="new-entity">${t("createEntry")}</button>
+          <details class="action-menu">
+            <summary class="secondary">${t("more")}</summary>
+            <div class="action-menu__items">
+              <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : t("edit")}</button>
+              <button class="secondary" data-action="new-category">${t("addCategory")}</button>
+              <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
+              <button class="secondary" data-action="quick-note">${t("idea")}</button>
+              <button class="secondary" data-action="trash">${t("trash")}</button>
+            </div>
+          </details>
+        </div>
+      </div>
+      ${isEditingOrganization ? `<p class="muted edit-mode-help">${t("organizationEditHelp")}</p>` : ""}
+      <section class="dashboard-summary card">
+        <div>
           <p>${escapeHtml(universe.description || t("noDescription"))}</p>
           <div class="badge-list">
             ${template ? `<span class="badge">${t("template")}: ${escapeHtml(template.name)}</span>` : ""}
             ${updatedAt ? `<span class="badge">${t("lastUpdated")}: ${new Date(updatedAt).toLocaleDateString(state.settings.language === "tr" ? "tr-TR" : "en-US")}</span>` : ""}
           </div>
         </div>
-        <div class="dashboard-actions">
-          <button class="secondary" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : t("edit")}</button>
-          <button data-action="new-entity">${t("createEntry")}</button>
-          <button class="secondary" data-action="new-category">${t("addCategory")}</button>
-          <button class="secondary" data-action="add-from-template">${t("addFromTemplate")}</button>
-          <button class="secondary" data-action="open-first-family-tree">${t("familyTree")}</button>
-          <button class="secondary" data-action="story-planner">${t("storyPlanner")}</button>
-          <button class="secondary" data-action="map-board">${t("mapBoard")}</button>
-          <button class="secondary" data-action="consistency-checker">${t("consistencyChecker")}</button>
-          <button class="secondary" data-action="timeline">${t("timeline")}</button>
-          <button class="secondary" data-action="relationship-graph">${t("relationshipGraph")}</button>
-          <button class="secondary" data-action="quick-note">${t("idea")}</button>
-          <button class="secondary" data-action="trash">${t("trash")}</button>
+        <div class="dashboard-stats dashboard-stats--compact">
+          ${renderDashboardMetric(t("categories"), categories.length)}
+          ${renderDashboardMetric(t("entries"), allEntities.length)}
+          ${renderDashboardMetric(t("notes"), notesCount)}
+          ${renderDashboardMetric(t("consistencyIssues"), dashboardConsistencyFindings.length, "consistency-checker")}
         </div>
-      </div>
-      ${isEditingOrganization ? `<p class="muted edit-mode-help">${t("organizationEditHelp")}</p>` : ""}
-      <section class="dashboard-stats">
-        ${renderDashboardMetric(t("categories"), categories.length)}
-        ${renderDashboardMetric(t("entries"), allEntities.length)}
-        ${renderDashboardMetric(t("notes"), activeItems(state.notes).filter((note) => note.universeId === universe.id).length)}
-        ${renderDashboardMetric(t("timelineEntries"), timelineEntities(universe.id).length, "timeline")}
-        ${renderDashboardMetric(t("mapPins"), pins.length, "map-board")}
-        ${renderConsistencyDashboardSummary(dashboardConsistencyFindings)}
       </section>
       ${renderEmptyProjectGuidance(universe)}
-      <section class="dashboard-grid">
+      <section class="dashboard-grid dashboard-grid--focus">
         <div class="dashboard-card stack">
           <h3 class="section-title">${t("continueWorking")}</h3>
           ${recentEntities.length ? recentEntities.map(renderDashboardEntityLink).join("") : `<p class="muted">${t("noRecentEntries")}</p>`}
         </div>
-        <div class="dashboard-card stack">
-          <div class="row">
-            <h3 class="section-title">${t("notes")}</h3>
-            <span class="badge">${quickIdeas.length} ${t("quickIdeas")}</span>
-            <span class="badge">${activeTodos.length} ${t("activeTodos")}</span>
+        <div class="dashboard-card stack dashboard-card--next">
+          <h3 class="section-title">${t("nextSteps")}</h3>
+          <div class="dashboard-actions dashboard-actions--stacked">
+            ${nextSteps.map((item) => `<button class="${item.primary ? "" : "secondary"}" data-action="${item.action}">${item.label}</button>`).join("")}
           </div>
-          ${pinnedNotes.length ? `<h4 class="mini-heading">${t("pinnedNotes")}</h4>${pinnedNotes.map(renderDashboardNoteLink).join("")}` : ""}
-          ${recentNotes.length ? `<h4 class="mini-heading">${t("recentNotes")}</h4>${recentNotes.map(renderDashboardNoteLink).join("")}` : ""}
-          ${!pinnedNotes.length && !recentNotes.length ? `<p class="muted">${t("noNotes")}</p>` : ""}
-        </div>
-        <div class="dashboard-card stack">
-          <h3 class="section-title">${t("timeline")}</h3>
-          ${timelineItems.length ? timelineItems.map((entity) => `
-            <button class="dashboard-list-item" data-action="select-entity" data-id="${entity.id}">
-              <strong>${escapeHtml(entity.title)}</strong>
-              <small>${escapeHtml(timelineDateValue(entity) || t("chronology"))}</small>
-            </button>
-          `).join("") : `<p class="muted">${t("noTimelineEntries")}</p>`}
-        </div>
-        <div class="dashboard-card stack">
-          <h3 class="section-title">${t("storyPlanner")}</h3>
-          <div class="dashboard-stats dashboard-stats--compact">
-            ${renderDashboardMetric(t("storyPlanner"), storyItems.length, "story-planner")}
-            ${renderDashboardMetric(t("sceneBoard"), storyItems.filter((entity) => entityCategoryType(entity) === "scenes").length, "story-planner")}
-          </div>
-          ${draftingScenes.length ? draftingScenes.map(renderDashboardEntityLink).join("") : `<p class="muted">${t("noRecentEntries")}</p>`}
+          <p class="muted">${quickIdeas.length} ${t("quickIdeas")}</p>
         </div>
       </section>
       <section class="stack">
         <h3 class="section-title">${t("moduleOverview")}</h3>
-        <div class="dashboard-module-grid">
-          ${moduleCards.map((item) => {
-            const category = dashboardCategoryByTypes(universe.id, item.types);
-            return renderDashboardModuleCard({ label: item.label, count: item.items.length, action: "select-category", categoryId: category?.id || "" });
-          }).join("")}
-          ${renderDashboardModuleCard({ label: t("notes"), count: activeItems(state.notes).filter((note) => note.universeId === universe.id).length, action: "quick-note", help: `${quickIdeas.length} ${t("quickIdeas")}` })}
-          ${renderDashboardModuleCard({ label: t("timeline"), count: timelineEntities(universe.id).length, action: "timeline" })}
-          ${renderDashboardModuleCard({ label: t("storyPlanner"), count: storyItems.length, action: "story-planner" })}
-          ${renderDashboardModuleCard({ label: t("mapBoard"), count: maps.length, action: "map-board", help: `${pins.length} ${t("mapPins")}` })}
-          ${renderDashboardModuleCard({ label: t("relationshipGraph"), count: allEntities.length, action: "relationship-graph", help: t("connections") })}
-          ${renderDashboardModuleCard({ label: t("consistencyChecker"), count: dashboardConsistencyFindings.length, action: "consistency-checker", help: t("runCheck") })}
-        </div>
-      </section>
-      <section class="stack">
-        <h3 class="section-title">${t("categoryOverview")}</h3>
-        <div class="home-card-grid">
-          ${categories.map((category) => {
-            const count = allEntities.filter((entity) => entity.categoryId === category.id).length;
-            return `
-              <button class="home-card" data-action="select-category" data-id="${category.id}">
-                <strong>${escapeHtml(category.name)}</strong>
-                <small>${count} ${t("itemPage")}</small>
-                <span class="muted">${escapeHtml(category.description || "")}</span>
-              </button>
-            `;
-          }).join("")}
+        <div class="dashboard-module-grid dashboard-module-grid--compact">
+          ${moduleCards.map(renderDashboardModuleCard).join("")}
         </div>
       </section>
     </section>
   `;
 }
-
 function filteredEntities(universeId) {
   const query = state.search.trim().toLocaleLowerCase("tr");
   const entities = universeEntities(universeId);
@@ -4064,19 +4031,22 @@ function renderRelationshipGraphView(universe) {
 function renderRightPanel() {
   const entity = currentEntity();
   if (!entity) {
-    const category = currentCategory();
-    const inboxNotes = filterInboxNotes(activeItems(state.notes).filter((note) => note.universeId === state.selectedUniverseId && !note.entityId));
+    const category = state.view === "universe" ? currentCategory() : null;
+    const inboxNotes = filterInboxNotes(activeItems(state.notes).filter((note) => note.universeId === state.selectedUniverseId));
     const scopedNotes = category ? sortedNotes(categoryNotes(category.id)) : sortedNotes(projectNotes());
+    const hasContent = scopedNotes.length || inboxNotes.length;
     return `
-      <aside class="side stack">
+      <aside class="side stack ${hasContent ? "" : "side--compact"}">
         <div class="row">
           <h2>${category ? t("notes") : t("ideaInbox")}</h2>
           <button class="icon-button" data-action="quick-note" title="${t("addNote")}">+</button>
         </div>
-        ${category && scopedNotes.length ? `<div class="note-grid">${scopedNotes.map(renderNoteCard).join("")}</div>` : ""}
-        <h2>${t("ideaInbox")}</h2>
-        ${renderNoteFilterBar()}
-        ${inboxNotes.length ? `<div class="note-grid">${sortedNotes(inboxNotes).map(renderNoteCard).join("")}</div>` : `<p class="muted">${t("noInboxNotes")}</p>`}
+        ${scopedNotes.length ? `<div class="note-grid note-grid--compact">${scopedNotes.slice(0, 4).map(renderNoteCard).join("")}</div>` : ""}
+        <details class="side-section" ${hasContent ? "open" : ""}>
+          <summary>${t("ideaInbox")}</summary>
+          ${renderNoteFilterBar()}
+          ${inboxNotes.length ? `<div class="note-grid note-grid--compact">${sortedNotes(inboxNotes).slice(0, 6).map(renderNoteCard).join("")}</div>` : `<p class="muted">${t("noInboxNotes")}</p>`}
+        </details>
       </aside>
     `;
   }
@@ -4086,7 +4056,7 @@ function renderRightPanel() {
   const relationshipTargets = getRelationshipTargets(entity);
   const fieldBackReferences = entityFieldBackReferences(entity);
   return `
-    <aside class="side stack">
+    <aside class="side stack ${outgoing.length || incoming.length || notes.length || fieldBackReferences.length ? "" : "side--compact"}">
       <div class="row">
         <h2>${t("links")}</h2>
         <button class="icon-button" data-action="new-relationship" title="${t("addRelationship")}" ${relationshipTargets.length ? "" : "disabled"}>+</button>

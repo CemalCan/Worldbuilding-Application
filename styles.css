@@ -876,7 +876,7 @@ label {
 .side [data-action="toggle-right-panel"] {
   position: absolute;
   top: 50%;
-  z-index: 3;
+  z-index: 30;
   width: 28px;
   min-width: 28px;
   height: 42px;
@@ -887,11 +887,41 @@ label {
 }
 
 .panel [data-action="toggle-left-panel"] {
-  right: -14px;
+  right: 6px;
 }
 
 .side [data-action="toggle-right-panel"] {
-  left: -14px;
+  left: 6px;
+}
+
+.sidebar-manage-button {
+  min-height: 32px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.storage-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--danger) 28%, var(--line));
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  color: var(--text);
+}
+
+.storage-banner p {
+  margin: 4px 0;
+}
+
+.storage-banner small {
+  color: var(--muted);
+}
+
+.storage-banner__actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .panel-restore {

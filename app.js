@@ -1456,6 +1456,47 @@ function renderImageFieldPreview(value, label, position = "50,50", options = {})
   `;
 }
 
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result || "")));
+    reader.addEventListener("error", () => reject(reader.error || new Error("Image read failed.")));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageElement(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", () => reject(new Error("Image preview failed.")));
+    image.src = src;
+  });
+}
+
+async function imageFileToStoredDataUrl(file) {
+  const original = await fileToDataUrl(file);
+  if (file.type === "image/gif") return original;
+  const image = await loadImageElement(original);
+  const maxDimension = 1200;
+  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth || 1, image.naturalHeight || 1));
+  const width = Math.max(1, Math.round((image.naturalWidth || 1) * scale));
+  const height = Math.max(1, Math.round((image.naturalHeight || 1) * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) return original;
+  context.drawImage(image, 0, 0, width, height);
+  let quality = 0.76;
+  let compressed = canvas.toDataURL("image/jpeg", quality);
+  while (compressed.length > 650000 && quality > 0.48) {
+    quality -= 0.08;
+    compressed = canvas.toDataURL("image/jpeg", quality);
+  }
+  return compressed.length < original.length ? compressed : original;
+}
+
 function setDragImageToElement(event, element) {
   if (!event.dataTransfer || !element) return;
   const rect = element.getBoundingClientRect();
@@ -2054,6 +2095,8 @@ const defaultSettings = {
 };
 
 let storageRecoveryMessage = "";
+let storageRecoveryRaw = "";
+let storageLoadBlocked = false;
 let state = loadState();
 let latestConsistencyFixes = new Map();
 
@@ -2443,6 +2486,22 @@ const translations = {
     reviewCategories: "Categories",
     noDescription: "No description.",
     storageSaveError: "Local browser storage is full or unavailable. Your last saved data was kept unchanged; export a backup or remove large images before saving again.",
+    storageWarning: "Storage warning",
+    storageLoadFailed: "Saved local data could not be read safely. Export a raw backup before making changes.",
+    storageUnsavedChanges: "Some changes are not saved",
+    exportBackup: "Export backup",
+    exportRawBackup: "Export raw backup",
+    retrySave: "Retry save",
+    cleanUpImages: "Clean up images",
+    storageDataSize: "Local data size",
+    embeddedImages: "Embedded images",
+    imageStorageWarning: "Large embedded images can fill browser storage.",
+    dismiss: "Dismiss",
+    cleanupImagesConfirm: "Remove embedded uploaded images from local data? External image URLs and image positions will be kept.",
+    cleanupImagesDone: "Embedded uploaded images were removed.",
+    cleanupImagesNone: "No embedded uploaded images were found.",
+    retrySaveOk: "Changes were saved.",
+    retrySaveFailed: "Changes could not be saved yet. Export a backup and clean up large images.",
   },
   tr: {
     idea: "Fikir",
@@ -2821,6 +2880,22 @@ const translations = {
     reviewCategories: "Kategoriler",
     noDescription: "Açıklama yok.",
     storageSaveError: "Yerel tarayıcı depolaması dolu veya kullanılamıyor. Son kaydedilen verin değiştirilmedi; tekrar kaydetmeden önce yedek dışa aktar veya büyük görselleri kaldır.",
+    storageWarning: "Depolama uyarısı",
+    storageLoadFailed: "Kaydedilmiş yerel veri güvenle okunamadı. Değişiklik yapmadan önce ham yedeği dışa aktar.",
+    storageUnsavedChanges: "Bazı değişiklikler kaydedilmedi",
+    exportBackup: "Yedek dışa aktar",
+    exportRawBackup: "Ham yedeği dışa aktar",
+    retrySave: "Kaydetmeyi tekrar dene",
+    cleanUpImages: "Görselleri temizle",
+    storageDataSize: "Yerel veri boyutu",
+    embeddedImages: "Gömülü görseller",
+    imageStorageWarning: "Büyük gömülü görseller tarayıcı depolamasını doldurabilir.",
+    dismiss: "Kapat",
+    cleanupImagesConfirm: "Yerel verideki gömülü yüklenmiş görseller kaldırılsın mı? Dış görsel URL'leri ve görsel konumları korunur.",
+    cleanupImagesDone: "Gömülü yüklenmiş görseller kaldırıldı.",
+    cleanupImagesNone: "Gömülü yüklenmiş görsel bulunamadı.",
+    retrySaveOk: "Değişiklikler kaydedildi.",
+    retrySaveFailed: "Değişiklikler henüz kaydedilemedi. Yedek dışa aktar ve büyük görselleri temizle.",
   },
 };
 
@@ -2850,7 +2925,18 @@ function createDefaultState() {
 }
 
 function loadState() {
-  const stored = localStorage.getItem(STORAGE_KEY);
+  let stored = "";
+  try {
+    stored = localStorage.getItem(STORAGE_KEY) || "";
+  } catch (error) {
+    console.warn("Loreforge could not access local storage.", error);
+    storageRecoveryMessage = "Local browser storage is unavailable. Loreforge started in recovery mode.";
+    return {
+      ...createDefaultState(),
+      storageSaveError: "StorageUnavailable",
+      unsavedChanges: true,
+    };
+  }
   if (!stored) return createDefaultState();
 
   try {
@@ -2881,8 +2967,15 @@ function loadState() {
     });
   } catch (error) {
     console.warn("Loreforge could not read stored data.", error);
-    storageRecoveryMessage = "Saved local data could not be read. Loreforge started with a safe empty state. Check any exported backup before clearing browser data.";
-    return createDefaultState();
+    storageRecoveryRaw = stored;
+    storageLoadBlocked = true;
+    storageRecoveryMessage = "Saved local data could not be read safely. Loreforge started in recovery mode. Export a raw backup before making changes.";
+    return {
+      ...createDefaultState(),
+      storageLoadFailed: true,
+      storageSaveError: "LoadFailed",
+      unsavedChanges: true,
+    };
   }
 }
 
@@ -2928,24 +3021,107 @@ function applyStartupBehavior(loadedState) {
   };
 }
 
-function saveState() {
+function persistedStateForSave(stateLike) {
+  const {
+    storageSaveError,
+    storageSaveAlerted,
+    storageWarningDismissed,
+    unsavedChanges,
+    storageLoadFailed,
+    ...persistedState
+  } = stateLike;
+  return persistedState;
+}
+
+function tryPersistState(stateLike) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedStateForSave(stateLike)));
+}
+
+function storageByteSize(value) {
+  return new Blob([String(value || "")]).size;
+}
+
+function estimatePersistedStateBytes(stateLike = state) {
   try {
-    const persistedState = { ...state, storageSaveError: null, storageSaveAlerted: false };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
+    return storageByteSize(JSON.stringify(persistedStateForSave(stateLike)));
+  } catch (error) {
+    return 0;
+  }
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return "0 KB";
+  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isEmbeddedImageValue(value) {
+  return typeof value === "string" && value.startsWith("data:image/");
+}
+
+function countEmbeddedImagesInState(stateLike = state) {
+  let count = 0;
+  for (const entity of stateLike.entities || []) {
+    if (isEmbeddedImageValue(entity.coverImage)) count += 1;
+    for (const value of Object.values(entity.customFieldValues || {})) {
+      if (isEmbeddedImageValue(value)) count += 1;
+    }
+  }
+  return count;
+}
+
+function removeEmbeddedImagesFromState(stateLike = state) {
+  let removed = 0;
+  const nextState = {
+    ...stateLike,
+    entities: (stateLike.entities || []).map((entity) => {
+      let changed = false;
+      const nextEntity = { ...entity };
+      if (isEmbeddedImageValue(nextEntity.coverImage)) {
+        nextEntity.coverImage = "";
+        changed = true;
+        removed += 1;
+      }
+      if (nextEntity.customFieldValues && typeof nextEntity.customFieldValues === "object") {
+        const nextValues = { ...nextEntity.customFieldValues };
+        for (const [key, value] of Object.entries(nextValues)) {
+          if (isEmbeddedImageValue(value)) {
+            nextValues[key] = "";
+            changed = true;
+            removed += 1;
+          }
+        }
+        if (changed) nextEntity.customFieldValues = nextValues;
+      }
+      return changed ? { ...nextEntity, updatedAt: now() } : entity;
+    }),
+  };
+  return { nextState, removed };
+}
+
+function markStorageFailure(error) {
+  console.error("Loreforge save failed", error);
+  state.storageSaveError = error?.name || "StorageError";
+  state.unsavedChanges = true;
+  state.storageWarningDismissed = false;
+}
+
+function saveState() {
+  if (storageLoadBlocked || state.storageLoadFailed) {
+    state.storageSaveError = "LoadFailed";
+    state.unsavedChanges = true;
+    state.storageLoadFailed = true;
+    state.storageWarningDismissed = false;
+    return false;
+  }
+  try {
+    tryPersistState(state);
     state.storageSaveError = null;
-    state.storageSaveAlerted = false;
+    state.unsavedChanges = false;
+    state.storageWarningDismissed = false;
     return true;
   } catch (error) {
-    console.error("Loreforge save failed", error);
-    state.storageSaveError = error?.name || "StorageError";
-    const message = t("storageSaveError");
-    if (typeof window !== "undefined" && !state.storageSaveAlerted) {
-      state.storageSaveAlerted = true;
-      window.setTimeout(() => {
-        alert(message);
-        state.storageSaveAlerted = false;
-      }, 0);
-    }
+    markStorageFailure(error);
     return false;
   }
 }
@@ -3117,6 +3293,30 @@ function applyTheme() {
   document.documentElement.lang = state.settings.language === "tr" ? "tr" : "en";
 }
 
+function renderStorageWarningBanner() {
+  const hasWarning = state.storageSaveError || state.unsavedChanges || state.storageLoadFailed;
+  if (!hasWarning || state.storageWarningDismissed) return "";
+  const size = formatBytes(estimatePersistedStateBytes());
+  const imageCount = countEmbeddedImagesInState();
+  const message = state.storageLoadFailed ? t("storageLoadFailed") : state.unsavedChanges ? t("storageUnsavedChanges") : t("storageSaveError");
+  return `
+    <section class="storage-banner" role="status">
+      <div>
+        <strong>${t("storageWarning")}</strong>
+        <p>${escapeHtml(message)}</p>
+        <small>${t("storageDataSize")}: ${size} · ${t("embeddedImages")}: ${imageCount}. ${t("imageStorageWarning")}</small>
+      </div>
+      <div class="button-row storage-banner__actions">
+        <button class="secondary" data-action="${currentUniverse() ? "export-universe" : "export-raw-backup"}">${t("exportBackup")}</button>
+        ${storageRecoveryRaw ? `<button class="secondary" data-action="export-raw-backup">${t("exportRawBackup")}</button>` : ""}
+        <button class="secondary" data-action="retry-save">${t("retrySave")}</button>
+        <button class="secondary" data-action="cleanup-images">${t("cleanUpImages")}</button>
+        <button class="icon-button" data-action="dismiss-storage-warning" title="${t("dismiss")}">×</button>
+      </div>
+    </section>
+  `;
+}
+
 function render() {
   applyTheme();
   const app = document.getElementById("app");
@@ -3125,6 +3325,7 @@ function render() {
     <div class="app-shell">
       ${renderTopbar(universe)}
       ${storageRecoveryMessage ? `<section class="recovery-banner">${escapeHtml(storageRecoveryMessage)}</section>` : ""}
+      ${renderStorageWarningBanner()}
       ${state.view === "trash" && !universe ? renderTrash(null) : universe && state.view !== "home" ? renderWorkspace(universe) : renderHome()}
     </div>
   `;
@@ -3239,6 +3440,7 @@ function renderLeftPanel(universe) {
           <h2>${t("categories")}</h2>
           <span class="button-row">
             <button class="icon-button" data-action="new-category" title="${t("addCategory")}">+</button>
+            <button class="secondary sidebar-manage-button" data-action="toggle-organization-edit" aria-pressed="${isEditingOrganization}">${isEditingOrganization ? t("done") : organizeCategoriesLabel()}</button>
             <button class="icon-button" data-action="toggle-left-panel" title="${t("hide")}">‹</button>
           </span>
         </div>
@@ -5842,6 +6044,46 @@ async function confirmDestructiveAction(messageKey, titleKey = "delete") {
 }
 
 const actions = {
+  "export-raw-backup": exportRawBackup,
+  "retry-save"() {
+    if (saveState()) {
+      alert(t("retrySaveOk"));
+    } else {
+      alert(t("retrySaveFailed"));
+    }
+    render();
+  },
+  "cleanup-images"() {
+    if (storageLoadBlocked || state.storageLoadFailed) {
+      alert(t("storageLoadFailed"));
+      return;
+    }
+    if (!confirm(t("cleanupImagesConfirm"))) return;
+    const { nextState, removed } = removeEmbeddedImagesFromState(state);
+    if (!removed) {
+      alert(t("cleanupImagesNone"));
+      return;
+    }
+    try {
+      tryPersistState(nextState);
+      state = {
+        ...nextState,
+        storageSaveError: null,
+        unsavedChanges: false,
+        storageWarningDismissed: false,
+      };
+      alert(t("cleanupImagesDone"));
+      render();
+    } catch (error) {
+      markStorageFailure(error);
+      alert(t("retrySaveFailed"));
+      render();
+    }
+  },
+  "dismiss-storage-warning"() {
+    state.storageWarningDismissed = true;
+    render();
+  },
   home() {
     setState({ view: "home", selectedUniverseId: null, selectedCategoryId: null, selectedEntityId: null, search: "" });
   },
@@ -8025,7 +8267,7 @@ function openEntityModal(entity) {
       ? renderImageFieldPreview(input.value, fieldElement.dataset.fieldName || "Image", position, { interactive: true })
       : "";
   });
-  entityFieldsContainer?.addEventListener("change", (event) => {
+  entityFieldsContainer?.addEventListener("change", async (event) => {
     const referenceSelect = event.target.closest("[data-reference-select]");
     if (referenceSelect) {
       const fieldElement = referenceSelect.closest("[data-entity-field]");
@@ -8053,16 +8295,18 @@ function openEntityModal(entity) {
     const fieldElement = fileInput.closest("[data-entity-field]");
     const valueInput = fieldElement?.querySelector("[data-image-field-input]");
     const previewSlot = fieldElement?.querySelector(".image-field-preview-slot");
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      const value = String(reader.result || "");
+    try {
+      const value = await imageFileToStoredDataUrl(file);
       if (valueInput) valueInput.value = value;
       const urlInput = fieldElement?.querySelector("[data-image-url-input]");
       if (urlInput) urlInput.value = "";
       const position = fieldElement?.querySelector("[data-image-position-input]")?.value || "50,50";
       if (previewSlot) previewSlot.innerHTML = renderImageFieldPreview(value, fieldElement.dataset.fieldName || "Image", position, { interactive: true });
-    });
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Loreforge image upload failed", error);
+      fileInput.value = "";
+      alert(t("imageTooLarge"));
+    }
   });
   entityFieldsContainer?.addEventListener("pointerdown", (event) => {
     const preview = event.target.closest("[data-image-position-frame]");
@@ -8341,10 +8585,27 @@ function openSettingsModal() {
   });
 }
 
-function exportUniverse() {
-  const universe = currentUniverse();
-  if (!universe) return;
-  const payload = {
+function downloadJsonFile(payload, filename) {
+  const blob = new Blob([typeof payload === "string" ? payload : JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function safeExportFilename(name, suffix = ".loreforge.json") {
+  const base = String(name || "loreforge-backup")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "loreforge-backup";
+  return `${base}${suffix}`;
+}
+
+function universeExportPayload(universe) {
+  return {
     version: 1,
     exportedAt: now(),
     universe,
@@ -8356,12 +8617,23 @@ function exportUniverse() {
     template: state.templates.find((item) => item.id === universe.templateId),
     settings: state.settings,
   };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `${universe.name.replace(/[^\wğüşöçıİĞÜŞÖÇ-]+/gi, "-")}.loreforge.json`;
-  link.click();
-  URL.revokeObjectURL(link.href);
+}
+
+function exportUniverse() {
+  const universe = currentUniverse();
+  if (!universe) return;
+  downloadJsonFile(universeExportPayload(universe), safeExportFilename(universe.name));
+}
+
+function exportRawBackup() {
+  let stored = "";
+  try {
+    stored = localStorage.getItem(STORAGE_KEY) || "";
+  } catch (error) {
+    stored = "";
+  }
+  const raw = storageRecoveryRaw || stored || JSON.stringify(persistedStateForSave(state), null, 2);
+  downloadJsonFile(raw, `loreforge-raw-backup-${new Date().toISOString().slice(0, 10)}.json`);
 }
 
 function ensureArray(value, name) {
@@ -8570,10 +8842,10 @@ function importUniverse() {
         }));
       };
       const universeId = mapId(payload.universe.id, "universe");
-      state.universes.push({ ...payload.universe, id: universeId, name: `${payload.universe.name} (Import)`, createdAt: now(), updatedAt: now(), deletedAt: null });
-      state.categories.push(...validated.categories.map((item) => ({ ...item, id: mapId(item.id, "category"), universeId, deletedAt: null })));
-      state.tags.push(...validated.tags.map((item) => ({ ...item, id: mapId(item.id, "tag"), universeId })));
-      state.entities.push(...validated.entities.map((item) => ({
+      const importedUniverse = { ...payload.universe, id: universeId, name: `${payload.universe.name} (Import)`, createdAt: now(), updatedAt: now(), deletedAt: null };
+      const importedCategories = validated.categories.map((item) => ({ ...item, id: mapId(item.id, "category"), universeId, deletedAt: null }));
+      const importedTags = validated.tags.map((item) => ({ ...item, id: mapId(item.id, "tag"), universeId }));
+      const importedEntities = validated.entities.map((item) => ({
         ...item,
         id: mapId(item.id, "entity"),
         universeId,
@@ -8581,26 +8853,51 @@ function importUniverse() {
         tagIds: (item.tagIds || []).map((tagId) => mapId(tagId, "tag")),
         customFieldValues: remapCustomFieldValues(item),
         deletedAt: null,
-      })));
-      state.relationships.push(...validated.relationships.map((item) => ({
+      }));
+      const importedRelationships = validated.relationships.map((item) => ({
         ...item,
         id: mapId(item.id, "relationship"),
         universeId,
         sourceEntityId: mapId(item.sourceEntityId, "entity"),
         targetEntityId: mapId(item.targetEntityId, "entity"),
-      })));
-      state.notes.push(...validated.notes.map((item) => ({
+      }));
+      const importedNotes = validated.notes.map((item) => ({
         ...item,
         id: mapId(item.id, "note"),
         universeId,
         entityId: item.entityId ? mapId(item.entityId, "entity") : null,
         categoryId: item.categoryId ? mapId(item.categoryId, "category") : null,
-      })));
-      state.selectedUniverseId = universeId;
-      state.selectedCategoryId = universeCategories(universeId, true)[0]?.id || null;
-      state.selectedEntityId = null;
-      state.view = "universe";
-      saveState();
+      }));
+      const nextState = {
+        ...state,
+        universes: [...state.universes, importedUniverse],
+        categories: [...state.categories, ...importedCategories],
+        tags: [...state.tags, ...importedTags],
+        entities: [...state.entities, ...importedEntities],
+        relationships: [...state.relationships, ...importedRelationships],
+        notes: [...state.notes, ...importedNotes],
+        selectedUniverseId: universeId,
+        selectedCategoryId: importedCategories[0]?.id || null,
+        selectedEntityId: null,
+        view: "universe",
+        storageSaveError: null,
+        unsavedChanges: false,
+        storageWarningDismissed: false,
+      };
+      if (storageLoadBlocked || state.storageLoadFailed) {
+        alert(t("storageLoadFailed"));
+        render();
+        return;
+      }
+      try {
+        tryPersistState(nextState);
+      } catch (error) {
+        markStorageFailure(error);
+        alert(t("storageSaveError"));
+        render();
+        return;
+      }
+      state = nextState;
       render();
     } catch (error) {
       alert(error.message);

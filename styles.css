@@ -924,6 +924,11 @@ label {
   justify-content: flex-end;
 }
 
+.storage-banner--compact {
+  justify-content: flex-start;
+  padding-block: 8px;
+}
+
 .panel-restore {
   writing-mode: vertical-rl;
   min-width: 42px;

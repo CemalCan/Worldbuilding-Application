@@ -1,4 +1,5 @@
-const STORAGE_KEY = "hik?ye.mvp.state.v1";
+const STORAGE_KEY = "hikaye.mvp.state.v1";
+const LEGACY_STORAGE_KEY = "hik?ye.mvp.state.v1";
 const now = () => new Date().toISOString();
 const id = (prefix) => `${prefix}_${crypto.randomUUID()}`;
 const IMAGE_UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
@@ -1476,7 +1477,7 @@ function loadImageElement(src) {
 
 async function imageFileToStoredDataUrl(file) {
   const original = await fileToDataUrl(file);
-  if (file.type === "image/gif") return original;
+  if (file.type === "image/gif") throw new Error("GIF uploads are disabled for storage safety.");
   const image = await loadImageElement(original);
   const maxDimension = 1200;
   const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth || 1, image.naturalHeight || 1));
@@ -1637,7 +1638,7 @@ function renderEntityCustomFieldInput(field, entity, categoryOverride = null) {
     <div class="field-entry ${isImage ? "field-entry--image" : ""}" data-entity-field data-field-id="${escapeHtml(field.id || "")}" data-field-key="${escapeHtml(fieldStorageKey(field))}" data-field-name="${escapeHtml(field.name || "")}">
       <button class="field-drag-handle" type="button" draggable="true" tabindex="-1" data-entity-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</button>
       <label>${escapeHtml(fieldLabel(field))}
-        ${isImage ? `<span class="muted">${t("uploadImage")}</span><small class="muted">${t("imageStorageHelp")}</small><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-image-file-input />` : ""}
+        ${isImage ? `<span class="muted">${t("uploadImage")}</span><small class="muted">${t("imageStorageHelp")}</small><input type="file" accept="image/png,image/jpeg,image/webp" data-image-file-input />` : ""}
         ${isImage ? `<span class="muted">${t("pasteImageUrl")}</span>` : ""}
         <input
           ${isImage ? "" : `name="field:${escapeHtml(fieldStorageKey(field))}"`}
@@ -2426,6 +2427,7 @@ const translations = {
     uploadedImage: "Uploaded image",
     imageTooLarge: "Image file is too large. Please choose an image under 2 MB.",
     imageStorageHelp: "Images are stored locally in your browser. Smaller files are recommended.",
+    gifUploadUnsupported: "GIF uploads are disabled for storage safety. Use PNG, JPEG, or WebP instead.",
     resetImagePosition: "Reset position",
     fieldActions: "Field actions",
     dragToReorder: "Drag to reorder",
@@ -2497,7 +2499,9 @@ const translations = {
     embeddedImages: "Embedded images",
     imageStorageWarning: "Large embedded images can fill browser storage.",
     dismiss: "Dismiss",
-    cleanupImagesConfirm: "Remove embedded uploaded images from local data? External image URLs and image positions will be kept.",
+    cleanupImagesConfirm: "Export a backup first if you need these images. Remove embedded uploaded images from local data? External image URLs and image positions will be kept.",
+    storageMigrationNotice: "Loaded data from an older browser storage key and copied it to the current key.",
+    storageMigrationFailed: "Loaded data from an older browser storage key, but copying it to the current key did not finish. Export a backup before making changes.",
     cleanupImagesDone: "Embedded uploaded images were removed.",
     cleanupImagesNone: "No embedded uploaded images were found.",
     retrySaveOk: "Changes were saved.",
@@ -2820,6 +2824,7 @@ const translations = {
     uploadedImage: "Yüklenen görsel",
     imageTooLarge: "Görsel dosyası çok büyük. Lütfen 2 MB altında bir görsel seç.",
     imageStorageHelp: "Görseller tarayıcında yerel olarak saklanır. Daha küçük dosyalar önerilir.",
+    gifUploadUnsupported: "Depolama güvenliği için GIF yükleme kapalı. Bunun yerine PNG, JPEG veya WebP kullan.",
     resetImagePosition: "Konumu sıfırla",
     fieldActions: "Alan işlemleri",
     dragToReorder: "Sıralamak için sürükle",
@@ -2882,7 +2887,7 @@ const translations = {
     storageSaveError: "Yerel tarayıcı depolaması dolu veya kullanılamıyor. Son kaydedilen verin değiştirilmedi; tekrar kaydetmeden önce yedek dışa aktar veya büyük görselleri kaldır.",
     storageWarning: "Depolama uyarısı",
     storageLoadFailed: "Kaydedilmiş yerel veri güvenle okunamadı. Değişiklik yapmadan önce ham yedeği dışa aktar.",
-    storageUnsavedChanges: "Bazı değişiklikler kaydedilmedi",
+    storageUnsavedChanges: "Bazı Değişiklikler Kaydedilmedi",
     exportBackup: "Yedek dışa aktar",
     exportRawBackup: "Ham yedeği dışa aktar",
     retrySave: "Kaydetmeyi tekrar dene",
@@ -2891,7 +2896,9 @@ const translations = {
     embeddedImages: "Gömülü görseller",
     imageStorageWarning: "Büyük gömülü görseller tarayıcı depolamasını doldurabilir.",
     dismiss: "Kapat",
-    cleanupImagesConfirm: "Yerel verideki gömülü yüklenmiş görseller kaldırılsın mı? Dış görsel URL'leri ve görsel konumları korunur.",
+    cleanupImagesConfirm: "Bu görsellere ihtiyacın varsa önce yedek dışa aktar. Yerel verideki gömülü yüklenmiş görseller kaldırılsın mı? Dış görsel URL'leri ve görsel konumları korunur.",
+    storageMigrationNotice: "Veriler eski tarayıcı depolama anahtarından yüklendi ve güncel anahtara kopyalandı.",
+    storageMigrationFailed: "Veriler eski tarayıcı depolama anahtarından yüklendi, ancak güncel anahtara kopyalama tamamlanamadı. Değişiklik yapmadan önce yedek dışa aktar.",
     cleanupImagesDone: "Gömülü yüklenmiş görseller kaldırıldı.",
     cleanupImagesNone: "Gömülü yüklenmiş görsel bulunamadı.",
     retrySaveOk: "Değişiklikler kaydedildi.",
@@ -2925,9 +2932,11 @@ function createDefaultState() {
 }
 
 function loadState() {
-  let stored = "";
+  let canonicalStored = "";
+  let legacyStored = "";
   try {
-    stored = localStorage.getItem(STORAGE_KEY) || "";
+    canonicalStored = localStorage.getItem(STORAGE_KEY) || "";
+    legacyStored = localStorage.getItem(LEGACY_STORAGE_KEY) || "";
   } catch (error) {
     console.warn("Loreforge could not access local storage.", error);
     storageRecoveryMessage = "Local browser storage is unavailable. Loreforge started in recovery mode.";
@@ -2937,10 +2946,9 @@ function loadState() {
       unsavedChanges: true,
     };
   }
-  if (!stored) return createDefaultState();
+  if (!canonicalStored && !legacyStored) return createDefaultState();
 
-  try {
-    const parsed = JSON.parse(stored);
+  const hydrateParsedState = (parsed) => {
     if (!parsed || typeof parsed !== "object") throw new Error("Stored data is not an object.");
     const customTemplates = Array.isArray(parsed.templates)
       ? parsed.templates.filter((template) => template && !template.isBuiltIn)
@@ -2965,8 +2973,16 @@ function loadState() {
       projectEditModes: migratedProjectEditModes,
       collapsedPanels: parsed.collapsedPanels && typeof parsed.collapsedPanels === "object" ? parsed.collapsedPanels : {},
     });
-  } catch (error) {
-    console.warn("Loreforge could not read stored data.", error);
+  };
+
+  const parseStoredState = (stored, keyLabel) => {
+    const parsed = JSON.parse(stored);
+    if (!parsed || typeof parsed !== "object") throw new Error(`Stored data at ${keyLabel} is not an object.`);
+    return hydrateParsedState(parsed);
+  };
+
+  const blockForUnreadableStorage = (stored, error, keyLabel) => {
+    console.warn(`Loreforge could not read stored data from ${keyLabel}.`, error);
     storageRecoveryRaw = stored;
     storageLoadBlocked = true;
     storageRecoveryMessage = "Saved local data could not be read safely. Loreforge started in recovery mode. Export a raw backup before making changes.";
@@ -2976,6 +2992,38 @@ function loadState() {
       storageSaveError: "LoadFailed",
       unsavedChanges: true,
     };
+  };
+
+  if (canonicalStored) {
+    try {
+      return parseStoredState(canonicalStored, STORAGE_KEY);
+    } catch (error) {
+      return blockForUnreadableStorage(canonicalStored, error, STORAGE_KEY);
+    }
+  }
+
+  try {
+    const loadedState = parseStoredState(legacyStored, LEGACY_STORAGE_KEY);
+    try {
+      tryPersistState(loadedState);
+      storageRecoveryMessage = "Loaded data from an older browser storage key and copied it to the current key.";
+      return {
+        ...loadedState,
+        storageMigrationNotice: true,
+      };
+    } catch (error) {
+      console.warn("Loreforge could not migrate legacy storage key.", error);
+      storageRecoveryMessage = "Loaded data from an older browser storage key, but copying it to the current key did not finish. Export a backup before making changes.";
+      return {
+        ...loadedState,
+        storageSaveError: error?.name || "StorageError",
+        storageMigrationFailed: true,
+        unsavedChanges: true,
+        storageWarningDismissed: false,
+      };
+    }
+  } catch (error) {
+    return blockForUnreadableStorage(legacyStored, error, LEGACY_STORAGE_KEY);
   }
 }
 
@@ -3028,6 +3076,8 @@ function persistedStateForSave(stateLike) {
     storageWarningDismissed,
     unsavedChanges,
     storageLoadFailed,
+    storageMigrationNotice,
+    storageMigrationFailed,
     ...persistedState
   } = stateLike;
   return persistedState;
@@ -3295,7 +3345,17 @@ function applyTheme() {
 
 function renderStorageWarningBanner() {
   const hasWarning = state.storageSaveError || state.unsavedChanges || state.storageLoadFailed;
-  if (!hasWarning || state.storageWarningDismissed) return "";
+  if (!hasWarning) return "";
+  if (state.storageWarningDismissed && state.unsavedChanges) {
+    return `
+      <section class="storage-banner storage-banner--compact" role="status">
+        <strong>${t("storageUnsavedChanges")}</strong>
+        <button class="secondary" data-action="${currentUniverse() ? "export-universe" : "export-raw-backup"}">${t("exportBackup")}</button>
+        <button class="secondary" data-action="retry-save">${t("retrySave")}</button>
+      </section>
+    `;
+  }
+  if (state.storageWarningDismissed) return "";
   const size = formatBytes(estimatePersistedStateBytes());
   const imageCount = countEmbeddedImagesInState();
   const message = state.storageLoadFailed ? t("storageLoadFailed") : state.unsavedChanges ? t("storageUnsavedChanges") : t("storageSaveError");
@@ -8287,6 +8347,11 @@ function openEntityModal(entity) {
     if (!fileInput) return;
     const file = fileInput.files?.[0];
     if (!file) return;
+    if (file.type === "image/gif") {
+      fileInput.value = "";
+      alert(t("gifUploadUnsupported"));
+      return;
+    }
     if (file.size > IMAGE_UPLOAD_MAX_BYTES) {
       fileInput.value = "";
       alert(t("imageTooLarge"));
@@ -8305,7 +8370,7 @@ function openEntityModal(entity) {
     } catch (error) {
       console.error("Loreforge image upload failed", error);
       fileInput.value = "";
-      alert(t("imageTooLarge"));
+      alert(error.message.includes("GIF") ? t("gifUploadUnsupported") : t("imageTooLarge"));
     }
   });
   entityFieldsContainer?.addEventListener("pointerdown", (event) => {
@@ -8628,7 +8693,7 @@ function exportUniverse() {
 function exportRawBackup() {
   let stored = "";
   try {
-    stored = localStorage.getItem(STORAGE_KEY) || "";
+    stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY) || "";
   } catch (error) {
     stored = "";
   }

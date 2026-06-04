@@ -1765,7 +1765,7 @@ function renderFieldEditorRow(field = { id: "", name: "", type: "text", required
         <small class="muted">${fieldTypeInfo("entityReference").help}</small>
       </label>
       <div class="field-row-actions" aria-label="${escapeHtml(t("fieldActions"))}">
-        <button class="secondary danger-text" type="button" tabindex="-1" data-remove-category-field title="${escapeHtml(t("removeField"))}">x ${t("removeField")}</button>
+        <button class="icon-button danger-text" type="button" tabindex="-1" data-remove-category-field title="${escapeHtml(t("removeField"))}" aria-label="${escapeHtml(t("removeField"))}">×</button>
       </div>
       <input type="hidden" name="fieldId" value="${escapeHtml(field.id || "")}" />
       <input type="hidden" name="fieldPresetKey" value="${escapeHtml(field.presetKey || "")}" />
@@ -3704,11 +3704,16 @@ function renderEntityDetail(entity) {
               <h2 class="detail-title">${escapeHtml(entity.title)}</h2>
               <p>${escapeHtml(entity.summary || "")}</p>
             </div>
-            <div class="button-row">
-              ${showFamilyTree ? `<button class="secondary" data-action="scroll-family-tree">${t("familyTree")}</button>` : ""}
-              <button class="secondary" data-action="view-entity-graph" data-id="${entity.id}">${t("viewGraph")}</button>
+            <div class="detail-actions">
               <button data-action="edit-entity" data-id="${entity.id}">${editEntryLabel()}</button>
-              <button class="danger" data-action="delete-entity" data-id="${entity.id}">${t("delete")}</button>
+              <details class="action-menu detail-action-menu">
+                <summary class="secondary">${t("more")}</summary>
+                <div class="action-menu__items">
+                  ${showFamilyTree ? `<button class="secondary" data-action="scroll-family-tree">${t("familyTree")}</button>` : ""}
+                  <button class="secondary" data-action="view-entity-graph" data-id="${entity.id}">${t("viewGraph")}</button>
+                  <button class="danger danger-text" data-action="delete-entity" data-id="${entity.id}">${t("delete")}</button>
+                </div>
+              </details>
             </div>
           </div>
           <div class="badge-list">
@@ -4582,10 +4587,11 @@ function renderNoteCard(note) {
   ].filter(Boolean).join(" ");
   return `
     <article class="${classes}">
-      <div class="row">
+      <div class="note-card__header">
         <strong>${escapeHtml(note.title || typeLabel)}</strong>
         <span class="badge-list">
           <span class="badge">${escapeHtml(typeLabel)}</span>
+          ${note.type === "todo" ? `<span class="badge">${note.completed ? t("statusDone") : t("noteTypeTodo")}</span>` : ""}
           ${note.isPinned ? `<span class="badge">${t("pin")}</span>` : ""}
           ${note.isSpoiler ? `<span class="badge">${t("noteSpoiler")}</span>` : ""}
           ${note.isHidden ? `<span class="badge">${t("noteHidden")}</span>` : ""}
@@ -4593,15 +4599,18 @@ function renderNoteCard(note) {
         </span>
       </div>
       <p class="note-preview">${escapeHtml(preview)}</p>
-      <div class="button-row">
-        <button class="secondary" data-action="edit-note" data-id="${note.id}">${t("edit")}</button>
-        <button class="secondary" data-action="toggle-note-pin" data-id="${note.id}">${note.isPinned ? t("unpin") : t("pin")}</button>
-        ${note.type === "todo" ? `<button class="secondary" data-action="toggle-note-complete" data-id="${note.id}">${note.completed ? t("markActive") : t("markDone")}</button>` : ""}
-        <button class="secondary" data-action="toggle-note-spoiler" data-id="${note.id}">${t("markSpoiler")}</button>
-        <button class="secondary" data-action="toggle-note-hidden" data-id="${note.id}">${note.isHidden && note.isRevealed ? t("hideNote") : note.isHidden ? t("showNote") : t("markHidden")}</button>
-        ${!note.entityId && currentUniverse() ? `<button class="secondary" data-action="attach-note" data-id="${note.id}">${t("attach")}</button>` : ""}
-        <button class="danger" data-action="delete-note" data-id="${note.id}">${t("delete")}</button>
-      </div>
+      <details class="note-actions">
+        <summary class="secondary">${t("more")}</summary>
+        <div class="button-row">
+          <button class="secondary" data-action="edit-note" data-id="${note.id}">${t("edit")}</button>
+          <button class="secondary" data-action="toggle-note-pin" data-id="${note.id}">${note.isPinned ? t("unpin") : t("pin")}</button>
+          ${note.type === "todo" ? `<button class="secondary" data-action="toggle-note-complete" data-id="${note.id}">${note.completed ? t("markActive") : t("markDone")}</button>` : ""}
+          <button class="secondary" data-action="toggle-note-spoiler" data-id="${note.id}">${t("markSpoiler")}</button>
+          <button class="secondary" data-action="toggle-note-hidden" data-id="${note.id}">${note.isHidden && note.isRevealed ? t("hideNote") : note.isHidden ? t("showNote") : t("markHidden")}</button>
+          ${!note.entityId && currentUniverse() ? `<button class="secondary" data-action="attach-note" data-id="${note.id}">${t("attach")}</button>` : ""}
+          <button class="danger danger-text" data-action="delete-note" data-id="${note.id}">${t("delete")}</button>
+        </div>
+      </details>
     </article>
   `;
 }

@@ -1214,6 +1214,19 @@ label {
   background:
     radial-gradient(circle at center, color-mix(in srgb, var(--accent) 9%, transparent), transparent 36%),
     var(--surface);
+  cursor: grab;
+}
+
+.graph-map:active {
+  cursor: grabbing;
+}
+
+.graph-content {
+  position: absolute;
+  inset: 0;
+  width: var(--graph-width);
+  height: var(--graph-height);
+  transform-origin: 0 0;
 }
 
 .graph-map svg {
@@ -1255,6 +1268,15 @@ label {
   background: color-mix(in srgb, var(--surface) 92%, var(--node-color));
   color: var(--text);
   box-shadow: var(--shadow);
+  cursor: grab;
+  touch-action: none;
+}
+
+.graph-node:hover,
+.graph-node:focus-visible {
+  z-index: 2;
+  border-color: var(--accent);
+  filter: brightness(1.03);
 }
 
 .graph-node.is-focus {
@@ -1286,6 +1308,73 @@ label {
 
 .graph-node small {
   color: var(--muted);
+}
+
+.collapsible-section > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.collapsible-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-section > summary::after {
+  content: "▾";
+  margin-left: 8px;
+  color: var(--muted);
+}
+
+.collapsible-section:not([open]) > summary::after {
+  content: "▸";
+}
+
+.family-tree {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+}
+
+.family-tree__root {
+  position: relative;
+}
+
+.family-tree__branches {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  gap: 14px;
+  width: 100%;
+}
+
+.family-tree__branches::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 16%;
+  right: 16%;
+  border-top: 1px solid var(--line);
+}
+
+.family-tree section {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.family-tree h4 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.family-tree ul {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .map-board-layout {
@@ -1794,6 +1883,19 @@ label {
   .detail-hero,
   .field-entry {
     grid-template-columns: 1fr;
+  }
+
+  .family-tree__branches {
+    grid-template-columns: 1fr;
+  }
+
+  .family-tree__branches::before {
+    left: 50%;
+    right: auto;
+    top: -10px;
+    height: calc(100% + 10px);
+    border-top: 0;
+    border-left: 1px solid var(--line);
   }
 
   .home {

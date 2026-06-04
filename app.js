@@ -1544,10 +1544,10 @@ function groupFieldsBySection(category, fields) {
 function renderEntityFormSections(category, fields, entity) {
   const groups = groupFieldsBySection(category, fields);
   return [...groups.entries()].map(([section, sectionFields]) => `
-    <section class="form-section stack" data-form-section="${escapeHtml(section)}">
-      <h3 class="section-title">${escapeHtml(sectionLabel(section))}</h3>
+    <details class="form-section stack collapsible-section" data-form-section="${escapeHtml(section)}" open>
+      <summary class="section-title">${escapeHtml(sectionLabel(section))}</summary>
       ${sectionFields.map((field) => renderEntityCustomFieldInput(field, entity, category)).join("")}
-    </section>
+    </details>
   `).join("");
 }
 
@@ -1556,9 +1556,9 @@ function appendFieldToEntityForm(container, category, field, entity) {
   let sectionElement = [...container.querySelectorAll("[data-form-section]")].find((item) => item.dataset.formSection === section);
   if (!sectionElement) {
     container.insertAdjacentHTML("beforeend", `
-      <section class="form-section stack" data-form-section="${escapeHtml(section)}">
-        <h3 class="section-title">${escapeHtml(sectionLabel(section))}</h3>
-      </section>
+      <details class="form-section stack collapsible-section" data-form-section="${escapeHtml(section)}" open>
+        <summary class="section-title">${escapeHtml(sectionLabel(section))}</summary>
+      </details>
     `);
     sectionElement = [...container.querySelectorAll("[data-form-section]")].find((item) => item.dataset.formSection === section);
   }
@@ -2097,6 +2097,13 @@ const translations = {
     graphDepthOne: "1 step",
     graphDepthTwo: "2 steps",
     graphDepthAll: "All",
+    graphHelp: "Click a node to open it. Drag to rearrange the view.",
+    zoomIn: "Zoom in",
+    zoomOut: "Zoom out",
+    resetView: "Reset view",
+    createQuickPlaceholder: "Create quick placeholder",
+    createAndEditDetails: "Create and edit details",
+    addMapsFromTemplate: "Add Maps category from template",
     manualRelationships: "Manual relationships",
     linkedFields: "Linked fields",
     backlinks: "Backlinks",
@@ -2463,6 +2470,13 @@ const translations = {
     graphDepthOne: "1 adım",
     graphDepthTwo: "2 adım",
     graphDepthAll: "Tümü",
+    graphHelp: "Açmak için bir düğüme tıkla. Görünümü düzenlemek için sürükle.",
+    zoomIn: "Yakınlaştır",
+    zoomOut: "Uzaklaştır",
+    resetView: "Görünümü Sıfırla",
+    createQuickPlaceholder: "Hızlı kayıt oluştur",
+    createAndEditDetails: "Oluştur ve detayları düzenle",
+    addMapsFromTemplate: "Maps kategorisini şablondan ekle",
     manualRelationships: "Manuel ilişkiler",
     linkedFields: "Bağlı alanlar",
     backlinks: "Geri bağlantılar",
@@ -3544,15 +3558,15 @@ function renderCustomFields(entity) {
   return `
     <div class="detail-section-grid">
       ${[...sections.entries()].map(([section, sectionEntries]) => `
-        <section class="card stack">
-          <h3 class="section-title">${escapeHtml(sectionLabel(section))}</h3>
+        <details class="card stack collapsible-section" open>
+          <summary class="section-title">${escapeHtml(sectionLabel(section))}</summary>
           ${sectionEntries.map((entry) => `
             <div class="field-display">
               <strong>${escapeHtml(entry.label)}</strong>
               ${renderFieldValue(entry.field, entry.value, entity.customFieldValues || {})}
             </div>
           `).join("")}
-        </section>
+        </details>
       `).join("")}
     </div>
   `;
@@ -3681,17 +3695,29 @@ function familyTreeData(entity) {
 function renderFamilyTree(entity) {
   const data = familyTreeData(entity);
   if (!data) return "";
+  const renderTreeNode = (item) => `<li>${renderConnectionItemChip(item)}</li>`;
   return `
     <section class="card stack relationship-view" data-family-tree-view>
       <div class="row">
         <h3 class="section-title">${t("familyTree")}</h3>
         ${renderEntityChip(data.family)}
       </div>
-      <div class="connection-grid">
-        ${renderConnectionItemGroup(t("founder"), data.founderItems)}
-        ${renderConnectionItemGroup(t("currentHead"), data.currentHeadItems)}
-        ${renderConnectionItemGroup(t("members"), data.memberItems)}
-        ${renderConnectionItemGroup(t("relatedCharacters"), data.relatedItems)}
+      <div class="family-tree">
+        <div class="family-tree__root">${renderEntityChip(data.family)}</div>
+        <div class="family-tree__branches">
+          <section>
+            <h4>${t("founder")}</h4>
+            <ul>${data.founderItems.length ? data.founderItems.map(renderTreeNode).join("") : `<li><span class="muted">${t("noConnections")}</span></li>`}</ul>
+          </section>
+          <section>
+            <h4>${t("currentHead")}</h4>
+            <ul>${data.currentHeadItems.length ? data.currentHeadItems.map(renderTreeNode).join("") : `<li><span class="muted">${t("noConnections")}</span></li>`}</ul>
+          </section>
+          <section class="family-tree__members">
+            <h4>${t("members")}</h4>
+            <ul>${data.relatedItems.length ? data.relatedItems.map(renderTreeNode).join("") : `<li><span class="muted">${t("noConnections")}</span></li>`}</ul>
+          </section>
+        </div>
       </div>
     </section>
   `;
@@ -3917,6 +3943,18 @@ function relationshipGraphData(universe) {
   return { nodes, edges, allEdges, typeEdges, focusEntityId, filters, limited };
 }
 
+function graphManualPositions(universeId = state.selectedUniverseId) {
+  state.graphPositions = state.graphPositions || {};
+  state.graphPositions[universeId] = state.graphPositions[universeId] || {};
+  return state.graphPositions[universeId];
+}
+
+function graphViewport(universeId = state.selectedUniverseId) {
+  state.graphView = state.graphView || {};
+  state.graphView[universeId] = { scale: 1, x: 0, y: 0, ...(state.graphView[universeId] || {}) };
+  return state.graphView[universeId];
+}
+
 function graphLayout(nodes, focusEntityId) {
   const width = 780;
   const height = 520;
@@ -3924,22 +3962,37 @@ function graphLayout(nodes, focusEntityId) {
   if (!nodes.length) return { width, height, positions: new Map() };
   const focusIndex = focusEntityId ? nodes.findIndex((node) => node.id === focusEntityId) : -1;
   const ordered = focusIndex > -1 ? [nodes[focusIndex], ...nodes.filter((node) => node.id !== focusEntityId)] : nodes;
+  const manual = graphManualPositions(nodes[0]?.universeId || state.selectedUniverseId);
   const positions = new Map();
-  if (focusIndex > -1) positions.set(focusEntityId, center);
+  if (focusIndex > -1) positions.set(focusEntityId, manual[focusEntityId] || center);
   const ringNodes = focusIndex > -1 ? ordered.slice(1) : ordered;
-  const radius = Math.min(210, Math.max(120, 58 + ringNodes.length * 5));
   ringNodes.forEach((node, index) => {
-    const angle = (-Math.PI / 2) + (index / Math.max(ringNodes.length, 1)) * Math.PI * 2;
+    if (manual[node.id]) {
+      positions.set(node.id, manual[node.id]);
+      return;
+    }
+    const ring = Math.floor(index / 10);
+    const ringIndex = index % 10;
+    const ringSize = Math.min(10 + ring * 4, ringNodes.length);
+    const radius = 130 + ring * 105;
+    const angle = (-Math.PI / 2) + (ringIndex / Math.max(ringSize, 1)) * Math.PI * 2 + ring * 0.22;
     positions.set(node.id, {
-      x: center.x + Math.cos(angle) * radius,
-      y: center.y + Math.sin(angle) * radius,
+      x: Math.min(width - 90, Math.max(90, center.x + Math.cos(angle) * radius)),
+      y: Math.min(height - 70, Math.max(70, center.y + Math.sin(angle) * radius)),
     });
   });
   return { width, height, positions };
 }
 
+function graphContentStyle(universeId) {
+  const view = graphViewport(universeId);
+  return `transform: translate(${Number(view.x) || 0}px, ${Number(view.y) || 0}px) scale(${Number(view.scale) || 1});`;
+}
+
 function renderRelationshipGraphFilters(universe, data) {
-  const categories = universeCategories(universe.id, true);
+  const categories = universeCategories(universe.id, true)
+    .map((category) => ({ category, count: universeEntities(universe.id).filter((entity) => entity.categoryId === category.id).length }))
+    .filter((item) => item.count || data.filters.categoryId === item.category.id);
   const relationshipTypes = graphRelationshipTypes(data.typeEdges);
   const filters = data.filters;
   return `
@@ -3948,7 +4001,7 @@ function renderRelationshipGraphFilters(universe, data) {
       <label>${t("category")}
         <select data-graph-filter="categoryId">
           <option value="">${t("allCategories")}</option>
-          ${categories.map((category) => `<option value="${category.id}" ${filters.categoryId === category.id ? "selected" : ""}>${escapeHtml(category.name)}</option>`).join("")}
+          ${categories.map(({ category, count }) => `<option value="${category.id}" ${filters.categoryId === category.id ? "selected" : ""} ${count ? "" : "disabled"}>${escapeHtml(category.name)}${count ? ` (${count})` : ""}</option>`).join("")}
         </select>
       </label>
       <label>${t("type")}
@@ -3976,7 +4029,7 @@ function renderGraphNode(entity, point, focusEntityId) {
   const imageInfo = entityImageInfo(entity);
   const color = category?.color || state.settings.accentColor || "#9a4f2e";
   return `
-    <button class="graph-node ${entity.id === focusEntityId ? "is-focus" : ""}" data-action="select-entity" data-id="${entity.id}" style="left:${point.x}px; top:${point.y}px; --node-color:${escapeHtml(color)}">
+    <button class="graph-node ${entity.id === focusEntityId ? "is-focus" : ""}" data-action="select-entity" data-id="${entity.id}" data-graph-node draggable="true" style="left:${point.x}px; top:${point.y}px; --node-color:${escapeHtml(color)}">
       ${imageInfo ? `<img src="${escapeHtml(imageInfo.value)}" alt="${escapeHtml(entity.title)}" loading="lazy" style="${imagePositionStyle(imageInfo.position)}" />` : ""}
       <span>
         <strong>${escapeHtml(entity.title)}</strong>
@@ -4006,21 +4059,28 @@ function renderRelationshipGraphView(universe) {
         <div class="subview-bar">
           <button class="secondary" data-action="${data.focusEntityId ? "back-from-graph" : "project-home"}">← ${t("back")}</button>
         </div>
-        <div class="row">
+        <div class="page-toolbar">
           <div>
             <p class="muted">${escapeHtml(universe.name)}</p>
             <h2>${t("relationshipGraph")}</h2>
           </div>
-          <button class="secondary" data-action="clear-graph-focus">${t("projectHome")}</button>
+          <div class="page-toolbar__actions">
+            <button class="secondary" data-action="graph-zoom-out">${t("zoomOut")}</button>
+            <button class="secondary" data-action="graph-zoom-in">${t("zoomIn")}</button>
+            <button class="secondary" data-action="graph-reset-view">${t("resetView")}</button>
+          </div>
         </div>
+        <p class="muted">${t("graphHelp")}</p>
         ${renderRelationshipGraphFilters(universe, data)}
         ${data.limited ? `<p class="muted">${t("graphLimited")}</p>` : ""}
         ${data.nodes.length && data.edges.length ? `
-          <section class="graph-map" style="--graph-width:${layout.width}px; --graph-height:${layout.height}px">
-            <svg viewBox="0 0 ${layout.width} ${layout.height}" aria-hidden="true">
-              ${edgeLines}
-            </svg>
-            ${data.nodes.map((entity) => renderGraphNode(entity, layout.positions.get(entity.id), data.focusEntityId)).join("")}
+          <section class="graph-map" data-graph-map data-universe-id="${universe.id}" style="--graph-width:${layout.width}px; --graph-height:${layout.height}px">
+            <div class="graph-content" data-graph-content style="${graphContentStyle(universe.id)}">
+              <svg viewBox="0 0 ${layout.width} ${layout.height}" aria-hidden="true">
+                ${edgeLines}
+              </svg>
+              ${data.nodes.map((entity) => renderGraphNode(entity, layout.positions.get(entity.id), data.focusEntityId)).join("")}
+            </div>
           </section>
         ` : `<section class="empty"><h3>${t("noConnections")}</h3><p>${t("relationshipGraph")}</p></section>`}
       </section>
@@ -5223,6 +5283,7 @@ function bindEvents() {
   bindCategoryDragEvents(document);
   bindTimelineFilterEvents(document);
   bindGraphFilterEvents(document);
+  bindGraphMapEvents(document);
   bindStoryPlannerFilterEvents(document);
   bindMapBoardEvents(document);
   bindConsistencyFilterEvents(document);
@@ -5390,6 +5451,26 @@ const actions = {
   "clear-graph-focus"() {
     setState({ view: "relationshipGraph", selectedEntityId: null, graphFocusEntityId: null });
   },
+  "graph-zoom-in"() {
+    const view = graphViewport();
+    view.scale = Math.min(1.8, Number(view.scale || 1) + 0.15);
+    saveState();
+    render();
+  },
+  "graph-zoom-out"() {
+    const view = graphViewport();
+    view.scale = Math.max(0.55, Number(view.scale || 1) - 0.15);
+    saveState();
+    render();
+  },
+  "graph-reset-view"() {
+    if (state.selectedUniverseId) {
+      state.graphView = { ...(state.graphView || {}), [state.selectedUniverseId]: { scale: 1, x: 0, y: 0 } };
+      state.graphPositions = { ...(state.graphPositions || {}), [state.selectedUniverseId]: {} };
+    }
+    saveState();
+    render();
+  },
   "back-from-graph"() {
     const entity = entityForId(state.graphFocusEntityId);
     if (entity) {
@@ -5480,8 +5561,11 @@ const actions = {
     openEntityModal();
   },
   "new-map-entry"({ type }) {
-    const category = ensureMapCategory(type || "maps");
-    if (!category) return;
+    const category = universeCategories().find((item) => getCategoryTypeKey(item) === (type || "maps"));
+    if (!category) {
+      openMapCategorySetupDialog();
+      return;
+    }
     state.selectedCategoryId = category.id;
     state.selectedEntityId = null;
     state.view = "universe";
@@ -5713,6 +5797,76 @@ function bindGraphFilterEvents(root) {
       state.graphFilters = { ...graphFilters(), [filter]: value };
       saveState();
       render();
+    });
+  });
+}
+
+function bindGraphMapEvents(root) {
+  const map = root.querySelector("[data-graph-map]");
+  if (!map) return;
+  const universeId = map.dataset.universeId || state.selectedUniverseId;
+  const content = map.querySelector("[data-graph-content]");
+  let panStart = null;
+  map.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("[data-graph-node]")) return;
+    panStart = { x: event.clientX, y: event.clientY, view: { ...graphViewport(universeId) } };
+    map.setPointerCapture?.(event.pointerId);
+  });
+  map.addEventListener("pointermove", (event) => {
+    if (!panStart) return;
+    const view = graphViewport(universeId);
+    view.x = panStart.view.x + event.clientX - panStart.x;
+    view.y = panStart.view.y + event.clientY - panStart.y;
+    if (content) content.style.transform = graphContentStyle(universeId).replace("transform: ", "").replace(";", "");
+  });
+  map.addEventListener("pointerup", () => {
+    if (!panStart) return;
+    panStart = null;
+    saveState();
+  });
+  map.querySelectorAll("[data-graph-node]").forEach((node) => {
+    let dragStart = null;
+    node.addEventListener("dragstart", (event) => event.preventDefault());
+    node.addEventListener("click", (event) => {
+      if (node.dataset.dragMoved === "true") {
+        event.preventDefault();
+        event.stopPropagation();
+        node.dataset.dragMoved = "";
+      }
+    }, true);
+    node.addEventListener("pointerdown", (event) => {
+      dragStart = {
+        x: event.clientX,
+        y: event.clientY,
+        left: parseFloat(node.style.left) || 0,
+        top: parseFloat(node.style.top) || 0,
+        moved: false,
+      };
+      node.setPointerCapture?.(event.pointerId);
+    });
+    node.addEventListener("pointermove", (event) => {
+      if (!dragStart) return;
+      const scale = Number(graphViewport(universeId).scale || 1);
+      const dx = (event.clientX - dragStart.x) / scale;
+      const dy = (event.clientY - dragStart.y) / scale;
+      if (Math.abs(dx) + Math.abs(dy) > 3) dragStart.moved = true;
+      node.style.left = `${dragStart.left + dx}px`;
+      node.style.top = `${dragStart.top + dy}px`;
+    });
+    node.addEventListener("pointerup", (event) => {
+      if (!dragStart) return;
+      if (dragStart.moved) {
+        event.preventDefault();
+        event.stopPropagation();
+        node.dataset.dragMoved = "true";
+        graphManualPositions(universeId)[node.dataset.id] = {
+          x: parseFloat(node.style.left) || dragStart.left,
+          y: parseFloat(node.style.top) || dragStart.top,
+        };
+        saveState();
+        render();
+      }
+      dragStart = null;
     });
   });
 }
@@ -6034,6 +6188,12 @@ function openLinkedEntityCreateModal(fieldElement, field, sourceEntity) {
     <form class="form-grid">
       <p class="muted">${escapeHtml(targetCategory.name)}</p>
       <label>${t("title")} <input name="title" required /></label>
+      <label>${t("createLinkedEntry")}
+        <select name="createMode">
+          <option value="quick">${t("createQuickPlaceholder")}</option>
+          <option value="edit">${t("createAndEditDetails")}</option>
+        </select>
+      </label>
       <div class="button-row">
         <button type="submit">${t("createLinkedEntry")}</button>
         <button class="secondary" type="button" data-modal-close>${t("cancel")}</button>
@@ -6048,6 +6208,16 @@ function openLinkedEntityCreateModal(fieldElement, field, sourceEntity) {
     const created = createLinkedEntity(field, sourceEntity, title);
     if (!created) return false;
     appendReferenceOption(fieldElement, field, created);
+    if (form.get("createMode") === "edit") {
+      document.querySelectorAll(".modal-backdrop").forEach((item) => item.remove());
+      state.selectedUniverseId = created.universeId;
+      state.selectedCategoryId = created.categoryId;
+      state.selectedEntityId = created.id;
+      state.view = "universe";
+      saveState();
+      render();
+      setTimeout(() => openEntityModal(created), 0);
+    }
   });
 }
 
@@ -6475,6 +6645,15 @@ function openMapPinModal(pin = null, defaults = {}) {
     state.selectedMapPinId = entityId;
     saveState();
     render();
+  });
+}
+
+function openMapCategorySetupDialog() {
+  openChoiceModal(t("mapBoard"), t("targetCategoryMissing"), [
+    { value: "template", label: t("addMapsFromTemplate"), className: "secondary" },
+    { value: "cancel", label: t("cancel"), className: "secondary" },
+  ]).then((choice) => {
+    if (choice === "template") openTemplateExpansionModal();
   });
 }
 

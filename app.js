@@ -2798,6 +2798,7 @@ function createDefaultState() {
     selectedCategoryId: null,
     selectedEntityId: null,
     projectEditModes: {},
+    collapsedPanels: {},
     view: "home",
     search: "",
   };
@@ -2831,6 +2832,7 @@ function loadState() {
       templates: [...builtInTemplates, ...customTemplates],
       settings: { ...defaultSettings, ...(parsed.settings || {}) },
       projectEditModes: migratedProjectEditModes,
+      collapsedPanels: parsed.collapsedPanels && typeof parsed.collapsedPanels === "object" ? parsed.collapsedPanels : {},
     });
   } catch (error) {
     console.warn("Loreforge could not read stored data.", error);
@@ -3076,6 +3078,7 @@ function renderTopbar(universe) {
           <p>${universe ? escapeHtml(universe.name) : "Offline worldbuilding çekirdeği"}</p>
         </span>
       </button>
+      ${universe && state.view !== "home" ? renderWorkspaceTopNav() : ""}
       <div class="topbar__actions">
         ${universe ? `<button class="secondary" data-action="quick-note">${t("idea")}</button>` : ""}
         ${universe ? `<button class="secondary" data-action="export-universe">${t("export")}</button>` : ""}
@@ -3152,11 +3155,12 @@ function renderUniverseCard(universe) {
   `;
 }
 function renderWorkspace(universe) {
+  const collapsed = state.collapsedPanels || {};
   return `
-    <div class="workspace">
-      ${renderLeftPanel(universe)}
+    <div class="workspace ${collapsed.left ? "is-left-collapsed" : ""} ${collapsed.right ? "is-right-collapsed" : ""}">
+      ${collapsed.left ? `<button class="panel-restore panel-restore--left secondary" data-action="toggle-left-panel">${t("categories")}</button>` : renderLeftPanel(universe)}
       ${renderMainPanel(universe)}
-      ${renderRightPanel(universe)}
+      ${collapsed.right ? `<button class="panel-restore panel-restore--right secondary" data-action="toggle-right-panel">${t("notes")}</button>` : renderRightPanel(universe)}
     </div>
   `;
 }
@@ -3168,38 +3172,12 @@ function renderLeftPanel(universe) {
   return `
     <aside class="panel stack">
       <div class="sidebar-section">
-        <h2>${t("workspace")}</h2>
-        <div class="stack sidebar-nav-group">
-          <button class="category-button ${state.view === "projectHome" ? "is-active" : ""}" data-action="project-home">
-            <strong>${t("homeNav")}</strong>
-            <small>${t("projectHome")}</small>
-          </button>
-          <button class="category-button ${state.view === "timeline" ? "is-active" : ""}" data-action="timeline">
-            <strong>${t("timeline")}</strong>
-            <small>${t("chronology")}</small>
-          </button>
-          <button class="category-button ${state.view === "storyPlanner" ? "is-active" : ""}" data-action="story-planner">
-            <strong>${t("storyPlanner")}</strong>
-            <small>${t("storyPlanning")}</small>
-          </button>
-          <button class="category-button ${state.view === "mapBoard" ? "is-active" : ""}" data-action="map-board">
-            <strong>${t("mapBoard")}</strong>
-            <small>${t("mapPins")}</small>
-          </button>
-          <button class="category-button ${state.view === "relationshipGraph" ? "is-active" : ""}" data-action="relationship-graph">
-            <strong>${t("relationshipGraph")}</strong>
-            <small>${t("connections")}</small>
-          </button>
-          <button class="category-button ${state.view === "consistencyChecker" ? "is-active" : ""}" data-action="consistency-checker">
-            <strong>${t("consistencyChecker")}</strong>
-            <small>${t("runCheck")}</small>
-          </button>
-        </div>
-      </div>
-      <div class="sidebar-section">
         <div class="row">
           <h2>${t("categories")}</h2>
-          <button class="icon-button" data-action="new-category" title="${t("addCategory")}">+</button>
+          <span class="button-row">
+            <button class="icon-button" data-action="new-category" title="${t("addCategory")}">+</button>
+            <button class="icon-button" data-action="toggle-left-panel" title="${t("hide")}">‹</button>
+          </span>
         </div>
         ${isEditingOrganization ? `<p class="muted edit-mode-help">${t("organizationEditHelp")}</p>` : ""}
         <input data-search placeholder="${t("searchPages")}" value="${escapeHtml(state.search)}" />
@@ -3415,16 +3393,10 @@ function renderProjectHome(universe) {
   const maps = mapEntities(universe.id);
   const pins = mapPinEntities(universe.id);
   const notesCount = activeItems(state.notes).filter((note) => note.universeId === universe.id).length;
+  const recentNotes = sortedNotes(activeItems(state.notes).filter((note) => note.universeId === universe.id)).slice(0, 4);
   const quickIdeas = activeItems(state.notes).filter((note) => note.universeId === universe.id && note.type === "idea" && !note.entityId && !note.categoryId);
   const storyItems = storyPlannerEntities(universe.id);
   const dashboardConsistencyFindings = consistencyFindings(universe.id).filter((finding) => !(state.ignoredConsistencyFindings || []).includes(finding.id));
-  const moduleCards = [
-    { label: t("timeline"), count: timelineCount, action: "timeline", help: t("chronology") },
-    { label: t("storyPlanner"), count: storyItems.length, action: "story-planner", help: t("sceneBoard") },
-    { label: t("mapBoard"), count: maps.length, action: "map-board", help: `${pins.length} ${t("mapPins")}` },
-    { label: t("relationshipGraph"), count: allEntities.length, action: "relationship-graph", help: t("connections") },
-    { label: t("consistencyChecker"), count: dashboardConsistencyFindings.length, action: "consistency-checker", help: t("runCheck") },
-  ];
   const nextSteps = [
     { label: t("createEntry"), action: "new-entity", primary: true },
     { label: t("addFromTemplate"), action: "add-from-template" },
@@ -3482,10 +3454,20 @@ function renderProjectHome(universe) {
           <p class="muted">${quickIdeas.length} ${t("quickIdeas")}</p>
         </div>
       </section>
-      <section class="stack">
-        <h3 class="section-title">${t("moduleOverview")}</h3>
-        <div class="dashboard-module-grid dashboard-module-grid--compact">
-          ${moduleCards.map(renderDashboardModuleCard).join("")}
+      <section class="dashboard-grid dashboard-grid--compact">
+        <div class="dashboard-card stack">
+          <h3 class="section-title">${t("notes")}</h3>
+          ${recentNotes.length ? recentNotes.map(renderDashboardNoteLink).join("") : `<p class="muted">${t("noNotes")}</p>`}
+        </div>
+        <div class="dashboard-card stack">
+          <h3 class="section-title">${t("consistencyChecker")}</h3>
+          <div class="badge-list">
+            <span class="badge">${timelineCount} ${t("timelineEntries")}</span>
+            <span class="badge">${storyItems.length} ${t("storyPlanner")}</span>
+            <span class="badge">${maps.length} ${t("mapBoard")}</span>
+            <span class="badge">${dashboardConsistencyFindings.length} ${t("consistencyIssues")}</span>
+          </div>
+          <button class="secondary" data-action="consistency-checker">${t("runCheck")}</button>
         </div>
       </section>
     </section>
@@ -3907,6 +3889,29 @@ function renderFamilyTree(entity) {
   `;
 }
 
+function workspaceNavItems() {
+  return [
+    { view: "projectHome", action: "project-home", label: t("homeNav") },
+    { view: "timeline", action: "timeline", label: t("timeline") },
+    { view: "storyPlanner", action: "story-planner", label: t("storyPlanner") },
+    { view: "mapBoard", action: "map-board", label: t("mapBoard") },
+    { view: "relationshipGraph", action: "relationship-graph", label: t("relationshipGraph") },
+    { view: "consistencyChecker", action: "consistency-checker", label: t("consistencyChecker") },
+  ];
+}
+
+function renderWorkspaceTopNav() {
+  return `
+    <nav class="workspace-tabs" aria-label="${escapeHtml(t("workspace"))}">
+      ${workspaceNavItems().map((item) => `
+        <button class="${state.view === item.view ? "is-active" : ""}" data-action="${item.action}">
+          ${escapeHtml(item.label)}
+        </button>
+      `).join("")}
+    </nav>
+  `;
+}
+
 function connectionGroupKey(entity) {
   const type = entityCategoryType(entity);
   if (type === "families" || type === "characters") return "family";
@@ -4283,15 +4288,21 @@ function renderRightPanel() {
     return `
       <aside class="side stack ${hasContent ? "" : "side--compact"}">
         <div class="row">
-          <h2>${category ? t("notes") : t("ideaInbox")}</h2>
-          <button class="icon-button" data-action="quick-note" title="${t("addNote")}">+</button>
+          <h2>${category ? t("notes") : `${t("notes")} / ${t("ideaInbox")}`}</h2>
+          <span class="button-row">
+            <button class="icon-button" data-action="quick-note" title="${t("addNote")}">+</button>
+            <button class="icon-button" data-action="toggle-right-panel" title="${t("hide")}">›</button>
+          </span>
         </div>
         ${scopedNotes.length ? `<div class="note-grid note-grid--compact">${scopedNotes.slice(0, 4).map(renderNoteCard).join("")}</div>` : ""}
-        <details class="side-section" ${hasContent ? "open" : ""}>
+        ${category ? `<details class="side-section" ${hasContent ? "open" : ""}>
           <summary>${t("ideaInbox")}</summary>
           ${renderNoteFilterBar()}
           ${inboxNotes.length ? `<div class="note-grid note-grid--compact">${sortedNotes(inboxNotes).slice(0, 6).map(renderNoteCard).join("")}</div>` : `<p class="muted">${t("noInboxNotes")}</p>`}
-        </details>
+        </details>` : `
+          ${renderNoteFilterBar()}
+          ${inboxNotes.length ? `<div class="note-grid note-grid--compact">${sortedNotes(inboxNotes).slice(0, 6).map(renderNoteCard).join("")}</div>` : `<p class="muted">${t("noInboxNotes")}</p>`}
+        `}
       </aside>
     `;
   }
@@ -4304,7 +4315,10 @@ function renderRightPanel() {
     <aside class="side stack ${outgoing.length || incoming.length || notes.length || fieldBackReferences.length ? "" : "side--compact"}">
       <div class="row">
         <h2>${t("links")}</h2>
-        <button class="icon-button" data-action="new-relationship" title="${t("addRelationship")}" ${relationshipTargets.length ? "" : "disabled"}>+</button>
+        <span class="button-row">
+          <button class="icon-button" data-action="new-relationship" title="${t("addRelationship")}" ${relationshipTargets.length ? "" : "disabled"}>+</button>
+          <button class="icon-button" data-action="toggle-right-panel" title="${t("hide")}">›</button>
+        </span>
       </div>
       ${relationshipTargets.length ? "" : `<p class="muted">${t("relationshipNeedsTarget")}</p>`}
       ${outgoing.length ? outgoing.map((rel) => renderRelationship(rel, false)).join("") : `<p class="muted">${t("noOutgoing")}</p>`}
@@ -5709,6 +5723,16 @@ const actions = {
     const universe = currentUniverse();
     if (!universe) return;
     setProjectEditMode(universe.id, !isProjectEditMode(universe.id));
+    saveState();
+    render();
+  },
+  "toggle-left-panel"() {
+    state.collapsedPanels = { ...(state.collapsedPanels || {}), left: !state.collapsedPanels?.left };
+    saveState();
+    render();
+  },
+  "toggle-right-panel"() {
+    state.collapsedPanels = { ...(state.collapsedPanels || {}), right: !state.collapsedPanels?.right };
     saveState();
     render();
   },

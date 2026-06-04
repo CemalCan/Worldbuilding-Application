@@ -175,6 +175,35 @@ label {
   z-index: 5;
 }
 
+.workspace-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.workspace-tabs button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.workspace-tabs button.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -752,8 +781,22 @@ label {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(220px, 270px) minmax(0, 1fr) minmax(220px, 290px);
+  grid-template-columns: minmax(210px, 250px) minmax(0, 1fr) minmax(190px, 260px);
   min-height: calc(100vh - 63px);
+  max-height: calc(100vh - 63px);
+  overflow: hidden;
+}
+
+.workspace.is-left-collapsed {
+  grid-template-columns: 42px minmax(0, 1fr) minmax(190px, 260px);
+}
+
+.workspace.is-right-collapsed {
+  grid-template-columns: minmax(210px, 250px) minmax(0, 1fr) 42px;
+}
+
+.workspace.is-left-collapsed.is-right-collapsed {
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
 }
 
 .panel,
@@ -761,6 +804,8 @@ label {
 .side {
   padding: 16px;
   min-width: 0;
+  max-height: calc(100vh - 63px);
+  overflow: auto;
 }
 
 .panel,
@@ -774,7 +819,16 @@ label {
 
 .side {
   border-left: 1px solid var(--line);
-  overflow: auto;
+  font-size: 0.92rem;
+}
+
+.panel-restore {
+  writing-mode: vertical-rl;
+  min-width: 42px;
+  width: 42px;
+  height: 100%;
+  border-radius: 0;
+  border-block: 0;
 }
 
 .side--compact {
@@ -971,10 +1025,10 @@ label {
 }
 
 .entity-row--rich {
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   align-items: center;
-  gap: 14px;
-  padding: 10px 12px;
+  gap: 18px;
+  padding: 12px 14px;
 }
 
 .entity-row--rich:not(:has(.entity-row__image)) {
@@ -982,8 +1036,8 @@ label {
 }
 
 .entity-row__image {
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
   object-fit: cover;
   border-radius: 6px;
   border: 1px solid var(--line);
@@ -992,8 +1046,8 @@ label {
 
 .entity-row__body {
   display: grid;
-  grid-template-columns: minmax(160px, 0.8fr) minmax(220px, 1.2fr) auto;
-  gap: 6px 14px;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(240px, 1.1fr) minmax(160px, 0.7fr);
+  gap: 6px 18px;
   align-items: center;
   min-width: 0;
 }
@@ -1842,6 +1896,8 @@ label {
 @media (max-width: 980px) {
   .workspace {
     grid-template-columns: 240px minmax(0, 1fr);
+    max-height: none;
+    overflow: visible;
   }
 
   .side {
@@ -1857,6 +1913,18 @@ label {
 
   .entity-row__body {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace.is-left-collapsed,
+  .workspace.is-right-collapsed,
+  .workspace.is-left-collapsed.is-right-collapsed {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .panel,
+  .main,
+  .side {
+    max-height: none;
   }
 }
 
@@ -1880,6 +1948,24 @@ label {
 
   .workspace {
     grid-template-columns: 1fr;
+  }
+
+  .workspace-tabs {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+
+  .workspace.is-left-collapsed,
+  .workspace.is-right-collapsed,
+  .workspace.is-left-collapsed.is-right-collapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-restore {
+    writing-mode: horizontal-tb;
+    width: 100%;
+    height: auto;
+    min-width: 0;
   }
 
   .panel {

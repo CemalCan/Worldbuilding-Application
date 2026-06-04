@@ -1,4 +1,4 @@
-const STORAGE_KEY = "hikaye.mvp.state.v1";
+const STORAGE_KEY = "hik?ye.mvp.state.v1";
 const now = () => new Date().toISOString();
 const id = (prefix) => `${prefix}_${crypto.randomUUID()}`;
 const IMAGE_UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
@@ -185,7 +185,7 @@ const fieldPresetLabelTranslations = {
   Goal: "Amaç",
   Fear: "Korku",
   Secret: "Sır",
-  Backstory: "Geçmiş hikaye",
+  Backstory: "Geçmiş hikâye",
   "Family name": "Aile adı",
   Founder: "Kurucu",
   "Current head": "Mevcut lider",
@@ -338,7 +338,7 @@ const fieldPresetLabelTranslations = {
   "Applies to": "Uygulandığı durum",
   Example: "Örnek",
   "Session used": "Kullanıldığı oturum",
-  "Story title": "Hikaye başlığı",
+  "Story title": "Hikâye başlığı",
   Genre: "Tür",
   Theme: "Tema",
   Synopsis: "Sinopsis",
@@ -473,7 +473,7 @@ const categoryPresetAliases = {
   olaylar: "events",
   wars: "wars",
   savaslar: "wars",
-  "savaşlar": "events",
+  "savaşlar": "wars",
   scenes: "scenes",
   sahneler: "scenes",
   encounters: "events",
@@ -558,7 +558,6 @@ const categoryPresetAliases = {
   krallıklar: "governments",
   imparatorluklar: "governments",
   wars: "wars",
-  savaşlar: "wars",
   creatures: "creatures",
   bestiary: "creatures",
   monsters: "creatures",
@@ -725,7 +724,7 @@ const entityTypeLabels = {
     clues: { singular: "İpucu", plural: "ipucu" },
     encounters: { singular: "Karşılaşma", plural: "karşılaşma" },
     campaign: { singular: "Campaign notu", plural: "campaign notu" },
-    stories: { singular: "Hikaye", plural: "hikaye" },
+    stories: { singular: "Hikâye", plural: "hikâye" },
     books: { singular: "Kitap", plural: "kitap" },
     chapters: { singular: "Bölüm", plural: "bölüm" },
     scenes: { singular: "Sahne", plural: "sahne" },
@@ -1510,17 +1509,17 @@ function fieldTypeInfo(type) {
   const language = state?.settings?.language || "en";
   if (language === "tr") {
     const trLabels = {
-      text: "KÄ±sa Metin",
+      text: "Kısa Metin",
       longText: "Uzun Metin",
-      number: "SayÄ±",
+      number: "Sayı",
       date: "Tarih",
-      boolean: "Evet/HayÄ±r",
-      select: "Tek SeÃ§im",
-      multiSelect: "Ã‡oklu SeÃ§im",
-      entityReference: "KayÄ±t BaÄŸlantÄ±sÄ±",
-      entityReferenceList: "KayÄ±t BaÄŸlantÄ± Listesi",
+      boolean: "Evet/Hayır",
+      select: "Tek Seçim",
+      multiSelect: "Çoklu Seçim",
+      entityReference: "Kayıt Bağlantısı",
+      entityReferenceList: "Kayıt Bağlantı Listesi",
       url: "URL",
-      image: "GÃ¶rsel",
+      image: "Görsel",
     };
     const base = fieldTypeText.tr?.[type] || fieldTypeText.en[type] || { help: "" };
     return { ...base, label: trLabels[type] || base.label || type };
@@ -1540,23 +1539,23 @@ function addFieldButtonLabel() {
 }
 
 function linkedCategoryLabel() {
-  return state.settings.language === "tr" ? "BaÄŸlÄ± Kategori" : "Linked Category";
+  return state.settings.language === "tr" ? "Bağlı Kategori" : "Linked Category";
 }
 
 function addRequiredCategoryLabel() {
-  return state.settings.language === "tr" ? "Gerekli kategoriyi ÅŸablondan ekle" : "Add required category from template";
+  return state.settings.language === "tr" ? "Gerekli kategoriyi şablondan ekle" : "Add required category from template";
 }
 
 function editCategoryLabel() {
-  return state.settings.language === "tr" ? "Kategoriyi DÃ¼zenle" : "Edit Category";
+  return state.settings.language === "tr" ? "Kategoriyi Düzenle" : "Edit Category";
 }
 
 function editEntryLabel() {
-  return state.settings.language === "tr" ? "KaydÄ± DÃ¼zenle" : "Edit Entry";
+  return state.settings.language === "tr" ? "Kaydı Düzenle" : "Edit Entry";
 }
 
 function organizeCategoriesLabel() {
-  return state.settings.language === "tr" ? "Kategorileri DÃ¼zenle" : "Organize Categories";
+  return state.settings.language === "tr" ? "Kategorileri Düzenle" : "Organize Categories";
 }
 
 function categoryTypeOptions(selectedTypes = []) {
@@ -1756,7 +1755,7 @@ function renderFieldEditorRow(field = { id: "", name: "", type: "text", required
         </select>
         <small class="muted">${escapeHtml(fieldTypeInfo(fieldType).help)}</small>
       </label>
-      <label>${state.settings.language === "tr" ? "BÃ¶lÃ¼m" : "Section"}
+      <label>${state.settings.language === "tr" ? "Bölüm" : "Section"}
         <input name="fieldSection" list="field-section-options" value="${escapeHtml(sectionLabel(sectionValue))}" data-section-input />
       </label>
       <label data-link-target-field ${isLinkType ? "" : "hidden"}>${linkedCategoryLabel()}
@@ -1858,58 +1857,92 @@ function fieldFromEditorRow(row) {
 }
 
 function attachCategoryFieldActions(category) {
+  const form = document.querySelector(".modal-backdrop form");
+  const manager = form?.querySelector("[data-field-manager]");
+  if (!form || !manager || manager.dataset.categoryFieldActionsBound === "true") return;
+  manager.dataset.categoryFieldActionsBound = "true";
+  const categoryFromForm = () => {
+    const name = String(form.querySelector('[name="name"]')?.value || category?.name || "").trim();
+    return {
+      ...(category || {}),
+      name,
+      isDefault: category?.isDefault || Boolean(getFieldPresetNames(name).length),
+    };
+  };
   const syncLinkTargetVisibility = (row) => {
     const type = row.querySelector('[name="fieldType"]')?.value || "text";
     const target = row.querySelector("[data-link-target-field]");
     if (target) target.hidden = !(type === "entityReference" || type === "entityReferenceList");
   };
-  const attachDynamicFieldControls = () => {
-    document.querySelectorAll("[data-field-editor-row]").forEach((row) => {
-      syncLinkTargetVisibility(row);
-      row.querySelector('[name="fieldType"]')?.addEventListener("change", () => syncLinkTargetVisibility(row));
-    });
+  const syncAllLinkTargetVisibility = () => {
+    manager.querySelectorAll("[data-field-editor-row]").forEach(syncLinkTargetVisibility);
   };
-  document.querySelector("[data-add-category-field]")?.addEventListener("click", () => {
-    const list = document.querySelector("[data-field-editor-list]");
-    if (!list) return;
-    list.insertAdjacentHTML("beforeend", renderFieldEditorRow({ id: "", name: "", type: "text", required: false }, category));
-    attachCategoryFieldActions(category);
+  manager.addEventListener("change", (event) => {
+    const row = event.target.closest("[data-field-editor-row]");
+    if (row && event.target.matches('[name="fieldType"]')) syncLinkTargetVisibility(row);
   });
-  document.querySelector("[data-reset-field-order]")?.addEventListener("click", () => {
-    const form = document.querySelector(".modal-backdrop form");
-    const fieldSection = form?.querySelector("[data-field-manager]");
-    if (!fieldSection) return;
-    const fields = collectCategoryFields(form);
-    const defaultNames = getFieldPresetNames(category.name);
-    const orderIndex = new Map(defaultNames.map((name, index) => [fieldPresetKey(name), index]));
-    const reordered = [...fields].sort((a, b) => {
-      const aIndex = orderIndex.has(fieldStorageKey(a)) ? orderIndex.get(fieldStorageKey(a)) : Number.MAX_SAFE_INTEGER;
-      const bIndex = orderIndex.has(fieldStorageKey(b)) ? orderIndex.get(fieldStorageKey(b)) : Number.MAX_SAFE_INTEGER;
-      if (aIndex !== bIndex) return aIndex - bIndex;
-      return fields.indexOf(a) - fields.indexOf(b);
-    });
-    fieldSection.outerHTML = renderFieldManager(reordered, category);
-    attachCategoryFieldActions(category);
-  });
-  document.querySelector("[data-reset-category-fields]")?.addEventListener("click", () => {
-    const form = document.querySelector(".modal-backdrop form");
-    const fieldSection = form?.querySelector("[data-field-manager]");
-    if (!fieldSection) return;
-    fieldSection.outerHTML = renderFieldManager(defaultFieldsForCategory(category), category);
-    attachCategoryFieldActions(category);
-  });
-  document.querySelectorAll("[data-remove-category-field]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const row = button.closest("[data-field-editor-row]");
+  manager.addEventListener("click", async (event) => {
+    const addButton = event.target.closest("[data-add-category-field]");
+    if (addButton) {
+      const list = manager.querySelector("[data-field-editor-list]");
+      if (!list) return;
+      const currentCategory = categoryFromForm();
+      list.insertAdjacentHTML("beforeend", renderFieldEditorRow({ id: "", name: "", type: "text", required: false }, currentCategory));
+      syncAllLinkTargetVisibility();
+      attachFieldDragReorder();
+      return;
+    }
+    const resetOrderButton = event.target.closest("[data-reset-field-order]");
+    if (resetOrderButton) {
+      const fieldSection = form.querySelector("[data-field-manager]");
+      if (!fieldSection) return;
+      const currentCategory = categoryFromForm();
+      if (!currentCategory.name) {
+        alert(t("fieldNameRequired"));
+        return;
+      }
+      const fields = collectCategoryFields(form);
+      const defaultNames = getFieldPresetNames(currentCategory.name);
+      if (!defaultNames.length) {
+        alert(t("resetFieldOrder"));
+        return;
+      }
+      const orderIndex = new Map(defaultNames.map((name, index) => [fieldPresetKey(name), index]));
+      const reordered = [...fields].sort((a, b) => {
+        const aIndex = orderIndex.has(fieldStorageKey(a)) ? orderIndex.get(fieldStorageKey(a)) : Number.MAX_SAFE_INTEGER;
+        const bIndex = orderIndex.has(fieldStorageKey(b)) ? orderIndex.get(fieldStorageKey(b)) : Number.MAX_SAFE_INTEGER;
+        if (aIndex !== bIndex) return aIndex - bIndex;
+        return fields.indexOf(a) - fields.indexOf(b);
+      });
+      fieldSection.outerHTML = renderFieldManager(reordered, currentCategory);
+      attachCategoryFieldActions(currentCategory);
+      return;
+    }
+    const resetFieldsButton = event.target.closest("[data-reset-category-fields]");
+    if (resetFieldsButton) {
+      const fieldSection = form.querySelector("[data-field-manager]");
+      if (!fieldSection) return;
+      const currentCategory = categoryFromForm();
+      if (!currentCategory.name) {
+        alert(t("fieldNameRequired"));
+        return;
+      }
+      fieldSection.outerHTML = renderFieldManager(defaultFieldsForCategory(currentCategory), currentCategory);
+      attachCategoryFieldActions(currentCategory);
+      return;
+    }
+    const removeButton = event.target.closest("[data-remove-category-field]");
+    if (removeButton) {
+      const row = removeButton.closest("[data-field-editor-row]");
       if (!row) return;
       const field = fieldFromEditorRow(row);
       const fieldName = row.querySelector('[name="fieldName"]')?.value?.trim();
-      if (fieldName && !(await confirmFieldRemoval(category, field))) return;
+      if (fieldName && !(await confirmFieldRemoval(category || categoryFromForm(), field))) return;
       row.remove();
-    });
+    }
   });
+  syncAllLinkTargetVisibility();
   attachFieldDragReorder();
-  attachDynamicFieldControls();
 }
 
 function attachFieldDragReorder() {
@@ -2409,6 +2442,7 @@ const translations = {
     reviewAppearance: "Appearance",
     reviewCategories: "Categories",
     noDescription: "No description.",
+    storageSaveError: "Local browser storage is full or unavailable. Your last saved data was kept unchanged; export a backup or remove large images before saving again.",
   },
   tr: {
     idea: "Fikir",
@@ -2786,6 +2820,7 @@ const translations = {
     reviewAppearance: "Görünüm",
     reviewCategories: "Kategoriler",
     noDescription: "Açıklama yok.",
+    storageSaveError: "Yerel tarayıcı depolaması dolu veya kullanılamıyor. Son kaydedilen verin değiştirilmedi; tekrar kaydetmeden önce yedek dışa aktar veya büyük görselleri kaldır.",
   },
 };
 
@@ -2894,7 +2929,25 @@ function applyStartupBehavior(loadedState) {
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    const persistedState = { ...state, storageSaveError: null, storageSaveAlerted: false };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
+    state.storageSaveError = null;
+    state.storageSaveAlerted = false;
+    return true;
+  } catch (error) {
+    console.error("Loreforge save failed", error);
+    state.storageSaveError = error?.name || "StorageError";
+    const message = t("storageSaveError");
+    if (typeof window !== "undefined" && !state.storageSaveAlerted) {
+      state.storageSaveAlerted = true;
+      window.setTimeout(() => {
+        alert(message);
+        state.storageSaveAlerted = false;
+      }, 0);
+    }
+    return false;
+  }
 }
 
 function setState(patch) {
@@ -3402,8 +3455,9 @@ function renderProjectHome(universe) {
   const timelineCount = timelineEntities(universe.id).length;
   const maps = mapEntities(universe.id);
   const pins = mapPinEntities(universe.id);
-  const notesCount = activeItems(state.notes).filter((note) => note.universeId === universe.id).length;
-  const recentNotes = sortedNotes(activeItems(state.notes).filter((note) => note.universeId === universe.id)).slice(0, 4);
+  const projectLevelNotes = projectNotes(universe.id);
+  const notesCount = projectLevelNotes.length;
+  const recentNotes = sortedNotes(projectLevelNotes).slice(0, 4);
   const quickIdeas = activeItems(state.notes).filter((note) => note.universeId === universe.id && note.type === "idea" && !note.entityId && !note.categoryId);
   const storyItems = storyPlannerEntities(universe.id);
   const dashboardConsistencyFindings = consistencyFindings(universe.id).filter((finding) => !(state.ignoredConsistencyFindings || []).includes(finding.id));
@@ -3797,12 +3851,17 @@ function entityForId(entityId) {
 function familyForCharacter(character) {
   const category = entityCategory(character);
   const familyId = fieldValueForName(character, category, "Family");
-  return entityForId(familyId);
+  const linkedFamily = entityForId(familyId);
+  if (linkedFamily) return linkedFamily;
+  return universeEntities(character.universeId).find((entity) => {
+    if (entityCategoryType(entity) !== "families") return false;
+    return referenceItemsForName(entity, entityCategory(entity), "Members").some((item) => item.entity?.id === character.id || item.id === character.id);
+  }) || null;
 }
 
 function hasFamilyTree(entity) {
   if (entityCategoryType(entity) === "families") return true;
-  return entityCategoryType(entity) === "characters" && Boolean(familyForCharacter(entity));
+  return entityCategoryType(entity) === "characters";
 }
 
 function renderEntityChip(entity, label = "") {
@@ -3944,17 +4003,17 @@ function renderCharacterFamilyTree(entity) {
         </section>
         <div class="family-tree__center">
           <section>
-            <h4>${state.settings.language === "tr" ? "EÅŸ / Partner" : "Spouse / Partner"}</h4>
+            <h4>${state.settings.language === "tr" ? "Eş / Partner" : "Spouse / Partner"}</h4>
             <ul>${renderItems(data.partners)}</ul>
           </section>
           <div class="family-tree__root is-focus">${renderEntityChip(entity)}</div>
           <section>
-            <h4>${state.settings.language === "tr" ? "KardeÅŸler / Akrabalar" : "Siblings / Relatives"}</h4>
+            <h4>${state.settings.language === "tr" ? "Kardeşler / Akrabalar" : "Siblings / Relatives"}</h4>
             <ul>${renderItems(data.siblings, data.family ? data.family.title : t("noConnections"))}</ul>
           </section>
         </div>
         <section class="family-tree__tier family-tree__tier--children">
-          <h4>${state.settings.language === "tr" ? "Ã‡ocuklar" : "Children"}</h4>
+          <h4>${state.settings.language === "tr" ? "Çocuklar" : "Children"}</h4>
           <ul>${renderItems(data.children)}</ul>
         </section>
       </div>
@@ -4191,6 +4250,10 @@ function graphNodeIdsForDepth(focusEntityId, edges, depth) {
 
 function graphNodeMatches(entity, filters) {
   if (filters.categoryId && entity.categoryId !== filters.categoryId) return false;
+  return graphSearchMatches(entity, filters);
+}
+
+function graphSearchMatches(entity, filters) {
   const query = String(filters.search || "").trim().toLocaleLowerCase("tr");
   if (!query) return true;
   const category = entityCategory(entity);
@@ -4209,14 +4272,39 @@ function relationshipGraphData(universe) {
   const depthIds = graphNodeIdsForDepth(focusEntityId, allEdges, filters.depth);
   const categoryDepthIds = graphNodeIdsForDepth(focusEntityId, categoryContextEdges, filters.depth);
   const activeEntities = universeEntities(universe.id);
+  const connectedIds = new Set(allEdges.flatMap((edge) => [edge.sourceId, edge.targetId]));
   const searchOrCategoryActive = Boolean(filters.search || filters.categoryId);
-  const visibleEntities = activeEntities
+  const baseVisibleEntities = activeEntities
     .filter((entity) => !depthIds || depthIds.has(entity.id))
-    .filter((entity) => graphNodeMatches(entity, filters));
+    .filter((entity) => connectedIds.has(entity.id))
+    .filter((entity) => graphSearchMatches(entity, filters));
+  let visibleEntities = baseVisibleEntities;
+  let categoryAnchorIds = null;
+  if (filters.categoryId) {
+    categoryAnchorIds = new Set(baseVisibleEntities
+      .filter((entity) => entity.categoryId === filters.categoryId)
+      .map((entity) => entity.id));
+    const neighborIds = new Set(categoryAnchorIds);
+    allEdges.forEach((edge) => {
+      if (categoryAnchorIds.has(edge.sourceId)) neighborIds.add(edge.targetId);
+      if (categoryAnchorIds.has(edge.targetId)) neighborIds.add(edge.sourceId);
+    });
+    if (categoryAnchorIds.size) {
+      visibleEntities = activeEntities
+        .filter((entity) => neighborIds.has(entity.id))
+        .filter((entity) => !depthIds || depthIds.has(entity.id));
+    } else {
+      categoryAnchorIds = null;
+    }
+  }
   const limited = !focusEntityId && !searchOrCategoryActive && visibleEntities.length > 80;
   const nodes = (limited ? visibleEntities.slice(0, 80) : visibleEntities);
   const nodeIds = new Set(nodes.map((entity) => entity.id));
-  const edges = allEdges.filter((edge) => nodeIds.has(edge.sourceId) && nodeIds.has(edge.targetId));
+  const edges = allEdges.filter((edge) =>
+    nodeIds.has(edge.sourceId)
+    && nodeIds.has(edge.targetId)
+    && (!categoryAnchorIds || categoryAnchorIds.has(edge.sourceId) || categoryAnchorIds.has(edge.targetId))
+  );
   return { nodes, edges, allEdges, typeEdges, categoryContextEdges, categoryDepthIds, focusEntityId, filters, limited };
 }
 
@@ -4283,7 +4371,7 @@ function renderRelationshipGraphFilters(universe, data) {
         entity.categoryId === category.id
         && connectedNodeIds.has(entity.id)
         && (!data.categoryDepthIds || data.categoryDepthIds.has(entity.id))
-        && graphNodeMatches(entity, graphSearchFilters)
+        && graphSearchMatches(entity, graphSearchFilters)
       ).length,
     }))
     .filter((item) => item.count || data.filters.categoryId === item.category.id);

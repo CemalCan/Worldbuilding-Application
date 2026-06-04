@@ -937,26 +937,26 @@ const referenceFieldTargets = {
     Reward: ["lootRewards", "items"],
   },
   stories: {
-    "Main characters": ["characters"],
+    "Main characters": ["characters", "partyMembers", "rpgNpcs"],
     "Start event": ["events", "wars", "sessionNotes", "quests"],
     "End event": ["events", "wars", "sessionNotes", "quests"],
     "Related timeline entries": ["events", "wars", "sessionNotes", "quests"],
   },
   books: {
-    "POV characters": ["characters"],
+    "POV characters": ["characters", "partyMembers", "rpgNpcs"],
     "Start chapter": ["chapters"],
     "End chapter": ["chapters"],
   },
   chapters: {
-    "POV character": ["characters"],
+    "POV character": ["characters", "partyMembers", "rpgNpcs"],
     Location: ["locations"],
     "Related scenes": ["scenes"],
     "Related events": ["events", "wars"],
   },
   scenes: {
-    "POV character": ["characters"],
+    "POV character": ["characters", "partyMembers", "rpgNpcs"],
     Location: ["locations"],
-    "Characters present": ["characters"],
+    "Characters present": ["characters", "partyMembers", "rpgNpcs"],
     "Related event": ["events", "wars"],
   },
   plotThreads: {
@@ -977,7 +977,7 @@ const referenceFieldTargets = {
     "Related events": ["events", "wars", "sessionNotes", "quests"],
   },
   mapPins: {
-    "Linked entry": ["locations", "characters", "events", "quests", "organizations", "items", "creatures", "regions"],
+    "Linked entry": ["locations", "characters", "events", "quests", "organizations", "items", "creatures", "regions", "rpgNpcs", "partyMembers"],
     Map: ["maps"],
     "Related event": ["events", "wars", "sessionNotes", "quests"],
     "Related quest": ["quests"],
@@ -1082,10 +1082,10 @@ function referenceTargetTypes(categoryName, fieldName) {
     "Important events": ["events"],
     "Quest giver": ["rpgNpcs", "characters"],
     "Related NPCs": ["rpgNpcs", "characters"],
-    "Main characters": ["characters"],
-    "POV character": ["characters"],
-    "POV characters": ["characters"],
-    "Characters present": ["characters"],
+    "Main characters": ["characters", "partyMembers", "rpgNpcs"],
+    "POV character": ["characters", "partyMembers", "rpgNpcs"],
+    "POV characters": ["characters", "partyMembers", "rpgNpcs"],
+    "Characters present": ["characters", "partyMembers", "rpgNpcs"],
     "Related characters": ["characters"],
     "Related scenes": ["scenes"],
     "Related events": ["events", "wars"],
@@ -1097,7 +1097,7 @@ function referenceTargetTypes(categoryName, fieldName) {
     "Related timeline entries": ["events", "wars", "sessionNotes", "quests"],
     "Related locations": ["locations"],
     "Related regions": ["regions"],
-    "Linked entry": ["locations", "characters", "events", "quests", "organizations", "items", "creatures", "regions"],
+    "Linked entry": ["locations", "characters", "events", "quests", "organizations", "items", "creatures", "regions", "rpgNpcs", "partyMembers"],
     Map: ["maps"],
     "Related quest": ["quests"],
     "Start location": ["locations", "regions"],
@@ -1583,7 +1583,7 @@ function renderEntityCustomFieldInput(field, entity, categoryOverride = null) {
         <button class="field-drag-handle" type="button" draggable="true" tabindex="-1" data-entity-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</button>
         <label>${escapeHtml(fieldLabel(field))}
           <select name="field:${escapeHtml(fieldStorageKey(field))}">
-            ${["Idea", "Planned", "Drafting", "Revising", "Revised", "Done", "Archived"].map((status) => `<option value="${status}" ${storyStatusKey(value) === storyStatusKey(status) ? "selected" : ""}>${storyStatusLabel(storyStatusKey(status))}</option>`).join("")}
+            ${["Idea", "Planned", "Drafting", "Revised", "Done"].map((status) => `<option value="${status}" ${storyStatusKey(value) === storyStatusKey(status) ? "selected" : ""}>${storyStatusLabel(storyStatusKey(status))}</option>`).join("")}
           </select>
         </label>
         <button class="secondary danger-text" type="button" tabindex="-1" data-remove-entity-field>${t("removeField")}</button>
@@ -2177,6 +2177,10 @@ const translations = {
     addPin: "Add pin",
     editPin: "Edit pin",
     deletePin: "Delete pin",
+    createPin: "Create pin",
+    savePin: "Save pin",
+    pinColor: "Pin color",
+    pinList: "Pin list",
     openLinkedEntry: "Open linked entry",
     pinTypeLocation: "Location",
     pinTypeCharacter: "Character",
@@ -2558,6 +2562,10 @@ const translations = {
     addPin: "Pin ekle",
     editPin: "Pini düzenle",
     deletePin: "Pini sil",
+    createPin: "Pin oluştur",
+    savePin: "Pini kaydet",
+    pinColor: "Pin rengi",
+    pinList: "Pin listesi",
     openLinkedEntry: "Bağlı kaydı aç",
     pinTypeLocation: "Mekân",
     pinTypeCharacter: "Karakter",
@@ -3965,6 +3973,18 @@ function workspaceNavItems() {
   ];
 }
 
+function currentEntryReturnContext() {
+  if (["timeline", "storyPlanner", "mapBoard", "relationshipGraph", "consistencyChecker", "projectHome"].includes(state.view)) {
+    return {
+      view: state.view,
+      selectedMapId: state.selectedMapId || null,
+      selectedMapPinId: state.selectedMapPinId || null,
+      graphFocusEntityId: state.graphFocusEntityId || null,
+    };
+  }
+  return { view: "universe", selectedCategoryId: state.selectedCategoryId || null };
+}
+
 function renderWorkspaceTopNav() {
   return `
     <nav class="workspace-tabs" aria-label="${escapeHtml(t("workspace"))}">
@@ -4620,6 +4640,10 @@ function pinTypeLabel(type) {
   }[String(type || "").toLocaleLowerCase("tr")] || type || t("pinTypeCustom");
 }
 
+function pinColor(pin) {
+  return pin?.customFieldValues?.pinColor || pin?.customFieldValues?.["Pin color"] || "#dc2626";
+}
+
 function mapBoardState(universe) {
   const maps = mapEntities(universe.id);
   const selectedMap = maps.find((map) => map.id === state.selectedMapId) || maps[0] || null;
@@ -4633,9 +4657,32 @@ function renderMapPin(pin) {
   const y = Math.min(100, Math.max(0, Number(pinField(pin, "Y position") || 50)));
   const type = String(pinField(pin, "Pin type") || "custom").toLocaleLowerCase("tr");
   return `
-    <button class="map-pin map-pin--${escapeHtml(type)} ${state.selectedMapPinId === pin.id ? "is-active" : ""}" data-action="select-map-pin" data-id="${pin.id}" data-map-pin style="left:${x}%; top:${y}%;" title="${escapeHtml(pin.title)}">
+    <button class="map-pin map-pin--${escapeHtml(type)} ${state.selectedMapPinId === pin.id ? "is-active" : ""}" data-action="select-map-pin" data-id="${pin.id}" data-map-pin style="left:${x}%; top:${y}%; --pin-color:${escapeHtml(pinColor(pin))};" title="${escapeHtml(pin.title)}">
       <span></span>
     </button>
+  `;
+}
+
+function renderMapPinList(pins, selectedPin) {
+  return `
+    <aside class="map-pin-list card stack">
+      <div class="row">
+        <h3 class="section-title">${t("pinList")}</h3>
+        <span class="badge">${pins.length}</span>
+      </div>
+      ${pins.length ? pins.map((pin) => {
+        const linked = entityForId(pinField(pin, "Linked entry"));
+        return `
+          <button class="map-pin-list__item ${selectedPin?.id === pin.id ? "is-active" : ""}" data-action="select-map-pin" data-id="${pin.id}">
+            <span class="pin-swatch" style="background:${escapeHtml(pinColor(pin))}"></span>
+            <span>
+              <strong>${escapeHtml(pin.title || pinField(pin, "Pin label") || t("mapPins"))}</strong>
+              <small>${escapeHtml(pinTypeLabel(pinField(pin, "Pin type")))}${linked ? ` · ${escapeHtml(linked.title)}` : ""}</small>
+            </span>
+          </button>
+        `;
+      }).join("") : `<p class="muted">${t("addPin")}</p>`}
+    </aside>
   `;
 }
 
@@ -4685,7 +4732,10 @@ function renderMapBoardView(universe) {
             <img src="${escapeHtml(imageValue)}" alt="${escapeHtml(selectedMap.title)}" draggable="false" />
             ${pins.map(renderMapPin).join("")}
           </div>
-          ${renderMapPinPopover(selectedPin)}
+          <div class="map-side-panel">
+            ${renderMapPinList(pins, selectedPin)}
+            ${renderMapPinPopover(selectedPin)}
+          </div>
         </section>
       ` : `<section class="empty"><h3>${t("mapBoard")}</h3><p>${t("addMapImageHelp")}</p></section>`}
     </main>
@@ -5067,6 +5117,16 @@ const sceneBoardStatuses = ["idea", "planned", "drafting", "revised", "done"];
 
 function storyStatusKey(value) {
   const normalized = String(value || "").trim().toLocaleLowerCase("tr");
+  if (normalized === "revising") return "revised";
+  const readableTurkishStatuses = {
+    "planlandı": "planned",
+    "yazılıyor": "drafting",
+    "düzenleniyor": "revised",
+    "düzenlendi": "revised",
+    "tamamlandı": "done",
+    "arşivlendi": "archived",
+  };
+  if (readableTurkishStatuses[normalized]) return readableTurkishStatuses[normalized];
   return {
     idea: "idea",
     fikir: "idea",
@@ -5074,7 +5134,7 @@ function storyStatusKey(value) {
     "planlandı": "planned",
     drafting: "drafting",
     "yazılıyor": "drafting",
-    revising: "revising",
+    revising: "revised",
     "düzenleniyor": "revising",
     revised: "revised",
     "düzenlendi": "revised",
@@ -5100,11 +5160,11 @@ function storyStatusLabel(statusKey) {
 function storyStatusEmptyLabel(statusKey) {
   if (state.settings.language === "tr") {
     return {
-      idea: "HenÃ¼z fikir yok.",
-      planned: "HenÃ¼z planlanmÄ±ÅŸ sahne yok.",
-      drafting: "HenÃ¼z yazÄ±lan sahne yok.",
-      revised: "HenÃ¼z dÃ¼zenlenen sahne yok.",
-      done: "HenÃ¼z tamamlanan sahne yok.",
+      idea: "Henüz fikir yok.",
+      planned: "Henüz planlanan sahne yok.",
+      drafting: "Henüz yazılan sahne yok.",
+      revised: "Henüz düzenlenen sahne yok.",
+      done: "Henüz tamamlanan sahne yok.",
     }[statusKey] || t("noPagesHelp");
   }
   return {
@@ -5232,6 +5292,8 @@ function renderStoryPlannerItem(entity, index, total) {
   const status = storyStatusKey(storyFieldValue(entity, ["Status"]));
   const pov = storyLinkedEntities(entity, ["POV character", "POV characters"]).slice(0, 2);
   const locations = storyLinkedEntities(entity, ["Location"]).slice(0, 2);
+  const characters = storyLinkedEntities(entity, ["Characters present", "Main characters", "POV characters"]).slice(0, 3);
+  const related = storyLinkedEntities(entity, ["Start chapter", "End chapter", "Related scenes", "Related timeline entries", "Related event"]).slice(0, 2);
   const canMove = type === "chapters" || type === "scenes";
   return `
     <article class="timeline-item story-planner-item">
@@ -5246,6 +5308,8 @@ function renderStoryPlannerItem(entity, index, total) {
           ${entity.summary ? `<small>${escapeHtml(entity.summary)}</small>` : ""}
           ${pov.length ? `<small>${t("povCharacter")}: ${renderTimelineChipList(pov)}</small>` : ""}
           ${locations.length ? `<small>${t("locationsGroup")}: ${renderTimelineChipList(locations)}</small>` : ""}
+          ${characters.length ? `<small>${t("relatedCharacters")}: ${renderTimelineChipList(characters)}</small>` : ""}
+          ${related.length ? `<small>${t("relatedStoryBook")}: ${renderTimelineChipList(related)}</small>` : ""}
         </span>
       </div>
       ${canMove ? `<div class="timeline-item__actions">
@@ -5260,6 +5324,7 @@ function renderSceneBoardCard(entity) {
   const pov = storyLinkedEntities(entity, ["POV character"]).slice(0, 1);
   const locations = storyLinkedEntities(entity, ["Location"]).slice(0, 1);
   const characters = storyLinkedEntities(entity, ["Characters present"]).slice(0, 3);
+  const related = storyLinkedEntities(entity, ["Related event", "Start chapter", "End chapter"]).slice(0, 2);
   const purpose = storyFieldValue(entity, ["Purpose"]) || storyFieldValue(entity, ["Outcome"]);
   return `
     <button class="scene-card" data-action="select-entity" data-id="${entity.id}">
@@ -5268,6 +5333,7 @@ function renderSceneBoardCard(entity) {
       ${pov.length ? `<span>${t("povCharacter")}: ${escapeHtml(pov[0].title)}</span>` : ""}
       ${locations.length ? `<span>${t("locationsGroup")}: ${escapeHtml(locations[0].title)}</span>` : ""}
       ${characters.length ? `<span>${t("relatedCharacters")}: ${characters.map((item) => escapeHtml(item.title)).join(", ")}</span>` : ""}
+      ${related.length ? `<span>${t("relatedStoryBook")}: ${related.map((item) => escapeHtml(item.title)).join(", ")}</span>` : ""}
     </button>
   `;
 }
@@ -5305,11 +5371,10 @@ function renderStoryPlannerView(universe) {
         </div>
         <div class="button-row">
           <button data-action="new-story-entry" data-type="stories">${t("createStory")}</button>
-          <button class="secondary" data-action="new-story-entry" data-type="chapters">${t("createChapter")}</button>
-          <button class="secondary" data-action="new-story-entry" data-type="scenes">${t("createScene")}</button>
+          <button class="secondary" data-action="new-story-entry" data-type="chapters" ${hasStory ? "" : "disabled"}>${t("createChapter")}</button>
+          <button class="secondary" data-action="new-story-entry" data-type="scenes" ${hasStory ? "" : "disabled"}>${t("createScene")}</button>
         </div>
       </section>
-      ${renderStorySummaryCards(items)}
       ${hasStory ? "" : `<section class="empty"><h3>${t("createStory")}</h3><p>${t("storyPlanning")}</p></section>`}
       ${renderStoryPlannerFilters(items)}
       ${renderSceneBoard(scenes)}
@@ -5468,9 +5533,9 @@ function renderTimelineItem(entity, index, total) {
   const participants = timelineParticipantEntities(entity);
   const canMove = timelineManualOrderEnabled(filteredTimelineEntities(timelineEntities(entity.universeId)));
   return `
-    <article class="timeline-item">
+    <article class="timeline-item ${canMove ? "is-draggable" : ""}" ${canMove ? `draggable="true" data-timeline-drag-id="${entity.id}"` : ""}>
       <div class="timeline-item__main">
-        <span class="timeline-dot"></span>
+        <span class="timeline-dot">${canMove ? "↕" : ""}</span>
         <span class="timeline-item__body">
           <span class="timeline-meta">
             <span class="badge">${escapeHtml(dateLabel)}</span>
@@ -5483,10 +5548,6 @@ function renderTimelineItem(entity, index, total) {
           ${tags.length ? `<span class="tag-row">${tags.map((tag) => `<span class="tag">${escapeHtml(tag.name)}</span>`).join("")}</span>` : ""}
         </span>
       </div>
-      ${canMove ? `<div class="timeline-item__actions">
-        <button class="secondary" data-action="move-timeline-item" data-id="${entity.id}" data-direction="-1" ${!canMove || index === 0 ? "disabled" : ""}>${t("moveEarlier")}</button>
-        <button class="secondary" data-action="move-timeline-item" data-id="${entity.id}" data-direction="1" ${!canMove || index === total - 1 ? "disabled" : ""}>${t("moveLater")}</button>
-      </div>` : ""}
     </article>
   `;
 }
@@ -5494,6 +5555,7 @@ function renderTimelineItem(entity, index, total) {
 function renderTimelineView(universe) {
   const items = timelineEntities(universe.id);
   const visibleItems = filteredTimelineEntities(items);
+  const manualOrder = timelineManualOrderEnabled(visibleItems);
   return `
     <main class="main stack" data-main-panel>
       <section class="toolbar">
@@ -5504,8 +5566,10 @@ function renderTimelineView(universe) {
         <button data-action="new-timeline-entry">${t("createEntry")}</button>
       </section>
       ${renderTimelineFilters(items)}
+      ${visibleItems.length && manualOrder ? `<p class="muted">${t("chronologyOrder")}: ${state.settings.language === "tr" ? "Manuel sıralama için kayıtları sürükle." : "Drag entries to set the manual order."}</p>` : ""}
+      ${visibleItems.length && !manualOrder ? `<p class="muted">${state.settings.language === "tr" ? "Tarih veya kronoloji değeri olan kayıtlar otomatik sıralanır." : "Entries with date or chronology values are sorted automatically."}</p>` : ""}
       ${visibleItems.length ? `
-        <section class="timeline-list">
+        <section class="timeline-list" ${manualOrder ? "data-timeline-list" : ""}>
           ${visibleItems.map((entity, index) => renderTimelineItem(entity, index, visibleItems.length)).join("")}
         </section>
       ` : `
@@ -5955,10 +6019,32 @@ const actions = {
   },
   "select-entity"({ id: entityId }) {
     const entity = state.entities.find((item) => item.id === entityId);
-    setState({ selectedEntityId: entityId, selectedCategoryId: entity?.categoryId || state.selectedCategoryId, view: "universe" });
+    const returnContext = currentEntryReturnContext();
+    setState({
+      selectedEntityId: entityId,
+      selectedCategoryId: entity?.categoryId || state.selectedCategoryId,
+      view: "universe",
+      entryReturnContext: returnContext,
+    });
   },
   "back-to-list"() {
-    setState({ selectedEntityId: null });
+    const context = state.entryReturnContext;
+    if (context?.view && context.view !== "universe") {
+      setState({
+        view: context.view,
+        selectedEntityId: null,
+        selectedMapId: context.selectedMapId || state.selectedMapId,
+        selectedMapPinId: context.selectedMapPinId || state.selectedMapPinId,
+        graphFocusEntityId: context.graphFocusEntityId || state.graphFocusEntityId,
+        entryReturnContext: null,
+      });
+      return;
+    }
+    setState({
+      selectedEntityId: null,
+      selectedCategoryId: context?.selectedCategoryId || state.selectedCategoryId,
+      entryReturnContext: null,
+    });
   },
   "edit-entity"({ id: entityId }) {
     openEntityModal(state.entities.find((entity) => entity.id === entityId));
@@ -6134,6 +6220,23 @@ function bindTimelineFilterEvents(root) {
       render();
     });
   });
+  const timelineList = root.querySelector("[data-timeline-list]");
+  if (timelineList) {
+    timelineList.querySelectorAll("[data-timeline-drag-id]").forEach((item) => {
+      item.addEventListener("dragstart", (event) => {
+        event.dataTransfer?.setData("text/plain", item.dataset.timelineDragId);
+        item.classList.add("is-dragging");
+      });
+      item.addEventListener("dragend", () => item.classList.remove("is-dragging"));
+      item.addEventListener("dragover", (event) => event.preventDefault());
+      item.addEventListener("drop", (event) => {
+        event.preventDefault();
+        const sourceId = event.dataTransfer?.getData("text/plain");
+        const targetId = item.dataset.timelineDragId;
+        reorderTimelineItem(sourceId, targetId);
+      });
+    });
+  }
 }
 
 function bindGraphFilterEvents(root) {
@@ -6869,6 +6972,24 @@ function moveTimelineItem(entityId, direction) {
   render();
 }
 
+function reorderTimelineItem(sourceId, targetId) {
+  if (!sourceId || !targetId || sourceId === targetId) return;
+  const items = filteredTimelineEntities(timelineEntities());
+  if (!timelineManualOrderEnabled(items)) return;
+  const sourceIndex = items.findIndex((entity) => entity.id === sourceId);
+  const targetIndex = items.findIndex((entity) => entity.id === targetId);
+  if (sourceIndex < 0 || targetIndex < 0) return;
+  const ordered = [...items];
+  const [source] = ordered.splice(sourceIndex, 1);
+  ordered.splice(targetIndex, 0, source);
+  const orderById = new Map(ordered.map((entity, order) => [entity.id, order]));
+  state.entities = state.entities.map((entity) =>
+    orderById.has(entity.id) ? { ...entity, timelineOrder: orderById.get(entity.id), updatedAt: now() } : entity
+  );
+  saveState();
+  render();
+}
+
 const defaultStoryCategoryNames = {
   stories: "Stories",
   books: "Books",
@@ -6983,13 +7104,14 @@ function openMapPinModal(pin = null, defaults = {}) {
   const linkedId = pin ? pinField(pin, "Linked entry") : "";
   const relatedEventId = pin ? pinField(pin, "Related event") : "";
   const relatedQuestId = pin ? pinField(pin, "Related quest") : "";
-  const linkTargets = universeEntities().filter((entity) => entityCategoryType(entity) !== "mapPins");
+  const linkTargets = universeEntities().filter((entity) => ["locations", "characters", "events", "quests", "organizations", "items", "rpgNpcs", "partyMembers"].includes(entityCategoryType(entity)));
   const eventTargets = entitiesByCategoryTypes(["events", "wars", "sessionNotes", "quests"]);
   const questTargets = universeEntities().filter((entity) => entityCategoryType(entity) === "quests");
-  openModal(isEditing ? t("editPin") : t("addPin"), `
+  openModal(isEditing ? t("editPin") : t("createPin"), `
     <form class="form-grid">
       <label>${presetFieldLabel("Pin label")} <input name="pinLabel" required value="${escapeHtml(pin?.title || pinField(pin, "Pin label") || "")}" /></label>
       <label>${presetFieldLabel("Pin type")} <select name="pinType">${pinTypeOptions(pinField(pin, "Pin type"))}</select></label>
+      <label>${t("pinColor")} <input name="pinColor" type="color" value="${escapeHtml(pinColor(pin))}" /></label>
       <label>${t("selectMap")}
         <select name="mapId">
           ${maps.map((map) => `<option value="${map.id}" ${map.id === mapId ? "selected" : ""}>${escapeHtml(map.title)}</option>`).join("")}
@@ -7022,7 +7144,10 @@ function openMapPinModal(pin = null, defaults = {}) {
       </label>
       <input type="hidden" name="x" value="${escapeHtml(defaults.x?.toFixed?.(2) || pinField(pin, "X position") || "50")}" />
       <input type="hidden" name="y" value="${escapeHtml(defaults.y?.toFixed?.(2) || pinField(pin, "Y position") || "50")}" />
-      <div class="button-row"><button type="submit">${t("save")}</button></div>
+      <div class="button-row">
+        <button type="submit">${t("savePin")}</button>
+        <button class="secondary" type="button" data-modal-close>${t("cancel")}</button>
+      </div>
     </form>
   `, (form) => {
     const title = String(form.get("pinLabel") || "").trim();
@@ -7038,6 +7163,7 @@ function openMapPinModal(pin = null, defaults = {}) {
     setCustomFieldValue(values, category, "Visible/hidden", form.get("visibility"));
     setCustomFieldValue(values, category, "X position", form.get("x"));
     setCustomFieldValue(values, category, "Y position", form.get("y"));
+    values.pinColor = form.get("pinColor") || "#dc2626";
     addReferenceLabelSnapshots(values, category.customFields || []);
     if (isEditing) {
       state.entities = state.entities.map((entity) => entity.id === pin.id ? { ...pin, title, summary: form.get("description"), customFieldValues: values, updatedAt: now() } : entity);

@@ -525,8 +525,8 @@ const categoryPresetAliases = {
   fraksiyonlar: "organizations",
   cults: "organizations",
   tarikatlar: "organizations",
-  armies: "organizations",
-  ordular: "organizations",
+  armies: "armies",
+  ordular: "armies",
   federations: "organizations",
   federasyonlar: "organizations",
   "political alliances": "organizations",
@@ -660,6 +660,7 @@ const entityTypeLabels = {
     magic: { singular: "magic entry", plural: "magic entries" },
     items: { singular: "item", plural: "items" },
     organizations: { singular: "organization", plural: "organizations" },
+    armies: { singular: "army", plural: "armies" },
     rpgNpcs: { singular: "NPC", plural: "NPCs" },
     quests: { singular: "quest", plural: "quests" },
     sessionNotes: { singular: "session note", plural: "session notes" },
@@ -753,6 +754,7 @@ function getCategoryTypeKey(category) {
 function getEntityTypeLabel(category, form = "singular") {
   const language = state?.settings?.language || "en";
   const key = getCategoryTypeKey(category);
+  if (language === "tr" && key === "armies") return form === "plural" ? "ordu" : "Ordu";
   return entityTypeLabels[language]?.[key]?.[form] || entityTypeLabels.en.entry[form];
 }
 
@@ -2211,7 +2213,7 @@ const translations = {
     graphDepthOne: "1 step",
     graphDepthTwo: "2 steps",
     graphDepthAll: "All",
-    graphHelp: "Click a node to open it. Drag to rearrange the view.",
+    graphHelp: "Click a node to open it. Drag nodes to arrange the graph.",
     zoomIn: "Zoom in",
     zoomOut: "Zoom out",
     resetView: "Reset view",
@@ -2587,7 +2589,7 @@ const translations = {
     graphDepthOne: "1 adım",
     graphDepthTwo: "2 adım",
     graphDepthAll: "Tümü",
-    graphHelp: "Açmak için bir düğüme tıkla. Görünümü düzenlemek için sürükle.",
+    graphHelp: "Açmak için düğüme tıkla. Haritayı düzenlemek için düğümleri sürükle.",
     zoomIn: "Yakınlaştır",
     zoomOut: "Uzaklaştır",
     resetView: "Görünümü Sıfırla",
@@ -3858,7 +3860,33 @@ function familyTreeData(entity) {
   return { family, founderItems, currentHeadItems, memberItems, relatedItems };
 }
 
+function characterFamilyTreeData(character) {
+  if (entityCategoryType(character) !== "characters") return null;
+  const category = entityCategory(character);
+  const referenceNames = {
+    parents: ["Parents", "Parent", "Mother", "Father"],
+    siblings: ["Siblings", "Sibling"],
+    partners: ["Spouse", "Partner", "Partners"],
+    children: ["Children", "Child"],
+  };
+  const fromFields = (names) => uniqueConnectionItems(names.flatMap((name) => referenceItemsForName(character, category, name)));
+  const family = familyForCharacter(character);
+  const familyData = family ? familyTreeData(family) : null;
+  const memberItems = familyData?.memberItems || [];
+  const characterId = character.id;
+  return {
+    family,
+    parents: fromFields(referenceNames.parents),
+    siblings: fromFields(referenceNames.siblings).length
+      ? fromFields(referenceNames.siblings)
+      : memberItems.filter((item) => item.entity?.id && item.entity.id !== characterId).slice(0, 8),
+    partners: fromFields(referenceNames.partners),
+    children: fromFields(referenceNames.children),
+  };
+}
+
 function renderFamilyTree(entity) {
+  if (entityCategoryType(entity) === "characters") return renderCharacterFamilyTree(entity);
   const data = familyTreeData(entity);
   if (!data) return "";
   const renderTreeNode = (item) => `<li>${renderConnectionItemChip(item)}</li>`;
@@ -3884,6 +3912,43 @@ function renderFamilyTree(entity) {
             <ul>${data.relatedItems.length ? data.relatedItems.map(renderTreeNode).join("") : `<li><span class="muted">${t("noConnections")}</span></li>`}</ul>
           </section>
         </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderCharacterFamilyTree(entity) {
+  const data = characterFamilyTreeData(entity);
+  if (!data) return "";
+  const renderItems = (items, empty = t("noConnections")) => items.length
+    ? items.map((item) => `<li>${renderConnectionItemChip(item)}</li>`).join("")
+    : `<li><span class="muted">${empty}</span></li>`;
+  return `
+    <section class="card stack relationship-view" data-family-tree-view>
+      <div class="row">
+        <h3 class="section-title">${t("familyTree")}</h3>
+        ${data.family ? renderEntityChip(data.family) : ""}
+      </div>
+      <div class="family-tree family-tree--person">
+        <section class="family-tree__tier family-tree__tier--parents">
+          <h4>${state.settings.language === "tr" ? "Ebeveynler" : "Parents"}</h4>
+          <ul>${renderItems(data.parents)}</ul>
+        </section>
+        <div class="family-tree__center">
+          <section>
+            <h4>${state.settings.language === "tr" ? "EÅŸ / Partner" : "Spouse / Partner"}</h4>
+            <ul>${renderItems(data.partners)}</ul>
+          </section>
+          <div class="family-tree__root is-focus">${renderEntityChip(entity)}</div>
+          <section>
+            <h4>${state.settings.language === "tr" ? "KardeÅŸler / Akrabalar" : "Siblings / Relatives"}</h4>
+            <ul>${renderItems(data.siblings, data.family ? data.family.title : t("noConnections"))}</ul>
+          </section>
+        </div>
+        <section class="family-tree__tier family-tree__tier--children">
+          <h4>${state.settings.language === "tr" ? "Ã‡ocuklar" : "Children"}</h4>
+          <ul>${renderItems(data.children)}</ul>
+        </section>
       </div>
     </section>
   `;
@@ -4118,8 +4183,11 @@ function relationshipGraphData(universe) {
     ? state.graphFocusEntityId
     : null;
   const typeEdges = graphEdges(universe.id, { ...filters, relationshipType: "" });
+  const baseFilters = { ...filters, categoryId: "" };
   const allEdges = graphEdges(universe.id, filters);
+  const categoryContextEdges = graphEdges(universe.id, baseFilters);
   const depthIds = graphNodeIdsForDepth(focusEntityId, allEdges, filters.depth);
+  const categoryDepthIds = graphNodeIdsForDepth(focusEntityId, categoryContextEdges, filters.depth);
   const activeEntities = universeEntities(universe.id);
   const searchOrCategoryActive = Boolean(filters.search || filters.categoryId);
   const visibleEntities = activeEntities
@@ -4129,7 +4197,7 @@ function relationshipGraphData(universe) {
   const nodes = (limited ? visibleEntities.slice(0, 80) : visibleEntities);
   const nodeIds = new Set(nodes.map((entity) => entity.id));
   const edges = allEdges.filter((edge) => nodeIds.has(edge.sourceId) && nodeIds.has(edge.targetId));
-  return { nodes, edges, allEdges, typeEdges, focusEntityId, filters, limited };
+  return { nodes, edges, allEdges, typeEdges, categoryContextEdges, categoryDepthIds, focusEntityId, filters, limited };
 }
 
 function graphManualPositions(universeId = state.selectedUniverseId) {
@@ -4145,8 +4213,10 @@ function graphViewport(universeId = state.selectedUniverseId) {
 }
 
 function graphLayout(nodes, focusEntityId) {
-  const width = 780;
-  const height = 520;
+  const count = Math.max(nodes.length, 1);
+  const ringCount = Math.max(1, Math.ceil(count / 8));
+  const width = Math.max(980, 520 + ringCount * 360);
+  const height = Math.max(680, 420 + ringCount * 260);
   const center = { x: width / 2, y: height / 2 };
   if (!nodes.length) return { width, height, positions: new Map() };
   const focusIndex = focusEntityId ? nodes.findIndex((node) => node.id === focusEntityId) : -1;
@@ -4157,17 +4227,22 @@ function graphLayout(nodes, focusEntityId) {
   const ringNodes = focusIndex > -1 ? ordered.slice(1) : ordered;
   ringNodes.forEach((node, index) => {
     if (manual[node.id]) {
-      positions.set(node.id, manual[node.id]);
+      positions.set(node.id, {
+        x: Math.min(width - 120, Math.max(120, manual[node.id].x)),
+        y: Math.min(height - 90, Math.max(90, manual[node.id].y)),
+      });
       return;
     }
-    const ring = Math.floor(index / 10);
-    const ringIndex = index % 10;
-    const ringSize = Math.min(10 + ring * 4, ringNodes.length);
-    const radius = 130 + ring * 105;
-    const angle = (-Math.PI / 2) + (ringIndex / Math.max(ringSize, 1)) * Math.PI * 2 + ring * 0.22;
+    const ring = Math.floor(index / 8);
+    const ringStart = ring * 8;
+    const ringSize = Math.min(8 + ring * 4, ringNodes.length - ringStart);
+    const ringIndex = index - ringStart;
+    const radiusX = 210 + ring * 170;
+    const radiusY = 145 + ring * 125;
+    const angle = (-Math.PI / 2) + (ringIndex / Math.max(ringSize, 1)) * Math.PI * 2 + ring * 0.17;
     positions.set(node.id, {
-      x: Math.min(width - 90, Math.max(90, center.x + Math.cos(angle) * radius)),
-      y: Math.min(height - 70, Math.max(70, center.y + Math.sin(angle) * radius)),
+      x: Math.min(width - 120, Math.max(120, center.x + Math.cos(angle) * radiusX)),
+      y: Math.min(height - 90, Math.max(90, center.y + Math.sin(angle) * radiusY)),
     });
   });
   return { width, height, positions };
@@ -4179,15 +4254,24 @@ function graphContentStyle(universeId) {
 }
 
 function renderRelationshipGraphFilters(universe, data) {
-  const connectedNodeIds = new Set(data.allEdges.flatMap((edge) => [edge.sourceId, edge.targetId]));
+  const connectedNodeIds = new Set(data.categoryContextEdges.flatMap((edge) => [edge.sourceId, edge.targetId]));
+  const graphSearchFilters = { ...data.filters, categoryId: "" };
   const categories = universeCategories(universe.id, true)
-    .map((category) => ({ category, count: universeEntities(universe.id).filter((entity) => entity.categoryId === category.id && connectedNodeIds.has(entity.id)).length }))
+    .map((category) => ({
+      category,
+      count: universeEntities(universe.id).filter((entity) =>
+        entity.categoryId === category.id
+        && connectedNodeIds.has(entity.id)
+        && (!data.categoryDepthIds || data.categoryDepthIds.has(entity.id))
+        && graphNodeMatches(entity, graphSearchFilters)
+      ).length,
+    }))
     .filter((item) => item.count || data.filters.categoryId === item.category.id);
   const relationshipTypes = graphRelationshipTypes(data.typeEdges);
   const filters = data.filters;
   return `
     <section class="timeline-filters graph-filters">
-      <label>${t("searchPages")} <input data-graph-filter="search" value="${escapeHtml(filters.search || "")}" /></label>
+      <label>${t("searchPages")} <input data-graph-filter="search" data-preserve-focus="graph-search" value="${escapeHtml(filters.search || "")}" /></label>
       <label>${t("category")}
         <select data-graph-filter="categoryId">
           <option value="">${t("allCategories")}</option>
@@ -4232,15 +4316,16 @@ function renderGraphNode(entity, point, focusEntityId) {
 function renderRelationshipGraphView(universe) {
   const data = relationshipGraphData(universe);
   const layout = graphLayout(data.nodes, data.focusEntityId);
-  const edgeLines = data.edges.map((edge) => {
+  const edgeLines = data.edges.map((edge, index) => {
     const source = layout.positions.get(edge.sourceId);
     const target = layout.positions.get(edge.targetId);
     if (!source || !target) return "";
     const midX = (source.x + target.x) / 2;
     const midY = (source.y + target.y) / 2;
+    const edgeId = `edge-${index}`;
     return `
-      <line x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" />
-      <text x="${midX}" y="${midY}">${escapeHtml(edge.label || "")}</text>
+      <line data-edge-line data-edge-id="${edgeId}" data-source-id="${edge.sourceId}" data-target-id="${edge.targetId}" x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" />
+      <text data-edge-label="${edgeId}" x="${midX}" y="${midY}">${escapeHtml(edge.label || "")}</text>
     `;
   }).join("");
   return `
@@ -4254,11 +4339,6 @@ function renderRelationshipGraphView(universe) {
             <p class="muted">${escapeHtml(universe.name)}</p>
             <h2>${t("relationshipGraph")}</h2>
           </div>
-          <div class="page-toolbar__actions">
-            <button class="secondary" data-action="graph-zoom-out">${t("zoomOut")}</button>
-            <button class="secondary" data-action="graph-zoom-in">${t("zoomIn")}</button>
-            <button class="secondary" data-action="graph-reset-view">${t("resetView")}</button>
-          </div>
         </div>
         <p class="muted">${t("graphHelp")}</p>
         ${renderRelationshipGraphFilters(universe, data)}
@@ -4270,6 +4350,11 @@ function renderRelationshipGraphView(universe) {
                 ${edgeLines}
               </svg>
               ${data.nodes.map((entity) => renderGraphNode(entity, layout.positions.get(entity.id), data.focusEntityId)).join("")}
+            </div>
+            <div class="graph-controls">
+              <button class="icon-button" data-action="graph-zoom-in" title="${t("zoomIn")}">+</button>
+              <button class="icon-button" data-action="graph-zoom-out" title="${t("zoomOut")}">-</button>
+              <button class="secondary" data-action="graph-reset-view">${t("resetView")}</button>
             </div>
           </section>
         ` : `<section class="empty"><h3>${t("noConnections")}</h3><p>${t("relationshipGraph")}</p></section>`}
@@ -6057,9 +6142,21 @@ function bindGraphFilterEvents(root) {
     input.addEventListener(eventName, (event) => {
       const filter = event.currentTarget.dataset.graphFilter;
       const value = event.currentTarget.type === "checkbox" ? event.currentTarget.checked : event.currentTarget.value;
+      const preserveFocus = event.currentTarget.dataset.preserveFocus;
+      const selectionStart = event.currentTarget.selectionStart;
+      const selectionEnd = event.currentTarget.selectionEnd;
       state.graphFilters = { ...graphFilters(), [filter]: value };
       saveState();
       render();
+      if (preserveFocus) {
+        requestAnimationFrame(() => {
+          const next = document.querySelector(`[data-preserve-focus="${preserveFocus}"]`);
+          next?.focus();
+          if (typeof selectionStart === "number" && typeof selectionEnd === "number") {
+            next?.setSelectionRange?.(selectionStart, selectionEnd);
+          }
+        });
+      }
     });
   });
 }
@@ -6073,9 +6170,44 @@ function bindGraphMapEvents(root) {
   if (!map) return;
   const universeId = map.dataset.universeId || state.selectedUniverseId;
   const content = map.querySelector("[data-graph-content]");
+  const svg = map.querySelector("svg");
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  const updateEdgePositions = () => {
+    if (!svg) return;
+    svg.querySelectorAll("[data-edge-line]").forEach((line) => {
+      const source = map.querySelector(`[data-graph-node][data-id="${line.dataset.sourceId}"]`);
+      const target = map.querySelector(`[data-graph-node][data-id="${line.dataset.targetId}"]`);
+      if (!source || !target) return;
+      const x1 = parseFloat(source.style.left) || 0;
+      const y1 = parseFloat(source.style.top) || 0;
+      const x2 = parseFloat(target.style.left) || 0;
+      const y2 = parseFloat(target.style.top) || 0;
+      line.setAttribute("x1", x1);
+      line.setAttribute("y1", y1);
+      line.setAttribute("x2", x2);
+      line.setAttribute("y2", y2);
+      const label = svg.querySelector(`[data-edge-label="${line.dataset.edgeId}"]`);
+      if (label) {
+        label.setAttribute("x", (x1 + x2) / 2);
+        label.setAttribute("y", (y1 + y2) / 2);
+      }
+    });
+  };
+  const applyGraphTransform = () => {
+    if (content) content.style.transform = graphContentStyle(universeId).replace("transform: ", "").replace(";", "");
+  };
   let panStart = null;
+  map.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    const view = graphViewport(universeId);
+    const delta = event.deltaY > 0 ? -0.08 : 0.08;
+    view.scale = clamp(Number(view.scale || 1) + delta, 0.45, 2.2);
+    applyGraphTransform();
+    saveState();
+  }, { passive: false });
   map.addEventListener("pointerdown", (event) => {
     if (event.target.closest("[data-graph-node]")) return;
+    if (event.target.closest(".graph-controls")) return;
     panStart = { x: event.clientX, y: event.clientY, view: { ...graphViewport(universeId) } };
     map.setPointerCapture?.(event.pointerId);
   });
@@ -6084,7 +6216,7 @@ function bindGraphMapEvents(root) {
     const view = graphViewport(universeId);
     view.x = panStart.view.x + event.clientX - panStart.x;
     view.y = panStart.view.y + event.clientY - panStart.y;
-    if (content) content.style.transform = graphContentStyle(universeId).replace("transform: ", "").replace(";", "");
+    applyGraphTransform();
   });
   map.addEventListener("pointerup", () => {
     if (!panStart) return;
@@ -6117,8 +6249,9 @@ function bindGraphMapEvents(root) {
       const dx = (event.clientX - dragStart.x) / scale;
       const dy = (event.clientY - dragStart.y) / scale;
       if (Math.abs(dx) + Math.abs(dy) > 3) dragStart.moved = true;
-      node.style.left = `${dragStart.left + dx}px`;
-      node.style.top = `${dragStart.top + dy}px`;
+      node.style.left = `${clamp(dragStart.left + dx, 90, Number(map.style.getPropertyValue("--graph-width").replace("px", "")) - 90)}px`;
+      node.style.top = `${clamp(dragStart.top + dy, 70, Number(map.style.getPropertyValue("--graph-height").replace("px", "")) - 70)}px`;
+      updateEdgePositions();
     });
     node.addEventListener("pointerup", (event) => {
       if (!dragStart) return;
@@ -6839,7 +6972,7 @@ function presetFieldLabel(name) {
 }
 
 function openMapPinModal(pin = null, defaults = {}) {
-  const category = ensureMapCategory("mapPins");
+  const category = categoryByType("mapPins", state.selectedUniverseId, { includeHidden: true }) || createRequiredCategory("mapPins");
   const maps = mapEntities();
   if (!category || !maps.length) {
     alert(t("addMapImageHelp"));
@@ -7440,7 +7573,7 @@ function openEntityModal(entity) {
   }
   const backdrop = openModal(isEditing ? editEntityLabel(selectedCategory) : createEntityLabel(selectedCategory), `
     <form class="form-grid">
-      <label>${t("title")} <input name="title" required value="${escapeHtml(entity?.title || "")}" /></label>
+      <label>${getCategoryTypeKey(selectedCategory) === "maps" ? presetFieldLabel("Map name") : t("title")} <input name="title" required value="${escapeHtml(entity?.title || "")}" /></label>
       <div class="card stack">
         <strong>${t("category")}: ${escapeHtml(selectedCategory.name)}</strong>
         <p class="muted">${escapeHtml(lockedCategoryMessage(selectedCategory))}</p>
@@ -7494,6 +7627,11 @@ function openEntityModal(entity) {
       };
       state.entities = state.entities.map((item) => item.id === entity.id ? nextEntity : item);
       syncCharacterFamilyLinks(beforeEntity, nextEntity);
+      if (getCategoryTypeKey(selectedCategory) === "maps") {
+        state.selectedMapId = entity.id;
+        state.view = "mapBoard";
+        state.selectedEntityId = null;
+      }
       saveState();
       render();
       return;
@@ -7518,6 +7656,11 @@ function openEntityModal(entity) {
     syncCharacterFamilyLinks(null, nextEntity);
     state.selectedEntityId = entityId;
     state.selectedCategoryId = categoryId;
+    if (getCategoryTypeKey(selectedCategory) === "maps") {
+      state.selectedMapId = entityId;
+      state.selectedEntityId = null;
+      state.view = "mapBoard";
+    }
     saveState();
     render();
   });

@@ -1269,6 +1269,7 @@ label {
     radial-gradient(circle at center, color-mix(in srgb, var(--accent) 9%, transparent), transparent 36%),
     var(--surface);
   cursor: grab;
+  overscroll-behavior: contain;
 }
 
 .graph-map:active {
@@ -1298,12 +1299,31 @@ label {
 
 .graph-map text {
   fill: var(--muted);
-  font-size: 10px;
+  font-size: 9px;
   paint-order: stroke;
   stroke: var(--surface);
   stroke-width: 4px;
   stroke-linejoin: round;
   text-anchor: middle;
+  pointer-events: none;
+  opacity: 0.84;
+}
+
+.graph-controls {
+  position: sticky;
+  right: 12px;
+  bottom: 12px;
+  z-index: 3;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  float: right;
+  margin: calc(var(--graph-height) - 54px) 12px 12px 0;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: var(--shadow);
 }
 
 .graph-node {
@@ -1312,9 +1332,9 @@ label {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
-  width: 150px;
-  min-height: 58px;
-  padding: 8px;
+  width: 164px;
+  min-height: 62px;
+  padding: 9px;
   transform: translate(-50%, -50%);
   text-align: left;
   border: 1px solid color-mix(in srgb, var(--node-color), var(--line) 38%);
@@ -1334,7 +1354,7 @@ label {
 }
 
 .graph-node.is-focus {
-  width: 178px;
+  width: 190px;
   min-height: 70px;
   border-width: 2px;
 }
@@ -1429,6 +1449,46 @@ label {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.family-tree--person {
+  gap: 18px;
+}
+
+.family-tree__center {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) auto minmax(130px, 1fr);
+  gap: 18px;
+  align-items: center;
+  width: 100%;
+}
+
+.family-tree__center::before,
+.family-tree__tier--children::before {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  border-top: 1px solid var(--line);
+}
+
+.family-tree__center::before {
+  top: 50%;
+}
+
+.family-tree__tier {
+  position: relative;
+  width: min(100%, 680px);
+  justify-self: center;
+}
+
+.family-tree__root.is-focus {
+  padding: 8px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  z-index: 1;
 }
 
 .map-board-layout {

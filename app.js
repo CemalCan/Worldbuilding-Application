@@ -851,6 +851,8 @@ const referenceListFieldNames = new Set([
   "Stops",
   "Important places",
   "Rewards",
+  "Commanders",
+  "Sides",
 ]);
 
 const referenceFieldTargets = {
@@ -911,8 +913,8 @@ const referenceFieldTargets = {
   },
   stories: {
     "Main characters": ["characters"],
-    "Start event": ["events"],
-    "End event": ["events"],
+    "Start event": ["events", "wars", "sessionNotes", "quests"],
+    "End event": ["events", "wars", "sessionNotes", "quests"],
     "Related timeline entries": ["events", "wars", "sessionNotes", "quests", "scenes", "chapters"],
   },
   books: {
@@ -1122,6 +1124,11 @@ function fieldStorageKey(field) {
   return field?.presetKey || field?.name || "";
 }
 
+function isSystemFieldValueKey(key) {
+  const valueKey = String(key || "");
+  return valueKey.endsWith(":label") || valueKey.endsWith(":labels") || valueKey.endsWith(":position");
+}
+
 function fieldLabel(field) {
   if (!field?.isBuiltIn && !field?.presetKey) return field?.name || "";
   if (state.settings.language === "tr") return fieldPresetLabelTranslations[field.name] || field.name;
@@ -1312,6 +1319,7 @@ function sectionLabel(name) {
 }
 
 function fieldSectionName(category, field) {
+  if (field?.section) return field.section;
   const preset = fieldSectionPresets[getCategoryTypeKey(category)] || {};
   const fieldName = field?.name || "";
   const storageKey = fieldStorageKey(field);
@@ -1467,6 +1475,18 @@ function renderFieldTypeOptions(selectedType = "text") {
     const typeInfo = fieldTypeInfo(type);
     return `<option value="${type}" title="${escapeHtml(typeInfo.help)}" ${selectedType === type ? "selected" : ""}>${escapeHtml(typeInfo.label)}</option>`;
   }).join("");
+}
+
+function categoryTypeOptions(selectedTypes = []) {
+  const selected = new Set(selectedTypes || []);
+  const language = state?.settings?.language || "en";
+  return Object.entries(entityTypeLabels.en)
+    .filter(([type]) => type !== "entry")
+    .map(([type, labels]) => {
+      const label = entityTypeLabels[language]?.[type]?.plural || labels.plural || type;
+      return `<option value="${type}" ${selected.has(type) ? "selected" : ""}>${escapeHtml(label)}</option>`;
+    })
+    .join("");
 }
 
 function renderEntityCustomFieldInput(field, entity, categoryOverride = null) {
@@ -1628,9 +1648,9 @@ function renderFieldManager(fields, category) {
       </div>
       <p class="muted">${t("addFieldHint")}</p>
       <div class="stack">
-        ${rows.map((field, index) => `
+        ${rows.map((field) => `
           <div class="field-editor-row two-col" data-field-editor-row>
-            <button class="field-drag-handle" type="button" draggable="true" tabindex="-1" data-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">☰</button>
+            <button class="field-drag-handle" type="button" draggable="true" tabindex="-1" data-field-drag-handle title="${escapeHtml(t("dragToReorder"))}" aria-label="${escapeHtml(t("dragToReorder"))}">::</button>
             <label>${t("fieldName")}
               <input name="fieldName" value="${escapeHtml(fieldLabel(field))}" />
             </label>
@@ -1640,21 +1660,28 @@ function renderFieldManager(fields, category) {
               </select>
               <small class="muted">${escapeHtml(fieldTypeInfo(field.type || "text").help)}</small>
             </label>
+            <label>Section
+              <input name="fieldSection" value="${escapeHtml(field.section || fieldSectionName(category, field))}" />
+            </label>
+            <label>Entry link target
+              <select name="fieldTargetTypes" multiple size="5">
+                ${categoryTypeOptions(field.targetCategoryTypes || [])}
+              </select>
+              <small class="muted">Used by Entry link and Entry link list fields.</small>
+            </label>
             <div class="field-row-actions" aria-label="${escapeHtml(t("fieldActions"))}">
-              <button class="secondary danger-text" type="button" tabindex="-1" data-remove-category-field title="${escapeHtml(t("removeField"))}">× ${t("removeField")}</button>
+              <button class="secondary danger-text" type="button" tabindex="-1" data-remove-category-field title="${escapeHtml(t("removeField"))}">x ${t("removeField")}</button>
             </div>
             <input type="hidden" name="fieldId" value="${escapeHtml(field.id || "")}" />
             <input type="hidden" name="fieldPresetKey" value="${escapeHtml(field.presetKey || "")}" />
             <input type="hidden" name="fieldOriginalName" value="${escapeHtml(field.name || "")}" />
             <input type="hidden" name="fieldBuiltIn" value="${field.isBuiltIn ? "true" : "false"}" />
-            <input type="hidden" name="fieldTargetTypes" value="${escapeHtml(JSON.stringify(field.targetCategoryTypes || []))}" />
           </div>
         `).join("")}
       </div>
     </section>
   `;
 }
-
 function collectCategoryFields(form) {
   return [...form.querySelectorAll("[data-field-editor-row]")]
     .map((row, index) => ({
@@ -1665,7 +1692,8 @@ function collectCategoryFields(form) {
       required: false,
       presetKey: row.querySelector('[name="fieldPresetKey"]')?.value || undefined,
       isBuiltIn: row.querySelector('[name="fieldBuiltIn"]')?.value === "true",
-      targetCategoryTypes: parseJsonArray(row.querySelector('[name="fieldTargetTypes"]')?.value),
+      targetCategoryTypes: [...(row.querySelector('[name="fieldTargetTypes"]')?.selectedOptions || [])].map((option) => option.value),
+      section: String(row.querySelector('[name="fieldSection"]')?.value || "").trim() || undefined,
       originalName: row.querySelector('[name="fieldOriginalName"]')?.value || "",
     }))
     .filter((field) => field.name)
@@ -1682,6 +1710,15 @@ function parseJsonArray(value) {
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
+  }
+}
+
+function parseJsonObject(value) {
+  try {
+    const parsed = JSON.parse(value || "{}");
+    return isPlainObject(parsed) ? parsed : {};
+  } catch {
+    return {};
   }
 }
 
@@ -1998,6 +2035,7 @@ const translations = {
     suggestedFix: "Suggested fix",
     openEntry: "Open entry",
     ignore: "Ignore",
+    ignored: "Ignored",
     fix: "Fix",
     applyFix: "Apply fix",
     confirmApplyFix: "This will clean up the broken reference or inconsistency. Continue?",
@@ -2360,6 +2398,7 @@ const translations = {
     suggestedFix: "Önerilen düzeltme",
     openEntry: "Kaydı aç",
     ignore: "Yoksay",
+    ignored: "Yoksayıldı",
     fix: "Düzelt",
     applyFix: "Düzeltmeyi uygula",
     confirmApplyFix: "Bu işlem bozuk bağlantıyı veya tutarsızlığı temizleyecek. Devam edilsin mi?",
@@ -3299,7 +3338,7 @@ function filteredEntities(universeId) {
       .filter((note) => note.entityId === entity.id)
       .map((note) => `${note.title || ""} ${note.content} ${noteTypeLabel(note.type)}`)
       .join(" ");
-    const customValues = Object.values(entity.customFieldValues || {}).map((value) => {
+    const customValues = Object.entries(entity.customFieldValues || {}).filter(([key]) => !isSystemFieldValueKey(key)).map(([, value]) => {
       const entityValue = entityForId(value);
       if (entityValue) return entityValue.title;
       if (Array.isArray(value)) return value.map((item) => entityForId(item)?.title || item).join(" ");
@@ -3497,7 +3536,7 @@ function entityFieldEntries(entity) {
   const knownKeys = new Set((category?.customFields || []).flatMap((field) => [fieldStorageKey(field), field.name]));
   const extraEntries = Object.entries(values)
     .filter(([key]) => !knownKeys.has(key))
-    .filter(([key]) => !key.endsWith(":position"))
+    .filter(([key]) => !isSystemFieldValueKey(key))
     .filter(([, value]) => value)
     .map(([key, value]) => ({ label: key, value, key, field: null, section: "Details" }));
   return [...builtInEntries, ...extraEntries];
@@ -4188,11 +4227,11 @@ function filterInboxNotes(notes) {
   const filter = inboxFilterValue();
   return notes.filter((note) => {
     const attached = Boolean(note.entityId || note.categoryId);
-    if (filter === "unattached") return !attached;
     if (filter === "attached") return attached;
-    if (filter === "ideas") return note.type === "idea";
-    if (filter === "todos") return note.type === "todo";
-    return true;
+    if (filter === "unattached") return !attached;
+    if (filter === "ideas") return !attached && note.type === "idea";
+    if (filter === "todos") return !attached && note.type === "todo";
+    return !attached;
   });
 }
 
@@ -4605,11 +4644,13 @@ function severityLabel(severity) {
 }
 
 function renderConsistencyFinding(finding) {
+  const isIgnored = (state.ignoredConsistencyFindings || []).includes(finding.id);
   return `
-    <article class="consistency-card consistency-card--${finding.severity}">
+    <article class="consistency-card consistency-card--${finding.severity} ${isIgnored ? "is-ignored" : ""}">
       <div>
         <span class="badge">${severityLabel(finding.severity)}</span>
         <span class="badge">${escapeHtml(finding.type)}</span>
+        ${isIgnored ? `<span class="badge">${t("ignored")}</span>` : ""}
       </div>
       <div>
         <h3>${escapeHtml(finding.title)}</h3>
@@ -4619,7 +4660,7 @@ function renderConsistencyFinding(finding) {
       ${finding.suggestion ? `<p class="muted"><strong>${t("suggestedFix")}:</strong> ${escapeHtml(finding.suggestion)}</p>` : ""}
       <div class="button-row">
         ${finding.fix ? `<button class="secondary" data-action="fix-consistency" data-id="${escapeHtml(finding.id)}">${t("fix")}</button>` : ""}
-        <button class="secondary" data-action="ignore-consistency" data-id="${escapeHtml(finding.id)}">${t("ignore")}</button>
+        ${isIgnored ? "" : `<button class="secondary" data-action="ignore-consistency" data-id="${escapeHtml(finding.id)}">${t("ignore")}</button>`}
       </div>
     </article>
   `;
@@ -4969,6 +5010,10 @@ function timelineOrderValue(entity) {
   return Number(entity.timelineOrder ?? entity.chronologyOrder ?? Number.MAX_SAFE_INTEGER);
 }
 
+function timelineManualOrderEnabled(items) {
+  return items.every((entity) => timelineSortValue(entity) === null);
+}
+
 function timelineEntities(universeId = state.selectedUniverseId) {
   return universeEntities(universeId)
     .filter((entity) => timelineCategoryTypes.has(entityCategoryType(entity)))
@@ -5086,6 +5131,7 @@ function renderTimelineItem(entity, index, total) {
   const tags = timelineTags(entity).slice(0, 3);
   const locations = timelineLocationEntities(entity);
   const participants = timelineParticipantEntities(entity);
+  const canMove = timelineManualOrderEnabled(filteredTimelineEntities(timelineEntities(entity.universeId)));
   return `
     <article class="timeline-item">
       <div class="timeline-item__main">
@@ -5103,8 +5149,8 @@ function renderTimelineItem(entity, index, total) {
         </span>
       </div>
       <div class="timeline-item__actions">
-        <button class="secondary" data-action="move-timeline-item" data-id="${entity.id}" data-direction="-1" ${index === 0 ? "disabled" : ""}>${t("moveEarlier")}</button>
-        <button class="secondary" data-action="move-timeline-item" data-id="${entity.id}" data-direction="1" ${index === total - 1 ? "disabled" : ""}>${t("moveLater")}</button>
+        <button class="secondary" data-action="move-timeline-item" data-id="${entity.id}" data-direction="-1" ${!canMove || index === 0 ? "disabled" : ""}>${t("moveEarlier")}</button>
+        <button class="secondary" data-action="move-timeline-item" data-id="${entity.id}" data-direction="1" ${!canMove || index === total - 1 ? "disabled" : ""}>${t("moveLater")}</button>
       </div>
     </article>
   `;
@@ -5435,7 +5481,11 @@ const actions = {
   },
   "new-timeline-entry"() {
     const eventCategory = universeCategories().find((category) => ["events", "wars", "sessionNotes", "quests"].includes(getCategoryTypeKey(category)));
-    if (eventCategory) state.selectedCategoryId = eventCategory.id;
+    if (!eventCategory) {
+      promptAddRequiredCategory("events");
+      return;
+    }
+    state.selectedCategoryId = eventCategory.id;
     openEntityModal();
   },
   "new-dashboard-entry"({ type }) {
@@ -6264,6 +6314,7 @@ function reorderCategory(sourceId, targetId) {
 function moveTimelineItem(entityId, direction) {
   if (!direction) return;
   const items = filteredTimelineEntities(timelineEntities());
+  if (!timelineManualOrderEnabled(items)) return;
   const index = items.findIndex((entity) => entity.id === entityId);
   const targetIndex = index + direction;
   if (index < 0 || targetIndex < 0 || targetIndex >= items.length) return;
@@ -6294,30 +6345,18 @@ const defaultMapCategoryNames = {
   regions: "Regions",
 };
 
+function promptAddRequiredCategory(type) {
+  alert(`${t("targetCategoryMissing")} ${defaultStoryCategoryNames[type] || defaultMapCategoryNames[type] || ""}`.trim());
+  openTemplateExpansionModal();
+}
+
 function ensureStoryCategory(type) {
   const universe = currentUniverse();
   if (!universe) return null;
   const existing = universeCategories(universe.id, true).find((category) => getCategoryTypeKey(category) === type);
   if (existing) return existing;
-  const name = defaultStoryCategoryNames[type] || "Scenes";
-  const category = {
-    id: id("category"),
-    universeId: universe.id,
-    name,
-    description: "",
-    icon: "✦",
-    color: state.settings.accentColor || "#9a4f2e",
-    order: universeCategories(universe.id, true).length,
-    isDefault: true,
-    isHidden: false,
-    customFields: createFieldDefinitions(name),
-    createdAt: now(),
-    updatedAt: now(),
-    deletedAt: null,
-  };
-  state.categories.push(category);
-  saveState();
-  return category;
+  promptAddRequiredCategory(type);
+  return null;
 }
 
 function ensureMapCategory(type) {
@@ -6325,27 +6364,9 @@ function ensureMapCategory(type) {
   if (!universe) return null;
   const existing = universeCategories(universe.id, true).find((category) => getCategoryTypeKey(category) === type);
   if (existing) return existing;
-  const name = defaultMapCategoryNames[type] || "Maps";
-  const category = {
-    id: id("category"),
-    universeId: universe.id,
-    name,
-    description: "",
-    icon: "⌖",
-    color: state.settings.accentColor || "#9a4f2e",
-    order: universeCategories(universe.id, true).length,
-    isDefault: true,
-    isHidden: false,
-    customFields: createFieldDefinitions(name),
-    createdAt: now(),
-    updatedAt: now(),
-    deletedAt: null,
-  };
-  state.categories.push(category);
-  saveState();
-  return category;
+  promptAddRequiredCategory(type);
+  return null;
 }
-
 function setCustomFieldValue(values, category, presetName, value) {
   const field = fieldByPresetName(category, presetName);
   if (!field) return values;
@@ -7066,6 +7087,11 @@ function openEntityModal(entity) {
             ${renderFieldTypeOptions("text")}
           </select>
         </label>
+        <label>Entry link target
+          <select name="fieldTargetTypes" multiple size="5">
+            ${categoryTypeOptions([])}
+          </select>
+        </label>
         <div class="button-row"><button type="submit">${t("addFieldToCategory")}</button></div>
       </form>
     `, (form) => {
@@ -7078,6 +7104,7 @@ function openEntityModal(entity) {
         id: id("field"),
         name: fieldName,
         type: form.get("fieldType") || "text",
+        targetCategoryTypes: form.getAll("fieldTargetTypes"),
         required: false,
         isBuiltIn: false,
       };
@@ -7561,9 +7588,10 @@ function importFieldDefinitionsForEntity(entity, categoryById) {
   return Array.isArray(category?.customFields) ? category.customFields : [];
 }
 
-function validateImportedReferenceValue(value, entityIds, label) {
+function validateImportedReferenceValue(value, entityIds, label, fallbackLabel = "") {
   if (!value) return;
   if (entityIds.has(value)) return;
+  if (fallbackLabel) return;
   if (looksLikeEntityId(value)) {
     throw new Error(`Import geçersiz: ${label} var olmayan bir kayda bağlı.`);
   }
@@ -7576,11 +7604,15 @@ function validateImportedCustomFieldReferences(entity, fields, entityIds) {
     const key = importFieldKey(field);
     const value = values[key] ?? values[field.name];
     if (field.type === "entityReference") {
-      validateImportedReferenceValue(value, entityIds, `${entity.title}.${field.name}`);
+      const fallbackLabel = referenceLabelSnapshot(values, key);
+      normalizeReferenceListValue(value).forEach((entityId) => {
+        validateImportedReferenceValue(entityId, entityIds, `${entity.title}.${field.name}`, fallbackLabel);
+      });
       return;
     }
+    const fallbackLabels = referenceLabelsSnapshot(values, key);
     normalizeReferenceListValue(value).forEach((entityId) => {
-      validateImportedReferenceValue(entityId, entityIds, `${entity.title}.${field.name}`);
+      validateImportedReferenceValue(entityId, entityIds, `${entity.title}.${field.name}`, fallbackLabels[entityId]);
     });
   });
 }
@@ -7694,9 +7726,21 @@ function importUniverse() {
           .filter((field) => field.type === "entityReference" || field.type === "entityReferenceList")
           .flatMap((field) => [[importFieldKey(field), field], [field.name, field]]));
         return Object.fromEntries(Object.entries(values).map(([key, value]) => {
+          if (key.endsWith(":labels")) {
+            const labels = isPlainObject(parseJsonObject(value)) ? parseJsonObject(value) : {};
+            const remappedLabels = Object.fromEntries(Object.entries(labels).map(([entityId, label]) => [
+              importedEntityIds.has(entityId) ? mapId(entityId, "entity") : entityId,
+              label,
+            ]));
+            return [key, JSON.stringify(remappedLabels)];
+          }
           const field = referenceFields.get(key);
           if (!field) return [key, value];
           if (field.type === "entityReference") {
+            const ids = normalizeReferenceListValue(value);
+            if (ids.length > 1) {
+              return [key, ids.map((item) => importedEntityIds.has(item) ? mapId(item, "entity") : item).join(",")];
+            }
             return [key, importedEntityIds.has(value) ? mapId(value, "entity") : value];
           }
           if (Array.isArray(value)) {

@@ -616,14 +616,22 @@ label {
 
 .consistency-card--critical {
   border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger), var(--surface) 92%);
 }
 
 .consistency-card--warning {
   border-left-color: #d97706;
+  background: color-mix(in srgb, #d97706, var(--surface) 90%);
 }
 
 .consistency-card--info {
-  border-left-color: var(--accent);
+  border-left-color: #2563eb;
+  background: color-mix(in srgb, #2563eb, var(--surface) 93%);
+}
+
+.consistency-card.is-ignored {
+  opacity: 0.72;
+  border-left-style: dashed;
 }
 
 .image-field-preview {
